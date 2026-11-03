@@ -22,6 +22,10 @@ DEFAULT_VOICE_SETTINGS
 import type { CharacterAction } from "../lib/character-motion";
 
 import CharacterStage from "../components/CharacterStage";
+import ScenePlayer, {
+type VideoScene
+} from "../components/ScenePlayer";
+
 import type { EnvironmentId } from "../components/CharacterCanvas";
 
 const backgrounds: {
@@ -63,14 +67,7 @@ const comedyStyles: ComedyStyle[] = [
 "Interview"
 ];
 
-interface Scene {
-id: string;
-title: string;
-duration: number;
-background: EnvironmentId;
-action: CharacterAction;
-dialogue: string;
-}
+type Scene = VideoScene;
 
 function createSceneId(): string {
 return "scene-${Date.now()}-${Math.random() .toString(36) .slice(2, 8)}";
@@ -197,6 +194,19 @@ setScenes((previous) =>
 previous.map((scene) =>
 scene.id === activeSceneId
 ? { ...scene, ...updates }
+: scene
+)
+);
+}
+
+function updateSceneAction(
+sceneId: string,
+action: CharacterAction
+) {
+setScenes((previous) =>
+previous.map((scene) =>
+scene.id === sceneId
+? { ...scene, action }
 : scene
 )
 );
@@ -349,8 +359,7 @@ try {
       id: createSceneId(),
       title: `Scene ${index + 1}`,
       duration: 5,
-      background:
-        scenes[0]?.background ?? "studio",
+      background: scenes[0]?.background ?? "studio",
       action: getActionFromEmotion(line.emotion),
       dialogue: line.text
     }));
@@ -360,10 +369,10 @@ try {
       ? generatedScenes
       : [createEmptyScene(1)];
 
+  stopSpeaking();
+
   setScenes(finalScenes);
   setActiveSceneId(finalScenes[0].id);
-
-  stopSpeaking();
 
   setNotice(
     `Comedy script created with ${finalScenes.length} scenes!`
@@ -379,6 +388,11 @@ try {
 }
 
 function playDialogue(text: string) {
+if (!text.trim()) {
+setNotice("This scene has no dialogue yet.");
+return;
+}
+
 updateActiveScene({ action: "talk" });
 
 const started = speakText(text, {
@@ -509,8 +523,7 @@ return (
           <h2>Scene Background</h2>
 
           <p className="muted-text">
-            Choose the environment for{" "}
-            {activeScene.title}.
+            Choose the environment for {activeScene.title}.
           </p>
         </div>
       </div>
@@ -650,9 +663,7 @@ return (
           </p>
         </div>
 
-        <span>
-          {scenes.length} scenes
-        </span>
+        <span>{scenes.length} scenes</span>
       </div>
 
       <button
@@ -682,35 +693,27 @@ return (
                 {index + 1}. {scene.title}
               </button>
 
-              <span>
-                {scene.duration}s
-              </span>
+              <span>{scene.duration}s</span>
             </div>
 
             <div className="dialogue-actions">
               <button
                 type="button"
-                onClick={() =>
-                  selectScene(scene.id)
-                }
+                onClick={() => selectScene(scene.id)}
               >
                 Edit scene
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  duplicateScene(scene.id)
-                }
+                onClick={() => duplicateScene(scene.id)}
               >
                 Duplicate
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  moveScene(scene.id, -1)
-                }
+                onClick={() => moveScene(scene.id, -1)}
                 disabled={index === 0}
               >
                 ↑
@@ -718,9 +721,7 @@ return (
 
               <button
                 type="button"
-                onClick={() =>
-                  moveScene(scene.id, 1)
-                }
+                onClick={() => moveScene(scene.id, 1)}
                 disabled={index === scenes.length - 1}
               >
                 ↓
@@ -728,9 +729,7 @@ return (
 
               <button
                 type="button"
-                onClick={() =>
-                  deleteScene(scene.id)
-                }
+                onClick={() => deleteScene(scene.id)}
                 disabled={scenes.length === 1}
               >
                 Delete
@@ -778,9 +777,7 @@ return (
             max={30}
             value={activeScene.duration}
             onChange={(event) => {
-              const value = Number(
-                event.target.value
-              );
+              const value = Number(event.target.value);
 
               updateActiveScene({
                 duration: Math.min(
@@ -833,6 +830,13 @@ return (
       )}
     </section>
 
+    <ScenePlayer
+      scenes={scenes}
+      language={language}
+      onSceneChange={setActiveSceneId}
+      onActionChange={updateSceneAction}
+    />
+
     <section className="section-block">
       <div className="section-heading">
         <div>
@@ -855,9 +859,7 @@ return (
         id="comedy-topic"
         className="story-prompt"
         value={topic}
-        onChange={(event) =>
-          setTopic(event.target.value)
-        }
+        onChange={(event) => setTopic(event.target.value)}
         placeholder="Example: A lion trying to become a famous TikTok influencer..."
         rows={4}
       />
@@ -874,9 +876,7 @@ return (
         className="studio-select"
         value={style}
         onChange={(event) =>
-          setStyle(
-            event.target.value as ComedyStyle
-          )
+          setStyle(event.target.value as ComedyStyle)
         }
       >
         {comedyStyles.map((item) => (
@@ -897,9 +897,7 @@ return (
         id="voice-language"
         className="studio-select"
         value={language}
-        onChange={(event) =>
-          setLanguage(event.target.value)
-        }
+        onChange={(event) => setLanguage(event.target.value)}
       >
         {SUPPORTED_VOICE_LANGUAGES.map((item) => (
           <option key={item.code} value={item.code}>
@@ -942,18 +940,14 @@ return (
               >
                 <div className="section-heading">
                   <div>
-                    <strong>
-                      {line.characterName}
-                    </strong>
+                    <strong>{line.characterName}</strong>
 
                     <span className="dialogue-emotion">
                       {line.emotion}
                     </span>
                   </div>
 
-                  <span>
-                    Scene {index + 1}
-                  </span>
+                  <span>Scene {index + 1}</span>
                 </div>
 
                 <p>{line.text}</p>
@@ -963,11 +957,8 @@ return (
                     type="button"
                     onClick={() => {
                       if (relatedScene) {
-                        setActiveSceneId(
-                          relatedScene.id
-                        );
-
                         stopSpeaking();
+                        setActiveSceneId(relatedScene.id);
 
                         setScenes((previous) =>
                           previous.map((scene) =>
@@ -980,7 +971,10 @@ return (
                           )
                         );
 
-                        playDialogue(line.text);
+                        speakText(line.text, {
+                          ...DEFAULT_VOICE_SETTINGS,
+                          language
+                        });
                       }
                     }}
                   >
@@ -1024,4 +1018,4 @@ return (
 </main>
 
 );
-                           }
+              }
