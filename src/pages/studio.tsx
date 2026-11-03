@@ -19,6 +19,8 @@ SUPPORTED_VOICE_LANGUAGES,
 DEFAULT_VOICE_SETTINGS
 } from "../lib/voice-engine";
 
+import type { CharacterAction } from "../lib/character-motion";
+
 import CharacterStage from "../components/CharacterStage";
 import type { EnvironmentId } from "../components/CharacterCanvas";
 
@@ -33,6 +35,23 @@ color: string;
 { id: "city", name: "City Street", color: "#34445c" },
 { id: "space", name: "Outer Space", color: "#171b3d" },
 { id: "beach", name: "Sunny Beach", color: "#80643e" }
+];
+
+const animationActions: {
+id: CharacterAction;
+name: string;
+emoji: string;
+}[] = [
+{ id: "idle", name: "Idle", emoji: "🧍" },
+{ id: "talk", name: "Talking", emoji: "🗣️" },
+{ id: "laugh", name: "Laughing", emoji: "😂" },
+{ id: "dance", name: "Dancing", emoji: "💃" },
+{ id: "jump", name: "Jumping", emoji: "🦘" },
+{ id: "wave", name: "Waving", emoji: "👋" },
+{ id: "walk", name: "Walking", emoji: "🚶" },
+{ id: "angry", name: "Angry", emoji: "😡" },
+{ id: "cry", name: "Crying", emoji: "😢" },
+{ id: "surprised", name: "Surprised", emoji: "😲" }
 ];
 
 const comedyStyles: ComedyStyle[] = [
@@ -84,7 +103,11 @@ const [selectedIds, setSelectedIds] = useState<CharacterId[]>(
 getInitialCharacters
 );
 
-const [background, setBackground] = useState<EnvironmentId>("studio");
+const [background, setBackground] =
+useState<EnvironmentId>("studio");
+
+const [action, setAction] =
+useState<CharacterAction>("idle");
 
 const [topic, setTopic] = useState(getInitialTopic);
 
@@ -145,6 +168,7 @@ try {
 
   setScript(result);
   setActiveScene(1);
+  setAction("idle");
   setNotice("Your comedy script has been created!");
 } catch (error) {
   setNotice(
@@ -157,17 +181,26 @@ try {
 }
 
 function playDialogue(text: string) {
+setAction("talk");
+
 const started = speakText(text, {
-...DEFAULT_VOICE_SETTINGS,
-language
+  ...DEFAULT_VOICE_SETTINGS,
+  language
 });
 
 if (!started) {
+  setAction("idle");
   setNotice("Speech is not supported by this browser.");
 } else {
   setNotice("Playing character dialogue...");
 }
 
+}
+
+function stopDialogue() {
+stopSpeaking();
+setAction("idle");
+setNotice("Dialogue playback stopped.");
 }
 
 const selectedBackground =
@@ -302,6 +335,51 @@ return (
             STEP 03
           </span>
 
+          <h2>Character Animation</h2>
+
+          <p className="muted-text">
+            Choose how your 3D characters should move.
+          </p>
+        </div>
+      </div>
+
+      <div className="mode-grid">
+        {animationActions.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`mode-card ${
+              action === item.id ? "selected" : ""
+            }`}
+            onClick={() => {
+              setAction(item.id);
+              setNotice(`${item.name} animation selected.`);
+            }}
+            aria-pressed={action === item.id}
+          >
+            <span
+              style={{
+                display: "block",
+                fontSize: 30,
+                marginBottom: 8
+              }}
+            >
+              {item.emoji}
+            </span>
+
+            <strong>{item.name}</strong>
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <section className="section-block">
+      <div className="section-heading">
+        <div>
+          <span className="section-eyebrow">
+            STEP 04
+          </span>
+
           <h2>3D Scene Preview</h2>
         </div>
       </div>
@@ -317,13 +395,14 @@ return (
           selectedIds={selectedIds}
           height={380}
           environment={background}
+          action={action}
         />
       </div>
 
       <p className="muted-text">
-        Your selected environment is now connected to the
-        procedural 3D scene. Choose another background to
-        change the scene.
+        Your selected characters, background and animation
+        are connected to the procedural 3D preview.
+        Select an animation to change their movement.
       </p>
     </section>
 
@@ -331,7 +410,7 @@ return (
       <div className="section-heading">
         <div>
           <span className="section-eyebrow">
-            STEP 04
+            STEP 05
           </span>
 
           <h2>Comedy Settings</h2>
@@ -441,7 +520,11 @@ return (
 
                 <button
                   type="button"
-                  onClick={() => setActiveScene(index + 1)}
+                  onClick={() => {
+                    stopSpeaking();
+                    setAction("idle");
+                    setActiveScene(index + 1);
+                  }}
                 >
                   Select scene
                 </button>
@@ -453,7 +536,7 @@ return (
         <button
           type="button"
           className="secondary-button"
-          onClick={stopSpeaking}
+          onClick={stopDialogue}
         >
           Stop voice
         </button>
@@ -471,4 +554,4 @@ return (
 </main>
 
 );
-}
+                  }
