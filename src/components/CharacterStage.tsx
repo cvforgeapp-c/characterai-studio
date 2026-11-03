@@ -3,21 +3,28 @@ import { Loader } from "@react-three/drei";
 
 import CharacterCanvas from "./CharacterCanvas";
 import type { CharacterAction } from "../lib/character-motion";
+import type { CharacterStyle } from "./ProceduralCharacter";
 
-type StageEnvironment =
+export type CharacterAppearance = {
+style: CharacterStyle;
+skinTone: string;
+clothingColor: string;
+hairColor: string;
+};
+
+interface CharacterStageProps {
+selectedIds: string[];
+height?: number;
+showControls?: boolean;
+environment?:
 | "studio"
 | "park"
 | "kitchen"
 | "city"
 | "space"
 | "beach";
-
-interface CharacterStageProps {
-selectedIds: string[];
-height?: number;
-showControls?: boolean;
-environment?: StageEnvironment;
 action?: CharacterAction;
+appearances?: Record<string, CharacterAppearance>;
 }
 
 function LoadingScreen() {
@@ -34,7 +41,8 @@ selectedIds,
 height = 380,
 showControls = true,
 environment = "studio",
-action = "idle"
+action = "idle",
+appearances = {}
 }: CharacterStageProps) {
 return (
 <section
@@ -66,6 +74,7 @@ minHeight: height
       selectedIds={selectedIds}
       environment={environment}
       action={action}
+      appearances={appearances}
     />
   </Suspense>
 
