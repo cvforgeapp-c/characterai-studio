@@ -1,5 +1,6 @@
 import { Route, Switch } from "wouter";
 import Home from "./pages/home";
+import Studio from "./pages/studio";
 
 function NotFound() {
   return (
@@ -15,6 +16,7 @@ function App() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/studio" component={Studio} />
       <Route component={NotFound} />
     </Switch>
   );
