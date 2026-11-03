@@ -63,6 +63,66 @@ const comedyStyles: ComedyStyle[] = [
 "Interview"
 ];
 
+interface Scene {
+id: string;
+title: string;
+duration: number;
+background: EnvironmentId;
+action: CharacterAction;
+dialogue: string;
+}
+
+function createSceneId(): string {
+return "scene-${Date.now()}-${Math.random() .toString(36) .slice(2, 8)}";
+}
+
+function createEmptyScene(
+number: number,
+background: EnvironmentId = "studio"
+): Scene {
+return {
+id: createSceneId(),
+title: "Scene ${number}",
+duration: 5,
+background,
+action: "idle",
+dialogue: ""
+};
+}
+
+function getActionFromEmotion(emotion: string): CharacterAction {
+const value = emotion.toLowerCase();
+
+if (value.includes("laugh") || value.includes("funny")) {
+return "laugh";
+}
+
+if (value.includes("angry") || value.includes("anger")) {
+return "angry";
+}
+
+if (
+value.includes("sad") ||
+value.includes("cry") ||
+value.includes("upset")
+) {
+return "cry";
+}
+
+if (
+value.includes("surprise") ||
+value.includes("shock")
+) {
+return "surprised";
+}
+
+if (value.includes("dance")) {
+return "dance";
+}
+
+return "talk";
+}
+
 function getInitialCharacters(): CharacterId[] {
 const params = new URLSearchParams(window.location.search);
 const requestedIds = params.get("characters");
@@ -103,12 +163,6 @@ const [selectedIds, setSelectedIds] = useState<CharacterId[]>(
 getInitialCharacters
 );
 
-const [background, setBackground] =
-useState<EnvironmentId>("studio");
-
-const [action, setAction] =
-useState<CharacterAction>("idle");
-
 const [topic, setTopic] = useState(getInitialTopic);
 
 const [creationMode] = useState(getInitialMode);
@@ -119,9 +173,34 @@ const [language, setLanguage] = useState("en-US");
 
 const [script, setScript] = useState<ComedyScript | null>(null);
 
-const [activeScene, setActiveScene] = useState(1);
+const [scenes, setScenes] = useState<Scene[]>([
+createEmptyScene(1)
+]);
+
+const [activeSceneId, setActiveSceneId] = useState(
+() => scenes[0].id
+);
 
 const [notice, setNotice] = useState("");
+
+const activeScene =
+scenes.find((scene) => scene.id === activeSceneId) ??
+scenes[0];
+
+const selectedBackground =
+backgrounds.find(
+(item) => item.id === activeScene.background
+) ?? backgrounds[0];
+
+function updateActiveScene(updates: Partial<Scene>) {
+setScenes((previous) =>
+previous.map((scene) =>
+scene.id === activeSceneId
+? { ...scene, ...updates }
+: scene
+)
+);
+}
 
 function toggleCharacter(id: CharacterId) {
 setNotice("");
@@ -129,7 +208,9 @@ setNotice("");
 setSelectedIds((previous) => {
   if (previous.includes(id)) {
     if (previous.length === 1) {
-      setNotice("At least one character must remain selected.");
+      setNotice(
+        "At least one character must remain selected."
+      );
       return previous;
     }
 
@@ -137,7 +218,9 @@ setSelectedIds((previous) => {
   }
 
   if (previous.length >= 4) {
-    setNotice("You can select a maximum of four characters.");
+    setNotice(
+      "You can select a maximum of four characters."
+    );
     return previous;
   }
 
@@ -148,6 +231,97 @@ setScript(null);
 
 }
 
+function addScene() {
+const newScene = createEmptyScene(
+scenes.length + 1,
+activeScene.background
+);
+
+setScenes((previous) => [...previous, newScene]);
+setActiveSceneId(newScene.id);
+setNotice("New scene added.");
+
+}
+
+function duplicateScene(sceneId: string) {
+const index = scenes.findIndex(
+(scene) => scene.id === sceneId
+);
+
+if (index === -1) return;
+
+const original = scenes[index];
+
+const duplicate: Scene = {
+  ...original,
+  id: createSceneId(),
+  title: `${original.title} Copy`
+};
+
+const updated = [...scenes];
+updated.splice(index + 1, 0, duplicate);
+
+setScenes(updated);
+setActiveSceneId(duplicate.id);
+setNotice("Scene duplicated.");
+
+}
+
+function deleteScene(sceneId: string) {
+if (scenes.length <= 1) {
+setNotice("At least one scene must remain.");
+return;
+}
+
+const index = scenes.findIndex(
+  (scene) => scene.id === sceneId
+);
+
+if (index === -1) return;
+
+const updated = scenes.filter(
+  (scene) => scene.id !== sceneId
+);
+
+if (activeSceneId === sceneId) {
+  const nextScene =
+    updated[Math.min(index, updated.length - 1)];
+
+  setActiveSceneId(nextScene.id);
+}
+
+setScenes(updated);
+setNotice("Scene deleted.");
+
+}
+
+function moveScene(sceneId: string, direction: -1 | 1) {
+const index = scenes.findIndex(
+(scene) => scene.id === sceneId
+);
+
+const newIndex = index + direction;
+
+if (
+  index === -1 ||
+  newIndex < 0 ||
+  newIndex >= scenes.length
+) {
+  return;
+}
+
+const updated = [...scenes];
+
+[updated[index], updated[newIndex]] = [
+  updated[newIndex],
+  updated[index]
+];
+
+setScenes(updated);
+setNotice("Scene order updated.");
+
+}
+
 function createScript() {
 if (selectedIds.length < 2) {
 setNotice("Select at least two characters.");
@@ -155,7 +329,9 @@ return;
 }
 
 if (!topic.trim()) {
-  setNotice("Please describe what your characters should talk about.");
+  setNotice(
+    "Please describe what your characters should talk about."
+  );
   return;
 }
 
@@ -167,9 +343,31 @@ try {
   });
 
   setScript(result);
-  setActiveScene(1);
-  setAction("idle");
-  setNotice("Your comedy script has been created!");
+
+  const generatedScenes: Scene[] =
+    result.dialogue.map((line, index) => ({
+      id: createSceneId(),
+      title: `Scene ${index + 1}`,
+      duration: 5,
+      background:
+        scenes[0]?.background ?? "studio",
+      action: getActionFromEmotion(line.emotion),
+      dialogue: line.text
+    }));
+
+  const finalScenes =
+    generatedScenes.length > 0
+      ? generatedScenes
+      : [createEmptyScene(1)];
+
+  setScenes(finalScenes);
+  setActiveSceneId(finalScenes[0].id);
+
+  stopSpeaking();
+
+  setNotice(
+    `Comedy script created with ${finalScenes.length} scenes!`
+  );
 } catch (error) {
   setNotice(
     error instanceof Error
@@ -181,7 +379,7 @@ try {
 }
 
 function playDialogue(text: string) {
-setAction("talk");
+updateActiveScene({ action: "talk" });
 
 const started = speakText(text, {
   ...DEFAULT_VOICE_SETTINGS,
@@ -189,8 +387,10 @@ const started = speakText(text, {
 });
 
 if (!started) {
-  setAction("idle");
-  setNotice("Speech is not supported by this browser.");
+  updateActiveScene({ action: "idle" });
+  setNotice(
+    "Speech is not supported by this browser."
+  );
 } else {
   setNotice("Playing character dialogue...");
 }
@@ -199,13 +399,15 @@ if (!started) {
 
 function stopDialogue() {
 stopSpeaking();
-setAction("idle");
+updateActiveScene({ action: "idle" });
 setNotice("Dialogue playback stopped.");
 }
 
-const selectedBackground =
-backgrounds.find((item) => item.id === background) ??
-backgrounds[0];
+function selectScene(sceneId: string) {
+stopSpeaking();
+setActiveSceneId(sceneId);
+setNotice("");
+}
 
 return (
 <main className="app-shell">
@@ -215,7 +417,10 @@ return (
       <button
         type="button"
         className="secondary-button"
-        onClick={() => setLocation("/")}
+        onClick={() => {
+          stopSpeaking();
+          setLocation("/");
+        }}
       >
         ← Back to Home
       </button>
@@ -224,11 +429,11 @@ return (
         CHARACTERAI STUDIO
       </span>
 
-      <h1>Create Your Comedy Scene</h1>
+      <h1>Create Your Comedy Video</h1>
 
       <p>
-        Arrange your characters, create dialogue and
-        prepare your next comedy video.
+        Arrange your characters, build multiple scenes,
+        create dialogue and prepare your comedy video.
       </p>
 
       <div className="preview-engine-pill">
@@ -259,7 +464,9 @@ return (
 
       <div className="character-grid">
         {characters.map((character) => {
-          const selected = selectedIds.includes(character.id);
+          const selected = selectedIds.includes(
+            character.id
+          );
 
           return (
             <button
@@ -268,7 +475,9 @@ return (
               className={`character-card ${
                 selected ? "selected" : ""
               }`}
-              onClick={() => toggleCharacter(character.id)}
+              onClick={() =>
+                toggleCharacter(character.id)
+              }
               aria-pressed={selected}
             >
               <span className="character-emoji">
@@ -297,7 +506,12 @@ return (
             STEP 02
           </span>
 
-          <h2>Choose Your Background</h2>
+          <h2>Scene Background</h2>
+
+          <p className="muted-text">
+            Choose the environment for{" "}
+            {activeScene.title}.
+          </p>
         </div>
       </div>
 
@@ -306,11 +520,19 @@ return (
           <button
             key={item.id}
             type="button"
-            onClick={() => setBackground(item.id)}
+            onClick={() =>
+              updateActiveScene({
+                background: item.id
+              })
+            }
             className={`mode-card ${
-              background === item.id ? "selected" : ""
+              activeScene.background === item.id
+                ? "selected"
+                : ""
             }`}
-            aria-pressed={background === item.id}
+            aria-pressed={
+              activeScene.background === item.id
+            }
           >
             <span
               style={{
@@ -338,7 +560,7 @@ return (
           <h2>Character Animation</h2>
 
           <p className="muted-text">
-            Choose how your 3D characters should move.
+            Set the movement for {activeScene.title}.
           </p>
         </div>
       </div>
@@ -349,13 +571,22 @@ return (
             key={item.id}
             type="button"
             className={`mode-card ${
-              action === item.id ? "selected" : ""
+              activeScene.action === item.id
+                ? "selected"
+                : ""
             }`}
             onClick={() => {
-              setAction(item.id);
-              setNotice(`${item.name} animation selected.`);
+              updateActiveScene({
+                action: item.id
+              });
+
+              setNotice(
+                `${item.name} animation selected.`
+              );
             }}
-            aria-pressed={action === item.id}
+            aria-pressed={
+              activeScene.action === item.id
+            }
           >
             <span
               style={{
@@ -394,15 +625,14 @@ return (
         <CharacterStage
           selectedIds={selectedIds}
           height={380}
-          environment={background}
-          action={action}
+          environment={activeScene.background}
+          action={activeScene.action}
         />
       </div>
 
       <p className="muted-text">
-        Your selected characters, background and animation
-        are connected to the procedural 3D preview.
-        Select an animation to change their movement.
+        Previewing {activeScene.title}. Each scene
+        has its own background and animation settings.
       </p>
     </section>
 
@@ -413,11 +643,211 @@ return (
             STEP 05
           </span>
 
+          <h2>Scene Timeline</h2>
+
+          <p className="muted-text">
+            Organize your story into separate scenes.
+          </p>
+        </div>
+
+        <span>
+          {scenes.length} scenes
+        </span>
+      </div>
+
+      <button
+        type="button"
+        className="primary-button"
+        onClick={addScene}
+      >
+        + Add New Scene
+      </button>
+
+      <div className="dialogue-list">
+        {scenes.map((scene, index) => (
+          <article
+            key={scene.id}
+            className={`dialogue-card ${
+              activeSceneId === scene.id
+                ? "selected"
+                : ""
+            }`}
+          >
+            <div className="section-heading">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => selectScene(scene.id)}
+              >
+                {index + 1}. {scene.title}
+              </button>
+
+              <span>
+                {scene.duration}s
+              </span>
+            </div>
+
+            <div className="dialogue-actions">
+              <button
+                type="button"
+                onClick={() =>
+                  selectScene(scene.id)
+                }
+              >
+                Edit scene
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  duplicateScene(scene.id)
+                }
+              >
+                Duplicate
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  moveScene(scene.id, -1)
+                }
+                disabled={index === 0}
+              >
+                ↑
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  moveScene(scene.id, 1)
+                }
+                disabled={index === scenes.length - 1}
+              >
+                ↓
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  deleteScene(scene.id)
+                }
+                disabled={scenes.length === 1}
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {activeScene && (
+        <div className="create-panel">
+          <h3>Edit {activeScene.title}</h3>
+
+          <label
+            className="field-label"
+            htmlFor="scene-title"
+          >
+            Scene name
+          </label>
+
+          <input
+            id="scene-title"
+            className="studio-select"
+            value={activeScene.title}
+            onChange={(event) =>
+              updateActiveScene({
+                title: event.target.value
+              })
+            }
+            maxLength={50}
+          />
+
+          <label
+            className="field-label"
+            htmlFor="scene-duration"
+          >
+            Scene duration (seconds)
+          </label>
+
+          <input
+            id="scene-duration"
+            className="studio-select"
+            type="number"
+            min={2}
+            max={30}
+            value={activeScene.duration}
+            onChange={(event) => {
+              const value = Number(
+                event.target.value
+              );
+
+              updateActiveScene({
+                duration: Math.min(
+                  30,
+                  Math.max(2, value || 2)
+                )
+              });
+            }}
+          />
+
+          <label
+            className="field-label"
+            htmlFor="scene-dialogue"
+          >
+            Scene dialogue
+          </label>
+
+          <textarea
+            id="scene-dialogue"
+            className="story-prompt"
+            rows={4}
+            value={activeScene.dialogue}
+            onChange={(event) =>
+              updateActiveScene({
+                dialogue: event.target.value
+              })
+            }
+            placeholder="Write what your character should say in this scene..."
+          />
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() =>
+              playDialogue(activeScene.dialogue)
+            }
+            disabled={!activeScene.dialogue.trim()}
+          >
+            ▶ Play this scene's dialogue
+          </button>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={stopDialogue}
+          >
+            Stop voice
+          </button>
+        </div>
+      )}
+    </section>
+
+    <section className="section-block">
+      <div className="section-heading">
+        <div>
+          <span className="section-eyebrow">
+            STEP 06
+          </span>
+
           <h2>Comedy Settings</h2>
         </div>
       </div>
 
-      <label className="field-label" htmlFor="comedy-topic">
+      <label
+        className="field-label"
+        htmlFor="comedy-topic"
+      >
         What should your characters talk about?
       </label>
 
@@ -425,12 +855,17 @@ return (
         id="comedy-topic"
         className="story-prompt"
         value={topic}
-        onChange={(event) => setTopic(event.target.value)}
+        onChange={(event) =>
+          setTopic(event.target.value)
+        }
         placeholder="Example: A lion trying to become a famous TikTok influencer..."
         rows={4}
       />
 
-      <label className="field-label" htmlFor="comedy-style">
+      <label
+        className="field-label"
+        htmlFor="comedy-style"
+      >
         Comedy style
       </label>
 
@@ -439,7 +874,9 @@ return (
         className="studio-select"
         value={style}
         onChange={(event) =>
-          setStyle(event.target.value as ComedyStyle)
+          setStyle(
+            event.target.value as ComedyStyle
+          )
         }
       >
         {comedyStyles.map((item) => (
@@ -449,7 +886,10 @@ return (
         ))}
       </select>
 
-      <label className="field-label" htmlFor="voice-language">
+      <label
+        className="field-label"
+        htmlFor="voice-language"
+      >
         Character voice language
       </label>
 
@@ -457,7 +897,9 @@ return (
         id="voice-language"
         className="studio-select"
         value={language}
-        onChange={(event) => setLanguage(event.target.value)}
+        onChange={(event) =>
+          setLanguage(event.target.value)
+        }
       >
         {SUPPORTED_VOICE_LANGUAGES.map((item) => (
           <option key={item.code} value={item.code}>
@@ -486,51 +928,79 @@ return (
         <p>{script.description}</p>
 
         <div className="dialogue-list">
-          {script.dialogue.map((line, index) => (
-            <article
-              key={`${line.characterId}-${index}`}
-              className={`dialogue-card ${
-                activeScene === index + 1 ? "selected" : ""
-              }`}
-            >
-              <div className="section-heading">
-                <div>
-                  <strong>{line.characterName}</strong>
+          {script.dialogue.map((line, index) => {
+            const relatedScene = scenes[index];
 
-                  <span className="dialogue-emotion">
-                    {line.emotion}
+            return (
+              <article
+                key={`${line.characterId}-${index}`}
+                className={`dialogue-card ${
+                  relatedScene?.id === activeSceneId
+                    ? "selected"
+                    : ""
+                }`}
+              >
+                <div className="section-heading">
+                  <div>
+                    <strong>
+                      {line.characterName}
+                    </strong>
+
+                    <span className="dialogue-emotion">
+                      {line.emotion}
+                    </span>
+                  </div>
+
+                  <span>
+                    Scene {index + 1}
                   </span>
                 </div>
 
-                <span>Scene {index + 1}</span>
-              </div>
+                <p>{line.text}</p>
 
-              <p>{line.text}</p>
+                <div className="dialogue-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (relatedScene) {
+                        setActiveSceneId(
+                          relatedScene.id
+                        );
 
-              <div className="dialogue-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveScene(index + 1);
-                    playDialogue(line.text);
-                  }}
-                >
-                  ▶ Play voice
-                </button>
+                        stopSpeaking();
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopSpeaking();
-                    setAction("idle");
-                    setActiveScene(index + 1);
-                  }}
-                >
-                  Select scene
-                </button>
-              </div>
-            </article>
-          ))}
+                        setScenes((previous) =>
+                          previous.map((scene) =>
+                            scene.id === relatedScene.id
+                              ? {
+                                  ...scene,
+                                  action: "talk"
+                                }
+                              : scene
+                          )
+                        );
+
+                        playDialogue(line.text);
+                      }
+                    }}
+                  >
+                    ▶ Play voice
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (relatedScene) {
+                        selectScene(relatedScene.id);
+                      }
+                    }}
+                  >
+                    Select scene
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
 
         <button
@@ -554,4 +1024,4 @@ return (
 </main>
 
 );
-                  }
+                           }
