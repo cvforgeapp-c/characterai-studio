@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { Loader } from "@react-three/drei";
+
 import CharacterCanvas from "./CharacterCanvas";
+import type { CharacterAction } from "../lib/character-motion";
 
 type StageEnvironment =
 | "studio"
@@ -15,6 +17,7 @@ selectedIds: string[];
 height?: number;
 showControls?: boolean;
 environment?: StageEnvironment;
+action?: CharacterAction;
 }
 
 function LoadingScreen() {
@@ -30,7 +33,8 @@ export default function CharacterStage({
 selectedIds,
 height = 380,
 showControls = true,
-environment = "studio"
+environment = "studio",
+action = "idle"
 }: CharacterStageProps) {
 return (
 <section
@@ -61,6 +65,7 @@ minHeight: height
     <CharacterCanvas
       selectedIds={selectedIds}
       environment={environment}
+      action={action}
     />
   </Suspense>
 
