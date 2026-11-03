@@ -11,7 +11,8 @@ type CharacterDefinition
 import CharacterAnatomy from "./CharacterAnatomy";
 
 import {
-createCharacterMotion
+createCharacterMotion,
+type CharacterAction
 } from "../lib/character-motion";
 
 export type EnvironmentId =
@@ -26,20 +27,30 @@ interface CharacterModelProps {
 character: CharacterDefinition;
 index: number;
 total: number;
+action: CharacterAction;
 }
+
+/* -------------------------------------------------
+3D CHARACTER MODEL WITH ANIMATIONS
+------------------------------------------------- */
 
 function CharacterModel({
 character,
 index,
-total
+total,
+action
 }: CharacterModelProps) {
 const bodyRef = useRef<Mesh>(null);
 const headRef = useRef<Group>(null);
 const characterRef = useRef<Group>(null);
 
+const leftArmRef = useRef<Group>(null);
+const rightArmRef = useRef<Group>(null);
+const mouthRef = useRef<Mesh>(null);
+
 useFrame((state) => {
 const motion = createCharacterMotion({
-action: "idle",
+action,
 time: state.clock.elapsedTime,
 characterOffset: index * 1.5
 });
@@ -69,6 +80,21 @@ if (headRef.current) {
 if (characterRef.current) {
   characterRef.current.position.y =
     Math.sin(state.clock.elapsedTime * 2 + index) * 0.025;
+}
+
+if (leftArmRef.current) {
+  leftArmRef.current.rotation.z =
+    motion.leftArmRotationZ;
+}
+
+if (rightArmRef.current) {
+  rightArmRef.current.rotation.z =
+    motion.rightArmRotationZ;
+}
+
+if (mouthRef.current) {
+  mouthRef.current.scale.y =
+    1 + motion.mouthOpen * 3;
 }
 
 });
@@ -140,8 +166,11 @@ castShadow
       />
     </mesh>
 
-    {/* Mouth */}
-    <mesh position={[0, -0.23, 0.39]}>
+    {/* Animated mouth */}
+    <mesh
+      ref={mouthRef}
+      position={[0, -0.23, 0.39]}
+    >
       <sphereGeometry args={[0.105, 16, 16]} />
 
       <meshStandardMaterial color="#54252c" />
@@ -151,30 +180,39 @@ castShadow
     <CharacterAnatomy character={character} />
   </group>
 
-  {/* Arms */}
-  <mesh
-    position={[-0.58, 0.95, 0]}
-    rotation={[0, 0, -0.3]}
-    castShadow
+  {/* Animated left arm */}
+  <group
+    ref={leftArmRef}
+    position={[-0.48, 1.15, 0]}
   >
-    <capsuleGeometry args={[0.12, 0.45, 4, 8]} />
+    <mesh
+      position={[0, -0.2, 0]}
+      castShadow
+    >
+      <capsuleGeometry args={[0.12, 0.45, 4, 8]} />
 
-    <meshStandardMaterial
-      color={character.secondaryColor}
-    />
-  </mesh>
+      <meshStandardMaterial
+        color={character.secondaryColor}
+      />
+    </mesh>
+  </group>
 
-  <mesh
-    position={[0.58, 0.95, 0]}
-    rotation={[0, 0, 0.3]}
-    castShadow
+  {/* Animated right arm */}
+  <group
+    ref={rightArmRef}
+    position={[0.48, 1.15, 0]}
   >
-    <capsuleGeometry args={[0.12, 0.45, 4, 8]} />
+    <mesh
+      position={[0, -0.2, 0]}
+      castShadow
+    >
+      <capsuleGeometry args={[0.12, 0.45, 4, 8]} />
 
-    <meshStandardMaterial
-      color={character.secondaryColor}
-    />
-  </mesh>
+      <meshStandardMaterial
+        color={character.secondaryColor}
+      />
+    </mesh>
+  </group>
 
   {/* Legs */}
   <mesh position={[-0.22, 0.28, 0]} castShadow>
@@ -319,6 +357,10 @@ return (
 );
 }
 
+/* -------------------------------------------------
+SIX 3D ENVIRONMENTS
+------------------------------------------------- */
+
 function Environment({
 type
 }: {
@@ -394,6 +436,7 @@ return (
     args={["#d9eaff", "#554466", 0.7]}
   />
 
+  {/* Park environment */}
   {type === "park" && (
     <>
       <Tree position={[-4, -0.2, -2]} scale={1.2} />
@@ -418,6 +461,7 @@ return (
     </>
   )}
 
+  {/* Kitchen environment */}
   {type === "kitchen" && (
     <>
       <mesh position={[0, 1.8, -4]}>
@@ -446,6 +490,7 @@ return (
     </>
   )}
 
+  {/* City environment */}
   {type === "city" && (
     <>
       <Building
@@ -474,6 +519,7 @@ return (
     </>
   )}
 
+  {/* Space environment */}
   {type === "space" && (
     <>
       <Stars
@@ -513,6 +559,7 @@ return (
     </>
   )}
 
+  {/* Beach environment */}
   {type === "beach" && (
     <>
       <mesh
@@ -555,7 +602,7 @@ return (
     />
   </mesh>
 
-  {/* Environment lighting */}
+  {/* Studio lighting */}
   {type === "studio" && (
     <>
       <spotLight
@@ -587,11 +634,13 @@ MAIN CHARACTER CANVAS
 interface CharacterCanvasProps {
 selectedIds: string[];
 environment?: EnvironmentId;
+action?: CharacterAction;
 }
 
 export default function CharacterCanvas({
 selectedIds,
-environment = "studio"
+environment = "studio",
+action = "idle"
 }: CharacterCanvasProps) {
 const selectedCharacters = characters.filter(
 (character) => selectedIds.includes(character.id)
@@ -629,6 +678,7 @@ powerPreference: "low-power"
           character={character}
           index={index}
           total={selectedCharacters.length}
+          action={action}
         />
       ))}
     </group>
@@ -645,4 +695,4 @@ powerPreference: "low-power"
 </div>
 
 );
-      }
+  }
