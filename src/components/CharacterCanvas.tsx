@@ -1,19 +1,16 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { useMemo, useRef, useState } from "react";
-import type { Group, Mesh } from "three";
+import { useMemo, useState } from "react";
 
 import {
   characters,
   type CharacterDefinition
 } from "../lib/character-catalog";
 
-import CharacterAnatomy from "./CharacterAnatomy";
+import ProceduralCharacter from "./ProceduralCharacter";
+import type { CharacterTransform } from "./ProceduralCharacter";
 
-import {
-  createCharacterMotion,
-  type CharacterAction
-} from "../lib/character-motion";
+import type { CharacterAction } from "../lib/character-motion";
 
 export type EnvironmentId =
   | "studio"
@@ -22,207 +19,6 @@ export type EnvironmentId =
   | "city"
   | "space"
   | "beach";
-
-interface CharacterTransform {
-  x: number;
-  y: number;
-  z: number;
-  scale: number;
-  rotation: number;
-}
-
-interface CharacterModelProps {
-  character: CharacterDefinition;
-  index: number;
-  total: number;
-  action: CharacterAction;
-  transform: CharacterTransform;
-}
-
-/* -------------------------------------------------
-   3D CHARACTER MODEL WITH ANIMATIONS
-------------------------------------------------- */
-
-function CharacterModel({
-  character,
-  index,
-  total,
-  action,
-  transform
-}: CharacterModelProps) {
-  const bodyRef = useRef<Mesh>(null);
-  const headRef = useRef<Group>(null);
-  const characterRef = useRef<Group>(null);
-
-  const leftArmRef = useRef<Group>(null);
-  const rightArmRef = useRef<Group>(null);
-  const mouthRef = useRef<Mesh>(null);
-
-  useFrame((state) => {
-    const motion = createCharacterMotion({
-      action,
-      time: state.clock.elapsedTime,
-      characterOffset: index * 1.5
-    });
-
-    if (bodyRef.current) {
-      bodyRef.current.position.y = 0.95 + motion.bodyY;
-      bodyRef.current.rotation.x = motion.bodyRotationX;
-      bodyRef.current.rotation.z = motion.bodyRotationZ;
-    }
-
-    if (headRef.current) {
-      headRef.current.rotation.x = motion.headRotationX;
-      headRef.current.rotation.y = motion.headRotationY;
-      headRef.current.rotation.z = motion.headRotationZ;
-    }
-
-    if (characterRef.current) {
-      characterRef.current.position.y =
-        transform.y +
-        Math.sin(state.clock.elapsedTime * 2 + index) * 0.025;
-    }
-
-    if (leftArmRef.current) {
-      leftArmRef.current.rotation.z = motion.leftArmRotationZ;
-    }
-
-    if (rightArmRef.current) {
-      rightArmRef.current.rotation.z = motion.rightArmRotationZ;
-    }
-
-    if (mouthRef.current) {
-      mouthRef.current.scale.y = 1 + motion.mouthOpen * 3;
-    }
-  });
-
-  const spacing = 1.8;
-  const defaultX = (index - (total - 1) / 2) * spacing;
-
-  return (
-    <group
-      ref={characterRef}
-      position={[defaultX + transform.x, transform.y, transform.z]}
-      rotation={[0, transform.rotation, 0]}
-      scale={character.size * transform.scale}
-    >
-      {/* Character body */}
-      <mesh
-        ref={bodyRef}
-        position={[0, 0.95, 0]}
-        castShadow
-      >
-        <sphereGeometry args={[0.58, 32, 32]} />
-        <meshStandardMaterial
-          color={character.color}
-          roughness={0.7}
-        />
-      </mesh>
-
-      {/* Character head */}
-      <group
-        ref={headRef}
-        position={[0, 1.75, 0]}
-      >
-        <mesh castShadow>
-          <sphereGeometry args={[0.43, 32, 32]} />
-          <meshStandardMaterial
-            color={character.color}
-            roughness={0.65}
-          />
-        </mesh>
-
-        {/* Eyes */}
-        <mesh position={[-0.15, 0.07, 0.365]}>
-          <sphereGeometry args={[0.075, 16, 16]} />
-          <meshStandardMaterial color="white" />
-        </mesh>
-
-        <mesh position={[-0.15, 0.07, 0.43]}>
-          <sphereGeometry args={[0.035, 16, 16]} />
-          <meshStandardMaterial color="#17121f" />
-        </mesh>
-
-        <mesh position={[0.15, 0.07, 0.365]}>
-          <sphereGeometry args={[0.075, 16, 16]} />
-          <meshStandardMaterial color="white" />
-        </mesh>
-
-        <mesh position={[0.15, 0.07, 0.43]}>
-          <sphereGeometry args={[0.035, 16, 16]} />
-          <meshStandardMaterial color="#17121f" />
-        </mesh>
-
-        {/* Nose */}
-        <mesh position={[0, -0.08, 0.425]}>
-          <sphereGeometry args={[0.065, 16, 16]} />
-          <meshStandardMaterial
-            color={character.secondaryColor}
-          />
-        </mesh>
-
-        {/* Animated mouth */}
-        <mesh
-          ref={mouthRef}
-          position={[0, -0.23, 0.39]}
-        >
-          <sphereGeometry args={[0.105, 16, 16]} />
-          <meshStandardMaterial color="#54252c" />
-        </mesh>
-
-        {/* Species-specific anatomy */}
-        <CharacterAnatomy character={character} />
-      </group>
-
-      {/* Animated left arm */}
-      <group
-        ref={leftArmRef}
-        position={[-0.48, 1.15, 0]}
-      >
-        <mesh
-          position={[0, -0.2, 0]}
-          castShadow
-        >
-          <capsuleGeometry args={[0.12, 0.45, 4, 8]} />
-          <meshStandardMaterial
-            color={character.secondaryColor}
-          />
-        </mesh>
-      </group>
-
-      {/* Animated right arm */}
-      <group
-        ref={rightArmRef}
-        position={[0.48, 1.15, 0]}
-      >
-        <mesh
-          position={[0, -0.2, 0]}
-          castShadow
-        >
-          <capsuleGeometry args={[0.12, 0.45, 4, 8]} />
-          <meshStandardMaterial
-            color={character.secondaryColor}
-          />
-        </mesh>
-      </group>
-
-      {/* Legs */}
-      <mesh position={[-0.22, 0.28, 0]} castShadow>
-        <capsuleGeometry args={[0.12, 0.35, 4, 8]} />
-        <meshStandardMaterial
-          color={character.secondaryColor}
-        />
-      </mesh>
-
-      <mesh position={[0.22, 0.28, 0]} castShadow>
-        <capsuleGeometry args={[0.12, 0.35, 4, 8]} />
-        <meshStandardMaterial
-          color={character.secondaryColor}
-        />
-      </mesh>
-    </group>
-  );
-}
 
 /* -------------------------------------------------
    ENVIRONMENT COMPONENTS
@@ -786,7 +582,7 @@ export default function CharacterCanvas({
 
           <group position={[0, -0.4, 0]}>
             {selectedCharacters.map((character, index) => (
-              <CharacterModel
+              <ProceduralCharacter
                 key={character.id}
                 character={character}
                 index={index}
@@ -876,4 +672,4 @@ export default function CharacterCanvas({
       )}
     </div>
   );
-        }
+      }
