@@ -20,8 +20,13 @@ DEFAULT_VOICE_SETTINGS
 } from "../lib/voice-engine";
 
 import CharacterStage from "../components/CharacterStage";
+import type { EnvironmentId } from "../components/CharacterCanvas";
 
-const backgrounds = [
+const backgrounds: {
+id: EnvironmentId;
+name: string;
+color: string;
+}[] = [
 { id: "studio", name: "Comedy Studio", color: "#282442" },
 { id: "park", name: "Green Park", color: "#234c3b" },
 { id: "kitchen", name: "Kitchen", color: "#604333" },
@@ -41,7 +46,6 @@ const comedyStyles: ComedyStyle[] = [
 
 function getInitialCharacters(): CharacterId[] {
 const params = new URLSearchParams(window.location.search);
-
 const requestedIds = params.get("characters");
 
 if (!requestedIds) {
@@ -61,13 +65,11 @@ return validIds.length > 0
 
 function getInitialTopic(): string {
 const params = new URLSearchParams(window.location.search);
-
 return params.get("prompt") ?? "";
 }
 
 function getInitialMode(): string {
 const params = new URLSearchParams(window.location.search);
-
 const mode = params.get("mode");
 
 return mode === "original" || mode === "recreate"
@@ -82,7 +84,7 @@ const [selectedIds, setSelectedIds] = useState<CharacterId[]>(
 getInitialCharacters
 );
 
-const [background, setBackground] = useState("studio");
+const [background, setBackground] = useState<EnvironmentId>("studio");
 
 const [topic, setTopic] = useState(getInitialTopic);
 
@@ -142,9 +144,7 @@ try {
   });
 
   setScript(result);
-
   setActiveScene(1);
-
   setNotice("Your comedy script has been created!");
 } catch (error) {
   setNotice(
@@ -316,12 +316,14 @@ return (
         <CharacterStage
           selectedIds={selectedIds}
           height={380}
+          environment={background}
         />
       </div>
 
       <p className="muted-text">
-        Background selection is currently a preview setting.
-        Full 3D environment integration comes next.
+        Your selected environment is now connected to the
+        procedural 3D scene. Choose another background to
+        change the scene.
       </p>
     </section>
 
