@@ -1,11 +1,15 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { useRef } from "react";
-import type { Mesh } from "three";
+import type { Mesh, Group } from "three";
 import {
   characters,
   type CharacterDefinition
 } from "../lib/character-catalog";
+import CharacterAnatomy from "./CharacterAnatomy";
+import {
+  createCharacterMotion
+} from "../lib/character-motion";
 
 interface CharacterModelProps {
   character: CharacterDefinition;
@@ -17,33 +21,52 @@ function CharacterModel({
   index
 }: CharacterModelProps) {
   const bodyRef = useRef<Mesh>(null);
-  const headRef = useRef<Mesh>(null);
+  const headRef = useRef<Group>(null);
+  const characterRef = useRef<Group>(null);
 
   useFrame((state) => {
-    const time = state.clock.elapsedTime;
+    const motion = createCharacterMotion({
+      action: "idle",
+      time: state.clock.elapsedTime,
+      characterOffset: index * 1.5
+    });
 
     if (bodyRef.current) {
       bodyRef.current.position.y =
-        0.95 + Math.sin(time * 2 + index) * 0.045;
+        0.95 + motion.bodyY;
+
+      bodyRef.current.rotation.x =
+        motion.bodyRotationX;
 
       bodyRef.current.rotation.z =
-        Math.sin(time + index) * 0.035;
+        motion.bodyRotationZ;
     }
 
     if (headRef.current) {
+      headRef.current.rotation.x =
+        motion.headRotationX;
+
       headRef.current.rotation.y =
-        Math.sin(time * 1.2 + index) * 0.12;
+        motion.headRotationY;
 
       headRef.current.rotation.z =
-        Math.sin(time * 1.8 + index) * 0.035;
+        motion.headRotationZ;
+    }
+
+    if (characterRef.current) {
+      characterRef.current.position.y = 0;
     }
   });
 
   const x = (index - 1.5) * 1.65;
 
   return (
-    <group position={[x, 0, 0]} scale={character.size}>
-      {/* Body */}
+    <group
+      ref={characterRef}
+      position={[x, 0, 0]}
+      scale={character.size}
+    >
+      {/* Character body */}
       <mesh
         ref={bodyRef}
         position={[0, 0.95, 0]}
@@ -57,8 +80,11 @@ function CharacterModel({
         />
       </mesh>
 
-      {/* Head */}
-      <group ref={headRef} position={[0, 1.75, 0]}>
+      {/* Character head */}
+      <group
+        ref={headRef}
+        position={[0, 1.75, 0]}
+      >
         <mesh castShadow>
           <sphereGeometry args={[0.43, 32, 32]} />
 
@@ -68,29 +94,24 @@ function CharacterModel({
           />
         </mesh>
 
-        {/* Left eye */}
+        {/* Eyes */}
         <mesh position={[-0.15, 0.07, 0.365]}>
           <sphereGeometry args={[0.075, 16, 16]} />
-
           <meshStandardMaterial color="white" />
         </mesh>
 
         <mesh position={[-0.15, 0.07, 0.43]}>
           <sphereGeometry args={[0.035, 16, 16]} />
-
           <meshStandardMaterial color="#17121f" />
         </mesh>
 
-        {/* Right eye */}
         <mesh position={[0.15, 0.07, 0.365]}>
           <sphereGeometry args={[0.075, 16, 16]} />
-
           <meshStandardMaterial color="white" />
         </mesh>
 
         <mesh position={[0.15, 0.07, 0.43]}>
           <sphereGeometry args={[0.035, 16, 16]} />
-
           <meshStandardMaterial color="#17121f" />
         </mesh>
 
@@ -110,26 +131,11 @@ function CharacterModel({
           <meshStandardMaterial color="#54252c" />
         </mesh>
 
-        {/* Left ear */}
-        <mesh position={[-0.38, 0.27, 0]}>
-          <sphereGeometry args={[0.15, 20, 20]} />
-
-          <meshStandardMaterial
-            color={character.secondaryColor}
-          />
-        </mesh>
-
-        {/* Right ear */}
-        <mesh position={[0.38, 0.27, 0]}>
-          <sphereGeometry args={[0.15, 20, 20]} />
-
-          <meshStandardMaterial
-            color={character.secondaryColor}
-          />
-        </mesh>
+        {/* Species-specific anatomy */}
+        <CharacterAnatomy character={character} />
       </group>
 
-      {/* Left arm */}
+      {/* Arms */}
       <mesh
         position={[-0.58, 0.95, 0]}
         rotation={[0, 0, -0.3]}
@@ -141,7 +147,6 @@ function CharacterModel({
         />
       </mesh>
 
-      {/* Right arm */}
       <mesh
         position={[0.58, 0.95, 0]}
         rotation={[0, 0, 0.3]}
@@ -153,7 +158,7 @@ function CharacterModel({
         />
       </mesh>
 
-      {/* Left leg */}
+      {/* Legs */}
       <mesh position={[-0.22, 0.28, 0]}>
         <capsuleGeometry args={[0.12, 0.35, 4, 8]} />
 
@@ -162,7 +167,6 @@ function CharacterModel({
         />
       </mesh>
 
-      {/* Right leg */}
       <mesh position={[0.22, 0.28, 0]}>
         <capsuleGeometry args={[0.12, 0.35, 4, 8]} />
 
@@ -229,7 +233,6 @@ export default function CharacterCanvas({
             />
           ))}
 
-          {/* Ground */}
           <mesh
             rotation={[-Math.PI / 2, 0, 0]}
             position={[0, -0.03, 0]}
@@ -253,4 +256,4 @@ export default function CharacterCanvas({
       </Canvas>
     </div>
   );
-        }
+}
