@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Group, Mesh } from "three";
 
 import {
@@ -23,11 +23,20 @@ export type EnvironmentId =
 | "space"
 | "beach";
 
+interface CharacterTransform {
+x: number;
+y: number;
+z: number;
+scale: number;
+rotation: number;
+}
+
 interface CharacterModelProps {
 character: CharacterDefinition;
 index: number;
 total: number;
 action: CharacterAction;
+transform: CharacterTransform;
 }
 
 /* -------------------------------------------------
@@ -38,7 +47,8 @@ function CharacterModel({
 character,
 index,
 total,
-action
+action,
+transform
 }: CharacterModelProps) {
 const bodyRef = useRef<Mesh>(null);
 const headRef = useRef<Group>(null);
@@ -56,57 +66,46 @@ characterOffset: index * 1.5
 });
 
 if (bodyRef.current) {
-  bodyRef.current.position.y =
-    0.95 + motion.bodyY;
-
-  bodyRef.current.rotation.x =
-    motion.bodyRotationX;
-
-  bodyRef.current.rotation.z =
-    motion.bodyRotationZ;
+  bodyRef.current.position.y = 0.95 + motion.bodyY;
+  bodyRef.current.rotation.x = motion.bodyRotationX;
+  bodyRef.current.rotation.z = motion.bodyRotationZ;
 }
 
 if (headRef.current) {
-  headRef.current.rotation.x =
-    motion.headRotationX;
-
-  headRef.current.rotation.y =
-    motion.headRotationY;
-
-  headRef.current.rotation.z =
-    motion.headRotationZ;
+  headRef.current.rotation.x = motion.headRotationX;
+  headRef.current.rotation.y = motion.headRotationY;
+  headRef.current.rotation.z = motion.headRotationZ;
 }
 
 if (characterRef.current) {
   characterRef.current.position.y =
+    transform.y +
     Math.sin(state.clock.elapsedTime * 2 + index) * 0.025;
 }
 
 if (leftArmRef.current) {
-  leftArmRef.current.rotation.z =
-    motion.leftArmRotationZ;
+  leftArmRef.current.rotation.z = motion.leftArmRotationZ;
 }
 
 if (rightArmRef.current) {
-  rightArmRef.current.rotation.z =
-    motion.rightArmRotationZ;
+  rightArmRef.current.rotation.z = motion.rightArmRotationZ;
 }
 
 if (mouthRef.current) {
-  mouthRef.current.scale.y =
-    1 + motion.mouthOpen * 3;
+  mouthRef.current.scale.y = 1 + motion.mouthOpen * 3;
 }
 
 });
 
 const spacing = 1.8;
-const x = (index - (total - 1) / 2) * spacing;
+const defaultX = (index - (total - 1) / 2) * spacing;
 
 return (
 <group
 ref={characterRef}
-position={[x, 0, 0]}
-scale={character.size}
+position={[defaultX + transform.x, transform.y, transform.z]}
+rotation={[0, transform.rotation, 0]}
+scale={character.size * transform.scale}
 >
 {/* Character body */}
 <mesh
@@ -250,19 +249,16 @@ return (
 <group position={position} scale={scale}>
 <mesh position={[0, 0.65, 0]} castShadow>
 <cylinderGeometry args={[0.12, 0.18, 1.3, 8]} />
-
-    <meshStandardMaterial color="#70452c" />
-  </mesh>
+<meshStandardMaterial color="#70452c" />
+</mesh>
 
   <mesh position={[0, 1.55, 0]} castShadow>
     <coneGeometry args={[0.8, 1.8, 9]} />
-
     <meshStandardMaterial color="#25834f" />
   </mesh>
 
   <mesh position={[0, 2.15, 0]} castShadow>
     <sphereGeometry args={[0.45, 12, 12]} />
-
     <meshStandardMaterial color="#39a65d" />
   </mesh>
 </group>
@@ -314,10 +310,8 @@ scale={scale}
 castShadow
 >
 <coneGeometry args={[2.2, 3.5, 5]} />
-
-  <meshStandardMaterial color={color} />
+<meshStandardMaterial color={color} />
 </mesh>
-
 );
 }
 
@@ -334,9 +328,8 @@ return (
 <group position={position}>
 <mesh position={[0, height / 2, 0]} castShadow>
 <boxGeometry args={[1.1, height, 1]} />
-
-    <meshStandardMaterial color={color} />
-  </mesh>
+<meshStandardMaterial color={color} />
+</mesh>
 
   {Array.from({ length: 3 }).map((_, index) => (
     <mesh
@@ -436,7 +429,6 @@ return (
     args={["#d9eaff", "#554466", 0.7]}
   />
 
-  {/* Park environment */}
   {type === "park" && (
     <>
       <Tree position={[-4, -0.2, -2]} scale={1.2} />
@@ -461,65 +453,39 @@ return (
     </>
   )}
 
-  {/* Kitchen environment */}
   {type === "kitchen" && (
     <>
       <mesh position={[0, 1.8, -4]}>
         <boxGeometry args={[11, 4, 0.3]} />
-
         <meshStandardMaterial color="#b99170" />
       </mesh>
 
       <mesh position={[0, 0.5, -2.2]}>
         <boxGeometry args={[7, 0.15, 1.5]} />
-
         <meshStandardMaterial color="#a8784e" />
       </mesh>
 
       <mesh position={[-3.5, 1.4, -2.1]}>
         <boxGeometry args={[0.8, 2.5, 0.8]} />
-
         <meshStandardMaterial color="#ded5c4" />
       </mesh>
 
       <mesh position={[3.5, 1.4, -2.1]}>
         <boxGeometry args={[0.8, 2.5, 0.8]} />
-
         <meshStandardMaterial color="#ded5c4" />
       </mesh>
     </>
   )}
 
-  {/* City environment */}
   {type === "city" && (
     <>
-      <Building
-        position={[-5, 0, -4]}
-        color="#637a99"
-        height={4}
-      />
-
-      <Building
-        position={[-3.5, 0, -5]}
-        color="#8a789e"
-        height={5}
-      />
-
-      <Building
-        position={[4, 0, -5]}
-        color="#657f9d"
-        height={4.5}
-      />
-
-      <Building
-        position={[5.5, 0, -3]}
-        color="#a17f82"
-        height={3.5}
-      />
+      <Building position={[-5, 0, -4]} color="#637a99" height={4} />
+      <Building position={[-3.5, 0, -5]} color="#8a789e" height={5} />
+      <Building position={[4, 0, -5]} color="#657f9d" height={4.5} />
+      <Building position={[5.5, 0, -3]} color="#a17f82" height={3.5} />
     </>
   )}
 
-  {/* Space environment */}
   {type === "space" && (
     <>
       <Stars
@@ -559,7 +525,6 @@ return (
     </>
   )}
 
-  {/* Beach environment */}
   {type === "beach" && (
     <>
       <mesh
@@ -567,7 +532,6 @@ return (
         rotation={[-Math.PI / 2, 0, 0]}
       >
         <planeGeometry args={[20, 8]} />
-
         <meshStandardMaterial color="#48a9d5" />
       </mesh>
 
@@ -576,19 +540,16 @@ return (
 
       <mesh position={[4, 0.3, -3]}>
         <cylinderGeometry args={[0.08, 0.08, 1.2, 8]} />
-
         <meshStandardMaterial color="#7b4b2a" />
       </mesh>
 
       <mesh position={[4, 1, -3]}>
         <coneGeometry args={[0.75, 0.9, 8]} />
-
         <meshStandardMaterial color="#268b53" />
       </mesh>
     </>
   )}
 
-  {/* Environment ground */}
   <mesh
     rotation={[-Math.PI / 2, 0, 0]}
     position={[0, -0.08, 0]}
@@ -602,7 +563,6 @@ return (
     />
   </mesh>
 
-  {/* Studio lighting */}
   {type === "studio" && (
     <>
       <spotLight
@@ -628,6 +588,144 @@ return (
 }
 
 /* -------------------------------------------------
+CHARACTER POSITIONING CONTROLS
+------------------------------------------------- */
+
+const DEFAULT_TRANSFORM: CharacterTransform = {
+x: 0,
+y: 0,
+z: 0,
+scale: 1,
+rotation: 0
+};
+
+function createDefaultTransform(): CharacterTransform {
+return { ...DEFAULT_TRANSFORM };
+}
+
+function CharacterPositionControls({
+character,
+transform,
+onChange,
+onReset
+}: {
+character: CharacterDefinition;
+transform: CharacterTransform;
+onChange: (value: CharacterTransform) => void;
+onReset: () => void;
+}) {
+function update(key: keyof CharacterTransform, value: number) {
+onChange({
+...transform,
+[key]: value
+});
+}
+
+return (
+<div
+style={{
+padding: 14,
+marginTop: 12,
+borderRadius: 12,
+background: "rgba(255,255,255,0.06)"
+}}
+>
+<strong>{character.name} — Position & Size</strong>
+
+  <label className="field-label">
+    Horizontal position: {transform.x.toFixed(1)}
+  </label>
+
+  <input
+    type="range"
+    min="-4"
+    max="4"
+    step="0.1"
+    value={transform.x}
+    onChange={(event) =>
+      update("x", Number(event.target.value))
+    }
+    style={{ width: "100%" }}
+  />
+
+  <label className="field-label">
+    Height: {transform.y.toFixed(1)}
+  </label>
+
+  <input
+    type="range"
+    min="-1"
+    max="3"
+    step="0.1"
+    value={transform.y}
+    onChange={(event) =>
+      update("y", Number(event.target.value))
+    }
+    style={{ width: "100%" }}
+  />
+
+  <label className="field-label">
+    Depth: {transform.z.toFixed(1)}
+  </label>
+
+  <input
+    type="range"
+    min="-4"
+    max="4"
+    step="0.1"
+    value={transform.z}
+    onChange={(event) =>
+      update("z", Number(event.target.value))
+    }
+    style={{ width: "100%" }}
+  />
+
+  <label className="field-label">
+    Character size: {transform.scale.toFixed(1)}x
+  </label>
+
+  <input
+    type="range"
+    min="0.5"
+    max="2"
+    step="0.1"
+    value={transform.scale}
+    onChange={(event) =>
+      update("scale", Number(event.target.value))
+    }
+    style={{ width: "100%" }}
+  />
+
+  <label className="field-label">
+    Rotation: {Math.round((transform.rotation * 180) / Math.PI)}°
+  </label>
+
+  <input
+    type="range"
+    min={-Math.PI}
+    max={Math.PI}
+    step="0.05"
+    value={transform.rotation}
+    onChange={(event) =>
+      update("rotation", Number(event.target.value))
+    }
+    style={{ width: "100%" }}
+  />
+
+  <button
+    type="button"
+    className="secondary-button"
+    onClick={onReset}
+    style={{ marginTop: 12 }}
+  >
+    Reset Character
+  </button>
+</div>
+
+);
+}
+
+/* -------------------------------------------------
 MAIN CHARACTER CANVAS
 ------------------------------------------------- */
 
@@ -646,7 +744,43 @@ const selectedCharacters = characters.filter(
 (character) => selectedIds.includes(character.id)
 );
 
+const [transforms, setTransforms] = useState<
+Record<string, CharacterTransform>
+
+«({});»
+
+const [editingCharacter, setEditingCharacter] = useState<string>(
+selectedIds[0] ?? ""
+);
+
+function getTransform(id: string): CharacterTransform {
+return transforms[id] ?? createDefaultTransform();
+}
+
+function updateTransform(
+id: string,
+value: CharacterTransform
+) {
+setTransforms((previous) => ({
+...previous,
+[id]: value
+}));
+}
+
+function resetTransform(id: string) {
+setTransforms((previous) => ({
+...previous,
+[id]: createDefaultTransform()
+}));
+}
+
+const activeCharacter =
+selectedCharacters.find(
+(character) => character.id === editingCharacter
+) ?? selectedCharacters[0];
+
 return (
+<div style={{ width: "100%" }}>
 <div
 className="character-stage"
 style={{
@@ -671,27 +805,96 @@ powerPreference: "low-power"
 >
 <Environment type={environment} />
 
-    <group position={[0, -0.4, 0]}>
-      {selectedCharacters.map((character, index) => (
-        <CharacterModel
-          key={character.id}
-          character={character}
-          index={index}
-          total={selectedCharacters.length}
-          action={action}
-        />
-      ))}
-    </group>
+      <group position={[0, -0.4, 0]}>
+        {selectedCharacters.map((character, index) => (
+          <CharacterModel
+            key={character.id}
+            character={character}
+            index={index}
+            total={selectedCharacters.length}
+            action={action}
+            transform={getTransform(character.id)}
+          />
+        ))}
+      </group>
 
-    <OrbitControls
-      enablePan={false}
-      enableZoom
-      minDistance={5}
-      maxDistance={13}
-      maxPolarAngle={Math.PI / 2}
-      target={[0, 1, 0]}
-    />
-  </Canvas>
+      <OrbitControls
+        enablePan={false}
+        enableZoom
+        minDistance={5}
+        maxDistance={13}
+        maxPolarAngle={Math.PI / 2}
+        target={[0, 1, 0]}
+      />
+    </Canvas>
+  </div>
+
+  {selectedCharacters.length > 0 && (
+    <div style={{ marginTop: 16 }}>
+      <span className="section-eyebrow">
+        CHARACTER ARRANGEMENT
+      </span>
+
+      <h3>Position Your Characters</h3>
+
+      <div
+        className="mode-grid"
+        style={{ marginTop: 12 }}
+      >
+        {selectedCharacters.map((character) => (
+          <button
+            key={character.id}
+            type="button"
+            className={`mode-card ${
+              activeCharacter?.id === character.id
+                ? "selected"
+                : ""
+            }`}
+            onClick={() =>
+              setEditingCharacter(character.id)
+            }
+            aria-pressed={
+              activeCharacter?.id === character.id
+            }
+          >
+            <span
+              style={{
+                display: "block",
+                fontSize: 28,
+                marginBottom: 6
+              }}
+            >
+              {character.emoji}
+            </span>
+
+            <strong>{character.name}</strong>
+          </button>
+        ))}
+      </div>
+
+      {activeCharacter && (
+        <CharacterPositionControls
+          character={activeCharacter}
+          transform={getTransform(activeCharacter.id)}
+          onChange={(value) =>
+            updateTransform(activeCharacter.id, value)
+          }
+          onReset={() =>
+            resetTransform(activeCharacter.id)
+          }
+        />
+      )}
+
+      <button
+        type="button"
+        className="secondary-button"
+        style={{ marginTop: 12 }}
+        onClick={() => setTransforms({})}
+      >
+        Reset All Characters
+      </button>
+    </div>
+  )}
 </div>
 
 );
