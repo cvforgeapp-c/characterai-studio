@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 import {
@@ -31,64 +31,45 @@ import ScenePlayer, {
 
 import type { EnvironmentId } from "../components/CharacterCanvas";
 
-/* -------------------------------------------------
-TYPES
-------------------------------------------------- */
+/* =====================================================
+   TYPES
+===================================================== */
 
 type Scene = VideoScene;
-
 type Category = "All" | "Animals" | "Food";
 
-/* -------------------------------------------------
-APPEARANCE PALETTES
-------------------------------------------------- */
+/* =====================================================
+   APPEARANCE
+===================================================== */
 
 const skinTones = [
-  "#f6d2b8",
-  "#e9b58e",
-  "#d49a72",
-  "#c68655",
-  "#8d5524",
-  "#5c3830"
+  "#f6d2b8", "#e9b58e", "#d49a72",
+  "#c68655", "#8d5524", "#5c3830"
 ];
 
 const clothingColors = [
-  "#2563eb",
-  "#dc2626",
-  "#16a34a",
-  "#9333ea",
-  "#ea580c",
-  "#0891b2",
-  "#db2777",
-  "#374151",
-  "#facc15",
-  "#f5f5f4"
+  "#2563eb", "#dc2626", "#16a34a",
+  "#9333ea", "#ea580c", "#0891b2",
+  "#db2777", "#374151", "#facc15", "#f5f5f4"
 ];
 
 const hairColors = [
-  "#171717",
-  "#4b2e1f",
-  "#8b5a2b",
-  "#d6a64f",
-  "#a1a1aa",
-  "#7f1d1d"
+  "#171717", "#4b2e1f", "#8b5a2b",
+  "#d6a64f", "#a1a1aa", "#7f1d1d"
 ];
 
-function createDefaultAppearance(
-  index: number
-): CharacterAppearance {
+function createDefaultAppearance(index: number): CharacterAppearance {
   return {
     style: "pixar",
     skinTone: skinTones[index % skinTones.length],
-    clothingColor:
-      clothingColors[index % clothingColors.length],
+    clothingColor: clothingColors[index % clothingColors.length],
     hairColor: hairColors[index % hairColors.length]
   };
 }
 
-/* -------------------------------------------------
-ENVIRONMENTS
-------------------------------------------------- */
+/* =====================================================
+   ENVIRONMENTS
+===================================================== */
 
 const backgrounds: {
   id: EnvironmentId;
@@ -96,47 +77,17 @@ const backgrounds: {
   color: string;
   emoji: string;
 }[] = [
-  {
-    id: "studio",
-    name: "Comedy Studio",
-    color: "#282442",
-    emoji: "🎬"
-  },
-  {
-    id: "park",
-    name: "Green Park",
-    color: "#234c3b",
-    emoji: "🌳"
-  },
-  {
-    id: "kitchen",
-    name: "Kitchen",
-    color: "#604333",
-    emoji: "🍳"
-  },
-  {
-    id: "city",
-    name: "City Street",
-    color: "#34445c",
-    emoji: "🏙️"
-  },
-  {
-    id: "space",
-    name: "Outer Space",
-    color: "#171b3d",
-    emoji: "🚀"
-  },
-  {
-    id: "beach",
-    name: "Sunny Beach",
-    color: "#80643e",
-    emoji: "🏖️"
-  }
+  { id: "studio", name: "Comedy Studio", color: "#282442", emoji: "🎬" },
+  { id: "park", name: "Green Park", color: "#234c3b", emoji: "🌳" },
+  { id: "kitchen", name: "Kitchen", color: "#604333", emoji: "🍳" },
+  { id: "city", name: "City Street", color: "#34445c", emoji: "🏙️" },
+  { id: "space", name: "Outer Space", color: "#171b3d", emoji: "🚀" },
+  { id: "beach", name: "Sunny Beach", color: "#80643e", emoji: "🏖️" }
 ];
 
-/* -------------------------------------------------
-ANIMATIONS
-------------------------------------------------- */
+/* =====================================================
+   ANIMATIONS
+===================================================== */
 
 const animationActions: {
   id: CharacterAction;
@@ -164,14 +115,12 @@ const comedyStyles: ComedyStyle[] = [
   "Interview"
 ];
 
-/* -------------------------------------------------
-HELPERS
-------------------------------------------------- */
+/* =====================================================
+   HELPERS
+===================================================== */
 
-function createSceneId(): string {
-  return `scene-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+function createSceneId() {
+  return `scene-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function createEmptyScene(
@@ -188,33 +137,22 @@ function createEmptyScene(
   };
 }
 
-function getActionFromEmotion(
-  emotion: string
-): CharacterAction {
+function getActionFromEmotion(emotion: string): CharacterAction {
   const value = emotion.toLowerCase();
 
-  if (value.includes("laugh") || value.includes("funny")) {
-    return "laugh";
-  }
-
-  if (value.includes("angry") || value.includes("anger")) {
-    return "angry";
-  }
+  if (value.includes("laugh") || value.includes("funny")) return "laugh";
+  if (value.includes("angry") || value.includes("anger")) return "angry";
 
   if (
     value.includes("sad") ||
     value.includes("cry") ||
     value.includes("upset")
-  ) {
-    return "cry";
-  }
+  ) return "cry";
 
   if (
     value.includes("surprise") ||
     value.includes("shock")
-  ) {
-    return "surprised";
-  }
+  ) return "surprised";
 
   if (value.includes("dance")) return "dance";
 
@@ -231,7 +169,7 @@ function getInitialCharacters(): CharacterId[] {
     .split(",")
     .filter(
       (id): id is CharacterId =>
-        characters.some((character) => character.id === id)
+        characters.some(character => character.id === id)
     );
 
   return valid.length
@@ -239,34 +177,31 @@ function getInitialCharacters(): CharacterId[] {
     : ["lion", "monkey"];
 }
 
-function getInitialTopic(): string {
-  return new URLSearchParams(window.location.search)
-    .get("prompt") ?? "";
+function getInitialTopic() {
+  return new URLSearchParams(window.location.search).get("prompt") ?? "";
 }
 
-function getInitialMode(): string {
-  const mode = new URLSearchParams(window.location.search)
-    .get("mode");
-
-  return mode === "recreate" ? "recreate" : "original";
+function getInitialMode() {
+  return new URLSearchParams(window.location.search).get("mode") === "recreate"
+    ? "recreate"
+    : "original";
 }
 
-/* -------------------------------------------------
-MAIN STUDIO
-------------------------------------------------- */
+/* =====================================================
+   STUDIO
+===================================================== */
 
 export default function Studio() {
   const [, setLocation] = useLocation();
 
+  const initialCharacters = getInitialCharacters();
+
   const [selectedIds, setSelectedIds] =
-    useState<CharacterId[]>(getInitialCharacters);
+    useState<CharacterId[]>(initialCharacters);
 
   const [topic, setTopic] = useState(getInitialTopic);
-
   const [creationMode] = useState(getInitialMode);
-
   const [style, setStyle] = useState<ComedyStyle>("Funny");
-
   const [language, setLanguage] = useState("en-US");
 
   const [script, setScript] = useState<ComedyScript | null>(null);
@@ -279,46 +214,44 @@ export default function Studio() {
     () => scenes[0].id
   );
 
+  // Keeps ScenePlayer callbacks synchronized with the selected scene.
+  const activeSceneIdRef = useRef(activeSceneId);
+
   const [notice, setNotice] = useState("");
 
   const [characterCategory, setCharacterCategory] =
     useState<Category>("All");
 
   const [appearanceCharacter, setAppearanceCharacter] =
-    useState<CharacterId>(
-      () => getInitialCharacters()[0]
-    );
+    useState<CharacterId>(initialCharacters[0]);
 
   const [appearances, setAppearances] =
     useState<Record<string, CharacterAppearance>>(() => {
       const initial: Record<string, CharacterAppearance> = {};
 
-      getInitialCharacters().forEach((id, index) => {
+      initialCharacters.forEach((id, index) => {
         initial[id] = createDefaultAppearance(index);
       });
 
       return initial;
     });
 
-  /* -------------------------------------------------
-  DERIVED STATE
-  ------------------------------------------------- */
+  /* =====================================================
+     DERIVED STATE
+  ===================================================== */
 
   const activeScene =
-    scenes.find((scene) => scene.id === activeSceneId) ??
-    scenes[0];
+    scenes.find(scene => scene.id === activeSceneId) ?? scenes[0];
 
   const currentBackground =
-    backgrounds.find(
-      (item) => item.id === activeScene.background
-    ) ?? backgrounds[0];
+    backgrounds.find(item => item.id === activeScene.background) ??
+    backgrounds[0];
 
   const filteredCharacters =
     characterCategory === "All"
       ? characters
       : characters.filter(
-          (character) =>
-            character.category === characterCategory
+          character => character.category === characterCategory
         );
 
   const activeAppearance =
@@ -328,24 +261,40 @@ export default function Studio() {
     );
 
   const selectedCharacterNames = characters
-    .filter((character) => selectedIds.includes(character.id))
-    .map((character) => character.name);
+    .filter(character => selectedIds.includes(character.id))
+    .map(character => character.name);
 
-  /* -------------------------------------------------
-  APPEARANCE
-  ------------------------------------------------- */
+  const activeSceneIndex = scenes.findIndex(
+    scene => scene.id === activeSceneId
+  );
 
-  function updateAppearance<
-    K extends keyof CharacterAppearance
-  >(
+  /* =====================================================
+     SCENE SELECTION
+  ===================================================== */
+
+  function setCurrentScene(sceneId: string) {
+    activeSceneIdRef.current = sceneId;
+    setActiveSceneId(sceneId);
+  }
+
+  function selectScene(sceneId: string) {
+    stopSpeaking();
+    setCurrentScene(sceneId);
+    setNotice("");
+  }
+
+  /* =====================================================
+     APPEARANCE
+  ===================================================== */
+
+  function updateAppearance<K extends keyof CharacterAppearance>(
     property: K,
     value: CharacterAppearance[K]
   ) {
-    setAppearances((previous) => ({
+    setAppearances(previous => ({
       ...previous,
       [appearanceCharacter]: {
-        ...(previous[appearanceCharacter] ??
-          activeAppearance),
+        ...(previous[appearanceCharacter] ?? activeAppearance),
         [property]: value
       }
     }));
@@ -354,7 +303,7 @@ export default function Studio() {
   function selectAppearanceCharacter(id: CharacterId) {
     setAppearanceCharacter(id);
 
-    setAppearances((previous) => {
+    setAppearances(previous => {
       if (previous[id]) return previous;
 
       return {
@@ -367,7 +316,7 @@ export default function Studio() {
   }
 
   function resetAppearance() {
-    setAppearances((previous) => ({
+    setAppearances(previous => ({
       ...previous,
       [appearanceCharacter]: createDefaultAppearance(
         Math.max(0, selectedIds.indexOf(appearanceCharacter))
@@ -377,14 +326,16 @@ export default function Studio() {
     setNotice("Character appearance reset.");
   }
 
-  /* -------------------------------------------------
-  SCENE UPDATES
-  ------------------------------------------------- */
+  /* =====================================================
+     SCENE EDITING
+  ===================================================== */
 
   function updateActiveScene(updates: Partial<Scene>) {
-    setScenes((previous) =>
-      previous.map((scene) =>
-        scene.id === activeSceneId
+    const targetId = activeSceneIdRef.current;
+
+    setScenes(previous =>
+      previous.map(scene =>
+        scene.id === targetId
           ? { ...scene, ...updates }
           : scene
       )
@@ -395,8 +346,8 @@ export default function Studio() {
     sceneId: string,
     action: CharacterAction
   ) {
-    setScenes((previous) =>
-      previous.map((scene) =>
+    setScenes(previous =>
+      previous.map(scene =>
         scene.id === sceneId
           ? { ...scene, action }
           : scene
@@ -404,15 +355,9 @@ export default function Studio() {
     );
   }
 
-  function selectScene(sceneId: string) {
-    stopSpeaking();
-    setActiveSceneId(sceneId);
-    setNotice("");
-  }
-
-  /* -------------------------------------------------
-  CHARACTER SELECTION
-  ------------------------------------------------- */
+  /* =====================================================
+     CHARACTER SELECTION
+  ===================================================== */
 
   function toggleCharacter(id: CharacterId) {
     setNotice("");
@@ -423,7 +368,7 @@ export default function Studio() {
         return;
       }
 
-      const updated = selectedIds.filter((item) => item !== id);
+      const updated = selectedIds.filter(item => item !== id);
 
       setSelectedIds(updated);
 
@@ -436,22 +381,20 @@ export default function Studio() {
         return;
       }
 
-      setSelectedIds((previous) => [...previous, id]);
+      setSelectedIds(previous => [...previous, id]);
 
-      setAppearances((previous) => ({
+      setAppearances(previous => ({
         ...previous,
-        [id]:
-          previous[id] ??
-          createDefaultAppearance(selectedIds.length)
+        [id]: previous[id] ?? createDefaultAppearance(selectedIds.length)
       }));
     }
 
     setScript(null);
   }
 
-  /* -------------------------------------------------
-  SCENE MANAGEMENT
-  ------------------------------------------------- */
+  /* =====================================================
+     SCENE MANAGEMENT
+  ===================================================== */
 
   function addScene() {
     const newScene = createEmptyScene(
@@ -459,31 +402,27 @@ export default function Studio() {
       activeScene.background
     );
 
-    setScenes((previous) => [...previous, newScene]);
-    setActiveSceneId(newScene.id);
+    setScenes(previous => [...previous, newScene]);
+    setCurrentScene(newScene.id);
     setNotice("New scene added.");
   }
 
   function duplicateScene(sceneId: string) {
-    const index = scenes.findIndex(
-      (scene) => scene.id === sceneId
-    );
+    const index = scenes.findIndex(scene => scene.id === sceneId);
 
     if (index === -1) return;
 
-    const original = scenes[index];
-
     const duplicate: Scene = {
-      ...original,
+      ...scenes[index],
       id: createSceneId(),
-      title: `${original.title} Copy`
+      title: `${scenes[index].title} Copy`
     };
 
     const updated = [...scenes];
     updated.splice(index + 1, 0, duplicate);
 
     setScenes(updated);
-    setActiveSceneId(duplicate.id);
+    setCurrentScene(duplicate.id);
     setNotice("Scene duplicated.");
   }
 
@@ -493,45 +432,30 @@ export default function Studio() {
       return;
     }
 
-    const index = scenes.findIndex(
-      (scene) => scene.id === sceneId
-    );
+    const index = scenes.findIndex(scene => scene.id === sceneId);
 
     if (index === -1) return;
 
-    const updated = scenes.filter(
-      (scene) => scene.id !== sceneId
-    );
+    const updated = scenes.filter(scene => scene.id !== sceneId);
 
     if (activeSceneId === sceneId) {
-      const next = updated[
-        Math.min(index, updated.length - 1)
-      ];
-
-      setActiveSceneId(next.id);
+      const next = updated[Math.min(index, updated.length - 1)];
+      setCurrentScene(next.id);
     }
 
     setScenes(updated);
     setNotice("Scene deleted.");
   }
 
-  function moveScene(
-    sceneId: string,
-    direction: -1 | 1
-  ) {
-    const index = scenes.findIndex(
-      (scene) => scene.id === sceneId
-    );
-
+  function moveScene(sceneId: string, direction: -1 | 1) {
+    const index = scenes.findIndex(scene => scene.id === sceneId);
     const newIndex = index + direction;
 
     if (
       index < 0 ||
       newIndex < 0 ||
       newIndex >= scenes.length
-    ) {
-      return;
-    }
+    ) return;
 
     const updated = [...scenes];
 
@@ -543,9 +467,9 @@ export default function Studio() {
     setScenes(updated);
   }
 
-  /* -------------------------------------------------
-  SCRIPT GENERATION
-  ------------------------------------------------- */
+  /* =====================================================
+     SCRIPT GENERATION
+  ===================================================== */
 
   function createScript() {
     if (selectedIds.length < 2) {
@@ -565,15 +489,16 @@ export default function Studio() {
         style
       });
 
-      const generatedScenes: Scene[] =
-        result.dialogue.map((line, index) => ({
+      const generatedScenes: Scene[] = result.dialogue.map(
+        (line, index) => ({
           id: createSceneId(),
           title: `Scene ${index + 1}`,
           duration: 5,
           background: scenes[0]?.background ?? "studio",
           action: getActionFromEmotion(line.emotion),
           dialogue: line.text
-        }));
+        })
+      );
 
       const finalScenes =
         generatedScenes.length > 0
@@ -584,7 +509,7 @@ export default function Studio() {
 
       setScript(result);
       setScenes(finalScenes);
-      setActiveSceneId(finalScenes[0].id);
+      setCurrentScene(finalScenes[0].id);
 
       setNotice(
         `Script created with ${finalScenes.length} dialogue scenes!`
@@ -598,9 +523,9 @@ export default function Studio() {
     }
   }
 
-  /* -------------------------------------------------
-  VOICE
-  ------------------------------------------------- */
+  /* =====================================================
+     VOICE
+  ===================================================== */
 
   function playDialogue(text: string) {
     if (!text.trim()) {
@@ -629,9 +554,9 @@ export default function Studio() {
     setNotice("Dialogue playback stopped.");
   }
 
-  /* -------------------------------------------------
-  RENDER
-  ------------------------------------------------- */
+  /* =====================================================
+     RENDER
+  ===================================================== */
 
   return (
     <main className="studio-app">
@@ -643,225 +568,239 @@ export default function Studio() {
 
         .studio-app {
           min-height: 100vh;
-          color: #f5f8fa;
-          background: #0b1115;
+          background: #090b12;
+          color: #f5f5fa;
+          font-family: "DM Sans", sans-serif;
+        }
+
+        button, input, textarea, select {
+          font: inherit;
+        }
+
+        button {
+          cursor: pointer;
+        }
+
+        button:disabled {
+          opacity: .4;
+          cursor: not-allowed;
         }
 
         .studio-layout {
-          width: min(1700px, 100%);
+          width: min(1800px, 100%);
           margin: auto;
-          padding: 18px;
+          padding: 16px;
         }
 
-        /* HEADER */
+        /* TOP BAR */
 
         .studio-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 15px;
-          margin-bottom: 16px;
-          padding: 15px 20px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 16px;
-          background: #121c22;
+          min-height: 68px;
+          margin-bottom: 14px;
+          padding: 12px 18px;
+          border: 1px solid #262839;
+          border-radius: 13px;
+          background: #121420;
         }
 
         .studio-brand {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 11px;
         }
 
         .studio-brand-icon {
           display: grid;
           place-items: center;
-          width: 43px;
-          height: 43px;
-          border-radius: 13px;
-          color: #062c28;
-          background: linear-gradient(135deg,#2dd4bf,#34d399);
-          font-size: 22px;
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
+          background: linear-gradient(135deg,#8265f5,#4c9df5);
+          font-size: 21px;
         }
 
         .studio-brand h1 {
           margin: 0;
-          font-size: 18px;
+          font-family: Outfit, sans-serif;
+          font-size: 17px;
+          font-weight: 800;
         }
 
         .studio-brand p {
-          margin: 4px 0 0;
-          color: #91a2ad;
-          font-size: 11px;
+          margin: 3px 0 0;
+          color: #85899c;
+          font-size: 10px;
         }
 
         .studio-header-actions {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 9px;
         }
 
         .studio-mode {
-          padding: 8px 12px;
-          border: 1px solid rgba(45,212,191,.25);
-          border-radius: 30px;
-          color: #5eead4;
-          background: rgba(45,212,191,.08);
-          font-size: 10px;
+          padding: 7px 10px;
+          border: 1px solid #5544a1;
+          border-radius: 7px;
+          color: #b8a9ff;
+          background: #211b3b;
+          font-size: 9px;
           font-weight: 800;
         }
 
-        .studio-button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          min-height: 39px;
-          padding: 0 13px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 10px;
-          color: #e5f2f2;
-          background: #22343d;
-          font-size: 11px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
+        .studio-button,
         .studio-primary {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          min-height: 44px;
-          padding: 0 16px;
+          gap: 7px;
+          min-height: 37px;
+          padding: 0 12px;
+          border: 1px solid #303347;
+          border-radius: 8px;
+          color: #e5e7f0;
+          background: #202235;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .studio-primary {
           border: 0;
-          border-radius: 11px;
-          color: #062c28;
-          background: linear-gradient(135deg,#2dd4bf,#34d399);
-          font-size: 12px;
-          font-weight: 900;
-          cursor: pointer;
+          color: white;
+          background: linear-gradient(135deg,#7656e8,#477ee9);
         }
 
-        .studio-button:disabled,
-        .studio-primary:disabled {
-          opacity: .4;
-          cursor: not-allowed;
+        .studio-button:hover:not(:disabled) {
+          border-color: #7662d9;
+          background: #292b43;
         }
 
-        /* NOTICE */
+        .studio-primary:hover:not(:disabled) {
+          filter: brightness(1.12);
+        }
+
+        /* NOTICES */
 
         .studio-notice {
-          margin-bottom: 14px;
-          padding: 12px 15px;
-          border: 1px solid rgba(45,212,191,.2);
-          border-radius: 11px;
-          color: #5eead4;
-          background: rgba(45,212,191,.07);
-          font-size: 12px;
+          margin-bottom: 13px;
+          padding: 11px 14px;
+          border: 1px solid #5544a1;
+          border-radius: 9px;
+          color: #c7baff;
+          background: #1c1930;
+          font-size: 11px;
         }
 
-        /* WORKSPACE */
+        /* MAIN GRID */
 
         .studio-workspace {
           display: grid;
-          grid-template-columns: minmax(245px,290px) minmax(0,1fr) minmax(245px,290px);
-          gap: 14px;
+          grid-template-columns: 260px minmax(0,1fr) 275px;
+          gap: 13px;
           align-items: start;
         }
 
-        .studio-panel {
+        .studio-panel,
+        .studio-preview,
+        .studio-timeline {
           min-width: 0;
-          padding: 16px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 15px;
-          background: #121c22;
+          border: 1px solid #262839;
+          border-radius: 12px;
+          background: #121420;
         }
 
-        .studio-panel-title {
-          margin: 0 0 5px;
-          font-size: 14px;
-          font-weight: 900;
-        }
-
-        .studio-panel-description {
-          margin: 0 0 15px;
-          color: #91a2ad;
-          font-size: 11px;
-          line-height: 1.5;
+        .studio-panel {
+          padding: 14px;
         }
 
         .studio-kicker {
           display: block;
-          margin-bottom: 7px;
-          color: #5eead4;
+          margin-bottom: 8px;
+          color: #a78bfa;
           font-size: 9px;
           font-weight: 900;
           letter-spacing: 1.2px;
         }
 
-        /* LEFT PANEL */
+        .studio-panel-title {
+          margin: 0 0 5px;
+          font-family: Outfit, sans-serif;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        .studio-panel-description {
+          margin: 0 0 14px;
+          color: #85899c;
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        /* CHARACTER PANEL */
 
         .studio-category-row {
           display: flex;
           gap: 5px;
-          margin-bottom: 12px;
+          margin-bottom: 11px;
         }
 
         .studio-category {
           flex: 1;
-          min-height: 32px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 8px;
-          color: #91a2ad;
-          background: #17242b;
-          font-size: 10px;
+          min-height: 30px;
+          border: 1px solid #303347;
+          border-radius: 7px;
+          color: #9699aa;
+          background: #1b1d2c;
+          font-size: 9px;
           font-weight: 800;
         }
 
         .studio-category.active {
-          border-color: #2dd4bf;
-          color: #5eead4;
-          background: rgba(45,212,191,.1);
+          border-color: #7963ed;
+          color: #c2b4ff;
+          background: #282044;
         }
 
         .studio-character-list {
           display: flex;
           flex-direction: column;
-          gap: 7px;
-          max-height: 360px;
+          gap: 6px;
+          max-height: 310px;
           overflow-y: auto;
         }
 
         .studio-character {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 9px;
           width: 100%;
-          min-height: 52px;
-          padding: 7px 9px;
-          border: 1px solid rgba(255,255,255,.07);
-          border-radius: 10px;
-          color: #f5f8fa;
+          min-height: 49px;
+          padding: 6px 8px;
+          border: 1px solid #292c3d;
+          border-radius: 8px;
+          color: white;
+          background: #1a1c2b;
           text-align: left;
-          background: #17242b;
-          cursor: pointer;
         }
 
         .studio-character.selected {
-          border-color: #2dd4bf;
-          background: rgba(45,212,191,.09);
+          border-color: #8065ed;
+          background: #282044;
         }
 
         .studio-character-emoji {
           display: grid;
           place-items: center;
-          width: 35px;
-          height: 35px;
+          width: 33px;
+          height: 33px;
           flex-shrink: 0;
-          border-radius: 9px;
-          background: #263840;
-          font-size: 20px;
+          border-radius: 8px;
+          background: #292b40;
+          font-size: 19px;
         }
 
         .studio-character-info {
@@ -873,37 +812,44 @@ export default function Studio() {
         }
 
         .studio-character-info strong {
-          font-size: 11px;
+          font-size: 10px;
         }
 
         .studio-character-info small {
-          color: #91a2ad;
+          color: #888ca0;
           font-size: 9px;
         }
 
         .studio-character-check {
-          color: #5eead4;
+          color: #a78bfa;
           font-weight: 900;
         }
 
         .studio-selected {
-          margin: 12px 0;
-          padding: 10px;
-          border-radius: 9px;
-          color: #a8c5c6;
-          background: rgba(45,212,191,.06);
-          font-size: 10px;
-          line-height: 1.5;
+          margin: 10px 0 15px;
+          padding: 9px;
+          border-radius: 8px;
+          color: #b7b0d7;
+          background: #201d32;
+          font-size: 9px;
+          line-height: 1.6;
+        }
+
+        .studio-divider {
+          height: 1px;
+          margin: 15px 0;
+          background: #292b3c;
         }
 
         /* INPUTS */
 
         .studio-field {
           display: block;
-          margin: 13px 0 7px;
-          color: #5eead4;
-          font-size: 10px;
+          margin: 12px 0 6px;
+          color: #aaa0d9;
+          font-size: 9px;
           font-weight: 900;
+          letter-spacing: .6px;
         }
 
         .studio-input,
@@ -911,17 +857,16 @@ export default function Studio() {
         .studio-select {
           display: block;
           width: 100%;
-          padding: 11px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 9px;
-          color: #f5f8fa;
-          background: #0d171c;
-          font: inherit;
-          font-size: 11px;
+          padding: 10px;
+          border: 1px solid #303347;
+          border-radius: 8px;
+          color: #f5f5fa;
+          background: #0e101b;
+          font-size: 10px;
         }
 
         .studio-textarea {
-          min-height: 100px;
+          min-height: 90px;
           resize: vertical;
           line-height: 1.6;
         }
@@ -929,13 +874,14 @@ export default function Studio() {
         .studio-input:focus,
         .studio-textarea:focus,
         .studio-select:focus {
-          border-color: #2dd4bf;
+          border-color: #8065ed;
           outline: none;
         }
 
         .studio-generate {
           width: 100%;
-          margin-top: 14px;
+          min-height: 42px;
+          margin-top: 13px;
         }
 
         /* CENTER PREVIEW */
@@ -946,9 +892,6 @@ export default function Studio() {
 
         .studio-preview {
           overflow: hidden;
-          border: 1px solid rgba(45,212,191,.2);
-          border-radius: 15px;
-          background: #121c22;
         }
 
         .studio-preview-heading {
@@ -956,18 +899,20 @@ export default function Studio() {
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          padding: 13px 15px;
+          min-height: 49px;
+          padding: 10px 14px;
+          border-bottom: 1px solid #292b3c;
         }
 
         .studio-preview-heading strong {
-          font-size: 12px;
+          font-size: 11px;
         }
 
         .studio-live {
           display: flex;
           align-items: center;
           gap: 6px;
-          color: #5eead4;
+          color: #66dcae;
           font-size: 9px;
           font-weight: 900;
         }
@@ -976,34 +921,40 @@ export default function Studio() {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #34d399;
-          box-shadow: 0 0 10px #34d399;
+          background: #50dc9b;
+          box-shadow: 0 0 10px #50dc9b;
         }
 
         .studio-preview-stage {
           overflow: hidden;
-          margin: 0 9px 9px;
-          border-radius: 11px;
-          background: #17272f;
+          margin: 10px;
+          border: 1px solid #34364c;
+          border-radius: 9px;
+          background: #20243c;
         }
 
-        .studio-preview-stage .character-stage {
+        .studio-preview-stage .character-preview-panel {
           min-height: 420px;
           border: 0;
-          border-radius: 11px;
+          border-radius: 9px;
         }
 
-        .studio-preview-stage .character-stage canvas {
-          min-height: 420px;
+        .studio-preview-stage canvas {
+          max-width: 100%;
         }
 
         .studio-preview-controls {
           display: flex;
-          flex-wrap: wrap;
           align-items: center;
           justify-content: space-between;
-          gap: 9px;
-          padding: 12px;
+          gap: 10px;
+          padding: 11px 13px;
+          border-top: 1px solid #292b3c;
+        }
+
+        .studio-scene-indicator {
+          color: #999caf;
+          font-size: 10px;
         }
 
         .studio-preview-actions {
@@ -1012,16 +963,11 @@ export default function Studio() {
           gap: 7px;
         }
 
-        .studio-scene-indicator {
-          color: #91a2ad;
-          font-size: 10px;
-        }
-
-        /* RIGHT PANEL */
+        /* SETTINGS */
 
         .studio-settings-section {
           padding: 12px 0;
-          border-bottom: 1px solid rgba(255,255,255,.07);
+          border-bottom: 1px solid #292b3c;
         }
 
         .studio-settings-section:last-child {
@@ -1030,11 +976,10 @@ export default function Studio() {
 
         .studio-settings-section summary {
           display: flex;
-          align-items: center;
           justify-content: space-between;
           gap: 8px;
-          color: #e5f2f2;
-          font-size: 11px;
+          color: #e6e4f0;
+          font-size: 10px;
           font-weight: 900;
           cursor: pointer;
           list-style: none;
@@ -1045,112 +990,103 @@ export default function Studio() {
         }
 
         .studio-settings-content {
-          padding-top: 13px;
+          padding-top: 12px;
         }
 
-        .studio-background-grid {
-          display: grid;
-          grid-template-columns: repeat(2,minmax(0,1fr));
-          gap: 7px;
-        }
-
-        .studio-background {
-          display: flex;
-          flex-direction: column;
-          gap: 7px;
-          padding: 8px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 9px;
-          color: #f5f8fa;
-          background: #17242b;
-          text-align: left;
-          font-size: 10px;
-          cursor: pointer;
-        }
-
-        .studio-background.active {
-          border-color: #2dd4bf;
-          background: rgba(45,212,191,.09);
-        }
-
-        .studio-background-swatch {
-          height: 37px;
-          border-radius: 6px;
-        }
-
+        .studio-background-grid,
         .studio-motion-grid {
           display: grid;
           grid-template-columns: repeat(2,minmax(0,1fr));
           gap: 6px;
         }
 
-        .studio-motion {
-          min-height: 37px;
-          padding: 6px;
-          border: 1px solid rgba(255,255,255,.08);
+        .studio-background {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 7px;
+          border: 1px solid #303347;
           border-radius: 8px;
-          color: #cbd5d9;
-          background: #17242b;
-          font-size: 10px;
-          cursor: pointer;
+          color: #e7e5f0;
+          background: #1b1d2c;
+          text-align: left;
+          font-size: 9px;
         }
 
+        .studio-background.active,
         .studio-motion.active {
-          border-color: #2dd4bf;
-          color: #5eead4;
-          background: rgba(45,212,191,.09);
+          border-color: #8065ed;
+          color: #c7baff;
+          background: #292044;
         }
+
+        .studio-background-swatch {
+          height: 31px;
+          border-radius: 5px;
+        }
+
+        .studio-motion {
+          min-height: 34px;
+          padding: 6px;
+          border: 1px solid #303347;
+          border-radius: 7px;
+          color: #c9c9d5;
+          background: #1b1d2c;
+          font-size: 9px;
+        }
+
+        /* APPEARANCE */
 
         .studio-appearance-character-list {
           display: flex;
           flex-wrap: wrap;
-          gap: 6px;
+          gap: 5px;
           margin-bottom: 12px;
         }
 
         .studio-appearance-character {
-          padding: 7px 9px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 8px;
-          color: #cbd5d9;
-          background: #17242b;
-          font-size: 10px;
+          padding: 7px;
+          border: 1px solid #303347;
+          border-radius: 7px;
+          color: #ccc9da;
+          background: #1b1d2c;
+          font-size: 9px;
         }
 
         .studio-appearance-character.active {
-          border-color: #2dd4bf;
-          color: #5eead4;
+          border-color: #8065ed;
+          color: #c7baff;
         }
 
         .studio-style-grid {
           display: grid;
           grid-template-columns: repeat(2,minmax(0,1fr));
-          gap: 7px;
+          gap: 6px;
         }
 
         .studio-style-button {
-          padding: 10px 5px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 8px;
-          color: #cbd5d9;
-          background: #17242b;
-          font-size: 10px;
+          min-height: 35px;
+          border: 1px solid #303347;
+          border-radius: 7px;
+          color: #c9c9d5;
+          background: #1b1d2c;
+          font-size: 9px;
         }
 
         .studio-style-button.active {
-          border-color: #2dd4bf;
-          color: #5eead4;
-          background: rgba(45,212,191,.08);
+          border-color: #8065ed;
+          color: #c7baff;
+          background: #292044;
         }
 
         .studio-color-group {
-          margin-top: 14px;
+          margin-top: 13px;
         }
 
         .studio-color-heading {
-          margin-bottom: 8px;
-          color: #cbd5d9;
-          font-size: 10px;
+          margin-bottom: 7px;
+          color: #c8c6d5;
+          font-size: 9px;
           font-weight: 800;
         }
 
@@ -1161,46 +1097,45 @@ export default function Studio() {
         }
 
         .studio-color-swatch {
-          width: 26px;
-          height: 26px;
+          width: 23px;
+          height: 23px;
           border: 2px solid transparent;
           border-radius: 50%;
-          box-shadow: 0 0 0 1px rgba(255,255,255,.15);
-          cursor: pointer;
+          box-shadow: 0 0 0 1px #55566a;
         }
 
         .studio-color-swatch.active {
-          border-color: #0b1115;
-          outline: 2px solid #2dd4bf;
+          border-color: #11121d;
+          outline: 2px solid #a78bfa;
         }
 
-        /* SCRIPT RESULTS */
+        /* GENERATED SCRIPT */
 
         .studio-script-result {
-          margin-top: 16px;
-          padding: 12px;
-          border: 1px solid rgba(45,212,191,.18);
-          border-radius: 11px;
-          background: rgba(45,212,191,.04);
+          margin-top: 14px;
+          padding: 11px;
+          border: 1px solid #40366d;
+          border-radius: 9px;
+          background: #1c1930;
         }
 
         .studio-script-result h3 {
           margin: 0 0 6px;
-          font-size: 13px;
+          font-size: 12px;
         }
 
         .studio-script-result > p {
-          color: #91a2ad;
+          color: #a5a2b7;
           font-size: 10px;
           line-height: 1.5;
         }
 
         .studio-dialogue {
-          margin-top: 10px;
-          padding: 11px;
-          border: 1px solid rgba(255,255,255,.07);
-          border-radius: 9px;
-          background: #17242b;
+          margin-top: 9px;
+          padding: 10px;
+          border: 1px solid #343148;
+          border-radius: 8px;
+          background: #191a29;
         }
 
         .studio-dialogue strong {
@@ -1208,8 +1143,8 @@ export default function Studio() {
         }
 
         .studio-dialogue p {
-          color: #d8e2e6;
-          font-size: 11px;
+          color: #d5d3e1;
+          font-size: 10px;
           line-height: 1.6;
         }
 
@@ -1220,87 +1155,82 @@ export default function Studio() {
         }
 
         .studio-dialogue-actions button {
-          min-height: 30px;
+          min-height: 28px;
           padding: 0 8px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 7px;
-          color: #cbd5d9;
-          background: #22343d;
+          border: 1px solid #39384e;
+          border-radius: 6px;
+          color: #d5d3e1;
+          background: #25263a;
           font-size: 9px;
         }
 
         /* TIMELINE */
 
         .studio-timeline {
-          margin-top: 15px;
-          padding: 16px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 15px;
-          background: #121c22;
+          margin-top: 13px;
+          padding: 13px;
         }
 
         .studio-timeline-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 13px;
+          gap: 10px;
+          margin-bottom: 12px;
         }
 
         .studio-timeline-header h2 {
           margin: 0;
-          font-size: 13px;
+          font-size: 12px;
         }
 
         .studio-timeline-header p {
           margin: 4px 0 0;
-          color: #91a2ad;
-          font-size: 10px;
+          color: #85899c;
+          font-size: 9px;
         }
 
         .studio-timeline-track {
           display: flex;
-          gap: 9px;
+          gap: 8px;
           overflow-x: auto;
-          padding: 4px 2px 12px;
+          padding: 3px 2px 11px;
         }
 
         .studio-timeline-card {
-          position: relative;
           display: flex;
+          flex: 0 0 150px;
           flex-direction: column;
           gap: 7px;
-          flex: 0 0 160px;
-          min-height: 105px;
-          padding: 11px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 10px;
-          color: #f5f8fa;
-          background: #17242b;
+          min-height: 103px;
+          padding: 10px;
+          border: 1px solid #303347;
+          border-radius: 8px;
+          color: white;
+          background: #1a1c2b;
           text-align: left;
-          cursor: pointer;
         }
 
         .studio-timeline-card.active {
-          border-color: #2dd4bf;
-          background: rgba(45,212,191,.09);
+          border-color: #8065ed;
+          background: #292044;
         }
 
         .studio-timeline-card strong {
-          font-size: 11px;
+          font-size: 10px;
         }
 
         .studio-timeline-card small {
-          color: #91a2ad;
+          color: #aaa7bd;
           font-size: 9px;
         }
 
         .studio-timeline-dialogue {
+          display: -webkit-box;
           overflow: hidden;
-          color: #cbd5d9;
+          color: #b8b7c8;
           font-size: 9px;
           line-height: 1.5;
-          display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
         }
@@ -1309,72 +1239,73 @@ export default function Studio() {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
-          margin-top: 12px;
+          margin-top: 10px;
         }
 
         .studio-timeline-actions button {
-          min-height: 33px;
-          padding: 0 10px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 8px;
-          color: #d8e2e6;
-          background: #22343d;
-          font-size: 10px;
-          font-weight: 700;
+          min-height: 31px;
+          padding: 0 9px;
+          border: 1px solid #34364a;
+          border-radius: 7px;
+          color: #d8d7e2;
+          background: #222437;
+          font-size: 9px;
         }
 
+        /* SCENE EDITOR */
+
         .studio-editor {
-          margin-top: 14px;
-          padding: 15px;
-          border: 1px solid rgba(45,212,191,.15);
-          border-radius: 11px;
-          background: rgba(45,212,191,.035);
+          margin-top: 13px;
+          padding: 13px;
+          border: 1px solid #343148;
+          border-radius: 9px;
+          background: #191a29;
         }
 
         .studio-editor h3 {
           margin: 0 0 10px;
-          font-size: 14px;
+          font-size: 12px;
         }
 
         .studio-player {
-          margin-top: 16px;
+          margin-top: 13px;
         }
 
         .studio-footer {
-          padding: 18px;
-          color: #91a2ad;
+          padding: 20px 10px 8px;
+          color: #777b8e;
           text-align: center;
-          font-size: 10px;
+          font-size: 9px;
         }
 
-        @media (max-width: 1100px) {
+        /* TABLET */
+
+        @media (max-width: 1150px) {
           .studio-workspace {
-            grid-template-columns: minmax(220px,260px) minmax(0,1fr);
+            grid-template-columns: 235px minmax(0,1fr);
           }
 
           .studio-right-panel {
             grid-column: 1 / -1;
             display: grid;
             grid-template-columns: repeat(2,minmax(0,1fr));
-            gap: 15px;
-          }
-
-          .studio-right-panel > .studio-settings-section {
-            border-bottom: 0;
+            gap: 0 18px;
           }
         }
 
+        /* MOBILE */
+
         @media (max-width: 700px) {
           .studio-layout {
-            padding: 10px;
+            padding: 8px;
           }
 
           .studio-header {
-            padding: 11px;
+            padding: 10px;
           }
 
           .studio-brand h1 {
-            font-size: 14px;
+            font-size: 13px;
           }
 
           .studio-brand p,
@@ -1401,48 +1332,37 @@ export default function Studio() {
             display: block;
           }
 
-          .studio-preview-stage .character-stage {
-            min-height: 300px;
-          }
-
-          .studio-preview-stage .character-stage canvas {
-            min-height: 300px;
-          }
-
           .studio-panel {
-            padding: 13px;
+            padding: 12px;
+          }
+
+          .studio-preview-stage .character-preview-panel {
+            min-height: 300px;
           }
 
           .studio-character-list {
             display: grid;
             grid-template-columns: repeat(2,minmax(0,1fr));
-            max-height: 320px;
-          }
-
-          .studio-character {
-            min-height: 58px;
-            padding: 6px;
-          }
-
-          .studio-character-emoji {
-            width: 30px;
-            height: 30px;
-            font-size: 17px;
-          }
-
-          .studio-timeline {
-            padding: 12px;
+            max-height: 300px;
           }
 
           .studio-preview-controls {
             align-items: flex-start;
             flex-direction: column;
           }
+
+          .studio-timeline {
+            padding: 10px;
+          }
+
+          .studio-timeline-card {
+            flex-basis: 135px;
+          }
         }
 
         @media (max-width: 380px) {
           .studio-layout {
-            padding: 7px;
+            padding: 6px;
           }
 
           .studio-brand-icon {
@@ -1450,12 +1370,8 @@ export default function Studio() {
             height: 35px;
           }
 
-          .studio-character-list {
-            gap: 5px;
-          }
-
-          .studio-character-info strong {
-            font-size: 10px;
+          .studio-header-actions .studio-button {
+            padding: 0 8px;
           }
         }
 
@@ -1463,7 +1379,7 @@ export default function Studio() {
 
       <div className="studio-layout">
 
-        {/* HEADER */}
+        {/* TOP TOOLBAR */}
 
         <header className="studio-header">
           <div className="studio-brand">
@@ -1471,7 +1387,7 @@ export default function Studio() {
 
             <div>
               <h1>CharacterAI Studio</h1>
-              <p>Create characters. Create stories. Make people laugh.</p>
+              <p>AI Character & Comedy Video Creator</p>
             </div>
           </div>
 
@@ -1505,41 +1421,37 @@ export default function Studio() {
 
         <div className="studio-workspace">
 
-          {/* LEFT: CHARACTERS AND STORY */}
+          {/* LEFT: ASSETS AND STORY */}
 
           <aside className="studio-panel studio-left-panel">
 
-            <span className="studio-kicker">01 / CREATE</span>
+            <span className="studio-kicker">01 / CHARACTERS</span>
 
             <h2 className="studio-panel-title">
-              Your Characters
+              Character Library
             </h2>
 
             <p className="studio-panel-description">
-              Choose up to four characters for your comedy.
+              Select up to four characters for your video.
             </p>
 
             <div className="studio-category-row">
-              {(["All", "Animals", "Food"] as const).map(
-                (category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className={`studio-category ${
-                      characterCategory === category
-                        ? "active"
-                        : ""
-                    }`}
-                    onClick={() => setCharacterCategory(category)}
-                  >
-                    {category}
-                  </button>
-                )
-              )}
+              {(["All", "Animals", "Food"] as const).map(category => (
+                <button
+                  key={category}
+                  type="button"
+                  className={`studio-category ${
+                    characterCategory === category ? "active" : ""
+                  }`}
+                  onClick={() => setCharacterCategory(category)}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
 
             <div className="studio-character-list">
-              {filteredCharacters.map((character) => {
+              {filteredCharacters.map(character => {
                 const selected = selectedIds.includes(character.id);
 
                 return (
@@ -1570,87 +1482,84 @@ export default function Studio() {
             </div>
 
             <div className="studio-selected">
-              <strong>{selectedIds.length}/4 selected</strong>
+              <strong>{selectedIds.length}/4 characters selected</strong>
               <br />
               {selectedCharacterNames.join(", ")}
             </div>
 
-            <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 15 }}>
-              <span className="studio-kicker">02 / STORY IDEA</span>
+            <div className="studio-divider" />
 
-              <h2 className="studio-panel-title">
-                What happens?
-              </h2>
+            <span className="studio-kicker">02 / STORY CREATOR</span>
 
-              <p className="studio-panel-description">
-                Describe your comedy idea. Your characters will bring it to life.
-              </p>
+            <h2 className="studio-panel-title">
+              Create Your Story
+            </h2>
 
-              <label className="studio-field" htmlFor="studio-topic">
-                COMEDY IDEA
-              </label>
+            <p className="studio-panel-description">
+              Describe a situation and let your characters create the comedy.
+            </p>
 
-              <textarea
-                id="studio-topic"
-                className="studio-textarea"
-                value={topic}
-                onChange={(event) => setTopic(event.target.value)}
-                placeholder="A lion tries to become a famous TikTok influencer..."
-              />
+            <label className="studio-field" htmlFor="studio-topic">
+              STORY IDEA
+            </label>
 
-              <label className="studio-field" htmlFor="studio-comedy-style">
-                COMEDY STYLE
-              </label>
+            <textarea
+              id="studio-topic"
+              className="studio-textarea"
+              value={topic}
+              onChange={event => setTopic(event.target.value)}
+              placeholder="A lion tries to become a famous TikTok influencer..."
+            />
 
-              <select
-                id="studio-comedy-style"
-                className="studio-select"
-                value={style}
-                onChange={(event) =>
-                  setStyle(event.target.value as ComedyStyle)
-                }
-              >
-                {comedyStyles.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+            <label className="studio-field" htmlFor="studio-comedy-style">
+              COMEDY STYLE
+            </label>
 
-              <label className="studio-field" htmlFor="studio-language">
-                VOICE LANGUAGE
-              </label>
+            <select
+              id="studio-comedy-style"
+              className="studio-select"
+              value={style}
+              onChange={event =>
+                setStyle(event.target.value as ComedyStyle)
+              }
+            >
+              {comedyStyles.map(item => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
 
-              <select
-                id="studio-language"
-                className="studio-select"
-                value={language}
-                onChange={(event) => setLanguage(event.target.value)}
-              >
-                {SUPPORTED_VOICE_LANGUAGES.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+            <label className="studio-field" htmlFor="studio-language">
+              VOICE LANGUAGE
+            </label>
 
-              <button
-                type="button"
-                className="studio-primary studio-generate"
-                onClick={createScript}
-              >
-                ✨ Generate Comedy Script
-              </button>
-            </div>
+            <select
+              id="studio-language"
+              className="studio-select"
+              value={language}
+              onChange={event => setLanguage(event.target.value)}
+            >
+              {SUPPORTED_VOICE_LANGUAGES.map(item => (
+                <option key={item.code} value={item.code}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="studio-primary studio-generate"
+              onClick={createScript}
+            >
+              ✨ Generate Comedy Script
+            </button>
 
             {/* GENERATED SCRIPT */}
 
             {script && (
               <div className="studio-script-result">
-                <span className="studio-kicker">YOUR GENERATED SCRIPT</span>
+                <span className="studio-kicker">GENERATED SCRIPT</span>
 
                 <h3>{script.title}</h3>
-
                 <p>{script.description}</p>
 
                 {script.dialogue.map((line, index) => {
@@ -1675,12 +1584,8 @@ export default function Studio() {
                             if (!relatedScene) return;
 
                             stopSpeaking();
-                            setActiveSceneId(relatedScene.id);
-
-                            updateSceneAction(
-                              relatedScene.id,
-                              "talk"
-                            );
+                            setCurrentScene(relatedScene.id);
+                            updateSceneAction(relatedScene.id, "talk");
 
                             const started = speakText(line.text, {
                               ...DEFAULT_VOICE_SETTINGS,
@@ -1701,8 +1606,9 @@ export default function Studio() {
                           type="button"
                           disabled={!relatedScene}
                           onClick={() => {
-                            if (!relatedScene) return;
-                            selectScene(relatedScene.id);
+                            if (relatedScene) {
+                              selectScene(relatedScene.id);
+                            }
                           }}
                         >
                           Select
@@ -1725,7 +1631,7 @@ export default function Studio() {
 
           </aside>
 
-          {/* CENTER: 3D PREVIEW */}
+          {/* CENTER: CHARACTER PREVIEW AND TIMELINE */}
 
           <section className="studio-center">
 
@@ -1738,7 +1644,7 @@ export default function Studio() {
 
                 <span className="studio-live">
                   <span className="studio-live-dot" />
-                  LIVE PREVIEW
+                  LIVE 3D PREVIEW
                 </span>
               </div>
 
@@ -1757,18 +1663,14 @@ export default function Studio() {
 
               <div className="studio-preview-controls">
                 <span className="studio-scene-indicator">
-                  Scene {scenes.findIndex(
-                    (scene) => scene.id === activeSceneId
-                  ) + 1} of {scenes.length}
+                  Scene {activeSceneIndex + 1} of {scenes.length}
                 </span>
 
                 <div className="studio-preview-actions">
                   <button
                     type="button"
                     className="studio-button"
-                    onClick={() =>
-                      playDialogue(activeScene.dialogue)
-                    }
+                    onClick={() => playDialogue(activeScene.dialogue)}
                     disabled={!activeScene.dialogue.trim()}
                   >
                     ▶ Play Dialogue
@@ -1783,18 +1685,17 @@ export default function Studio() {
                   </button>
                 </div>
               </div>
+
             </div>
 
-            {/* TIMELINE */}
+            {/* SCENE TIMELINE */}
 
             <section className="studio-timeline">
 
               <div className="studio-timeline-header">
                 <div>
                   <h2>🎞️ Scene Timeline</h2>
-                  <p>
-                    Select a scene to edit and preview it.
-                  </p>
+                  <p>Build and organize your video scenes.</p>
                 </div>
 
                 <button
@@ -1831,7 +1732,7 @@ export default function Studio() {
                 ))}
               </div>
 
-              {/* TIMELINE ACTIONS */}
+              {/* SCENE ACTIONS */}
 
               <div className="studio-timeline-actions">
                 <button
@@ -1844,9 +1745,7 @@ export default function Studio() {
                 <button
                   type="button"
                   onClick={() => moveScene(activeSceneId, -1)}
-                  disabled={scenes.findIndex(
-                    (scene) => scene.id === activeSceneId
-                  ) <= 0}
+                  disabled={activeSceneIndex <= 0}
                 >
                   ↑ Move left
                 </button>
@@ -1854,9 +1753,7 @@ export default function Studio() {
                 <button
                   type="button"
                   onClick={() => moveScene(activeSceneId, 1)}
-                  disabled={scenes.findIndex(
-                    (scene) => scene.id === activeSceneId
-                  ) >= scenes.length - 1}
+                  disabled={activeSceneIndex >= scenes.length - 1}
                 >
                   Move right ↓
                 </button>
@@ -1870,7 +1767,7 @@ export default function Studio() {
                 </button>
               </div>
 
-              {/* ACTIVE SCENE EDITOR */}
+              {/* SCENE EDITOR */}
 
               <div className="studio-editor">
                 <h3>✏️ Edit {activeScene.title}</h3>
@@ -1884,10 +1781,8 @@ export default function Studio() {
                   className="studio-input"
                   value={activeScene.title}
                   maxLength={50}
-                  onChange={(event) =>
-                    updateActiveScene({
-                      title: event.target.value
-                    })
+                  onChange={event =>
+                    updateActiveScene({ title: event.target.value })
                   }
                 />
 
@@ -1902,7 +1797,7 @@ export default function Studio() {
                   min={2}
                   max={30}
                   value={activeScene.duration}
-                  onChange={(event) => {
+                  onChange={event => {
                     const value = Number(event.target.value);
 
                     updateActiveScene({
@@ -1919,10 +1814,8 @@ export default function Studio() {
                   id="scene-dialogue"
                   className="studio-textarea"
                   value={activeScene.dialogue}
-                  onChange={(event) =>
-                    updateActiveScene({
-                      dialogue: event.target.value
-                    })
+                  onChange={event =>
+                    updateActiveScene({ dialogue: event.target.value })
                   }
                   placeholder="Write what your characters should say..."
                 />
@@ -1931,9 +1824,7 @@ export default function Studio() {
                   <button
                     type="button"
                     className="studio-primary"
-                    onClick={() =>
-                      playDialogue(activeScene.dialogue)
-                    }
+                    onClick={() => playDialogue(activeScene.dialogue)}
                     disabled={!activeScene.dialogue.trim()}
                   >
                     ▶ Play Dialogue
@@ -1955,31 +1846,37 @@ export default function Studio() {
                 <ScenePlayer
                   scenes={scenes}
                   language={language}
-                  onSceneChange={(id) => setActiveSceneId(id)}
-                  onActionChange={(action) => {
-                    updateSceneAction(activeSceneId, action);
+                  onSceneChange={id => {
+                    setCurrentScene(id);
+                  }}
+                  onActionChange={action => {
+                    updateSceneAction(
+                      activeSceneIdRef.current,
+                      action
+                    );
                   }}
                 />
               </div>
 
             </section>
+
           </section>
 
-          {/* RIGHT: SETTINGS */}
+          {/* RIGHT: INSPECTOR */}
 
           <aside className="studio-panel studio-right-panel">
 
-            <span className="studio-kicker">03 / CUSTOMIZE</span>
+            <span className="studio-kicker">03 / INSPECTOR</span>
 
             <h2 className="studio-panel-title">
-              Studio Settings
+              Scene Properties
             </h2>
 
             <p className="studio-panel-description">
-              Customize your scene, character and animation.
+              Customize the environment, animation, character and voice.
             </p>
 
-            {/* BACKGROUND */}
+            {/* ENVIRONMENT */}
 
             <details className="studio-settings-section" open>
               <summary>
@@ -1989,26 +1886,21 @@ export default function Studio() {
 
               <div className="studio-settings-content">
                 <div className="studio-background-grid">
-                  {backgrounds.map((item) => (
+                  {backgrounds.map(item => (
                     <button
                       key={item.id}
                       type="button"
                       className={`studio-background ${
-                        activeScene.background === item.id
-                          ? "active"
-                          : ""
+                        activeScene.background === item.id ? "active" : ""
                       }`}
                       onClick={() =>
-                        updateActiveScene({
-                          background: item.id
-                        })
+                        updateActiveScene({ background: item.id })
                       }
                     >
                       <span
                         className="studio-background-swatch"
                         style={{ background: item.color }}
                       />
-
                       {item.emoji} {item.name}
                     </button>
                   ))}
@@ -2020,26 +1912,21 @@ export default function Studio() {
 
             <details className="studio-settings-section" open>
               <summary>
-                🎭 Character Motion
+                🎭 Character Animation
                 <span>⌄</span>
               </summary>
 
               <div className="studio-settings-content">
                 <div className="studio-motion-grid">
-                  {animationActions.map((item) => (
+                  {animationActions.map(item => (
                     <button
                       key={item.id}
                       type="button"
                       className={`studio-motion ${
-                        activeScene.action === item.id
-                          ? "active"
-                          : ""
+                        activeScene.action === item.id ? "active" : ""
                       }`}
                       onClick={() => {
-                        updateActiveScene({
-                          action: item.id
-                        });
-
+                        updateActiveScene({ action: item.id });
                         setNotice(`${item.name} animation selected.`);
                       }}
                     >
@@ -2050,7 +1937,7 @@ export default function Studio() {
               </div>
             </details>
 
-            {/* CHARACTER APPEARANCE */}
+            {/* APPEARANCE */}
 
             <details className="studio-settings-section">
               <summary>
@@ -2061,9 +1948,9 @@ export default function Studio() {
               <div className="studio-settings-content">
 
                 <div className="studio-appearance-character-list">
-                  {selectedIds.map((id) => {
+                  {selectedIds.map(id => {
                     const character = characters.find(
-                      (item) => item.id === id
+                      item => item.id === id
                     );
 
                     if (!character) return null;
@@ -2083,9 +1970,7 @@ export default function Studio() {
                   })}
                 </div>
 
-                <div className="studio-color-heading">
-                  3D STYLE
-                </div>
+                <div className="studio-color-heading">3D STYLE</div>
 
                 <div className="studio-style-grid">
                   <button
@@ -2103,47 +1988,37 @@ export default function Studio() {
                     className={`studio-style-button ${
                       activeAppearance.style === "realistic" ? "active" : ""
                     }`}
-                    onClick={() =>
-                      updateAppearance("style", "realistic")
-                    }
+                    onClick={() => updateAppearance("style", "realistic")}
                   >
                     🧑 Realistic
                   </button>
                 </div>
 
                 <div className="studio-color-group">
-                  <div className="studio-color-heading">
-                    Skin Tone
-                  </div>
+                  <div className="studio-color-heading">Skin Tone</div>
 
                   <div className="studio-color-swatches">
-                    {skinTones.map((color) => (
+                    {skinTones.map(color => (
                       <button
                         key={color}
                         type="button"
                         className={`studio-color-swatch ${
-                          activeAppearance.skinTone === color
-                            ? "active"
-                            : ""
+                          activeAppearance.skinTone === color ? "active" : ""
                         }`}
                         style={{ background: color }}
                         title={color}
                         aria-label={`Choose skin tone ${color}`}
-                        onClick={() =>
-                          updateAppearance("skinTone", color)
-                        }
+                        onClick={() => updateAppearance("skinTone", color)}
                       />
                     ))}
                   </div>
                 </div>
 
                 <div className="studio-color-group">
-                  <div className="studio-color-heading">
-                    Clothing Color
-                  </div>
+                  <div className="studio-color-heading">Clothing Color</div>
 
                   <div className="studio-color-swatches">
-                    {clothingColors.map((color) => (
+                    {clothingColors.map(color => (
                       <button
                         key={color}
                         type="button"
@@ -2164,26 +2039,20 @@ export default function Studio() {
                 </div>
 
                 <div className="studio-color-group">
-                  <div className="studio-color-heading">
-                    Hair Color
-                  </div>
+                  <div className="studio-color-heading">Hair Color</div>
 
                   <div className="studio-color-swatches">
-                    {hairColors.map((color) => (
+                    {hairColors.map(color => (
                       <button
                         key={color}
                         type="button"
                         className={`studio-color-swatch ${
-                          activeAppearance.hairColor === color
-                            ? "active"
-                            : ""
+                          activeAppearance.hairColor === color ? "active" : ""
                         }`}
                         style={{ background: color }}
                         title={color}
                         aria-label={`Choose hair color ${color}`}
-                        onClick={() =>
-                          updateAppearance("hairColor", color)
-                        }
+                        onClick={() => updateAppearance("hairColor", color)}
                       />
                     ))}
                   </div>
@@ -2192,7 +2061,7 @@ export default function Studio() {
                 <button
                   type="button"
                   className="studio-button"
-                  style={{ width: "100%", marginTop: 15 }}
+                  style={{ width: "100%", marginTop: 14 }}
                   onClick={resetAppearance}
                 >
                   ↺ Reset Appearance
@@ -2218,22 +2087,20 @@ export default function Studio() {
                   id="right-language"
                   className="studio-select"
                   value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
+                  onChange={event => setLanguage(event.target.value)}
                 >
-                  {SUPPORTED_VOICE_LANGUAGES.map((item) => (
+                  {SUPPORTED_VOICE_LANGUAGES.map(item => (
                     <option key={item.code} value={item.code}>
                       {item.name}
                     </option>
                   ))}
                 </select>
 
-                <p
-                  style={{
-                    color: "#91a2ad",
-                    fontSize: 9,
-                    lineHeight: 1.5
-                  }}
-                >
+                <p style={{
+                  color: "#85899c",
+                  fontSize: 9,
+                  lineHeight: 1.5
+                }}>
                   Available voices depend on the voices installed in your browser or device.
                 </p>
               </div>
@@ -2250,4 +2117,4 @@ export default function Studio() {
       </div>
     </main>
   );
-    }
+}
