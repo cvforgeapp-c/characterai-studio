@@ -1,32 +1,329 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Character AI Studio — Kling Style</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            kling: {
+              bg: '#0B0F12',
+              card: '#131A1E',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderHover: 'rgba(56, 239, 186, 0.3)',
+              accent: '#38EFBE',
+              accentDark: '#128669',
+              teal: '#00F5B4',
+              glow: 'rgba(56, 239, 186, 0.15)',
+            }
+          },
+          backgroundImage: {
+            'radial-glow': 'radial-gradient(circle at 50% 30%, rgba(26, 60, 52, 0.45) 0%, rgba(11, 15, 18, 0.95) 70%)',
+            'card-gradient': 'linear-gradient(180deg, rgba(23, 31, 36, 0.8) 0%, rgba(15, 21, 25, 0.9) 100%)',
+            'hero-btn': 'linear-gradient(135deg, #38EFBE 0%, #11998E 100%)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar & Utility Aesthetics */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0F12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #38EFBE;
+    }
 
-    <meta
-      name="description"
-      content="Create hilarious 3D talking animal and food comedy videos in multiple languages with CharacterAI Studio."
-    />
+    .glass-card {
+      background: rgba(19, 26, 30, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
 
-    <meta name="theme-color" content="#10111b" />
+    .glass-card-active {
+      background: rgba(22, 38, 35, 0.85);
+      border: 1px solid #38EFBE !important;
+      box-shadow: 0 0 25px rgba(56, 239, 186, 0.2);
+    }
 
-    <title>CharacterAI Studio — Create 3D Comedy Videos</title>
+    /* Ambient Glow Behind Stage */
+    .stage-spotlight {
+      background: radial-gradient(ellipse at center, rgba(56, 239, 186, 0.18) 0%, rgba(0,0,0,0) 70%);
+    }
+  </style>
+</head>
+<body class="bg-kling-bg text-slate-200 font-sans antialiased min-h-screen pb-16 selection:bg-kling-accent selection:text-black">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- TOP NAVBAR -->
+  <header class="sticky top-0 z-50 glass-card border-b border-kling-border px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-hero-btn flex items-center justify-center text-black font-extrabold text-lg shadow-lg shadow-kling-accent/20">
+        AI
+      </div>
+      <span class="text-lg font-bold tracking-tight text-white">Character Studio <span class="text-xs px-2 py-0.5 rounded-full bg-kling-accent/10 text-kling-accent border border-kling-accent/20 ml-2">PRO 3D</span></span>
+    </div>
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <div class="flex items-center space-x-4">
+      <button class="text-xs uppercase tracking-wider font-semibold text-slate-400 hover:text-white transition">Docs</button>
+      <button class="bg-hero-btn text-slate-950 font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-kling-accent/25 flex items-center space-x-2">
+        <span>Create Studio</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </button>
+    </div>
+  </header>
 
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  </head>
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 pt-8 space-y-8">
 
-  <body>
-    <div id="root"></div>
+    <!-- SECTION 1: CREATION MODE -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs font-bold tracking-widest text-kling-accent uppercase">Mode Selection</span>
+        <h2 class="text-xl font-bold text-white tracking-tight">Select Your Creation Mode</h2>
+      </div>
 
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Recreate Template -->
+        <div onclick="selectMode('template')" id="mode-template" class="glass-card glass-card-active rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden group">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <span class="text-[10px] uppercase font-bold tracking-widest text-kling-accent/80">Mode 01</span>
+              <h3 class="text-lg font-bold text-white">Recreate a Template</h3>
+              <p class="text-xs text-slate-400 mt-1">Start with cinematic story prompts & customize parameters.</p>
+            </div>
+            <span class="w-5 h-5 rounded-full bg-kling-accent flex items-center justify-center text-black font-bold text-xs shadow-md">✓</span>
+          </div>
+          <!-- Visual Banner Mockup -->
+          <div class="h-24 rounded-xl bg-slate-900 border border-white/5 overflow-hidden relative mt-2 group-hover:border-kling-accent/40 transition">
+            <div class="absolute inset-0 bg-gradient-to-r from-teal-950/40 via-purple-950/30 to-black/80 flex items-center justify-center">
+              <span class="text-xs text-slate-300 font-medium tracking-wide">🎬 Preset Cinematic Stories</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create Own Story -->
+        <div onclick="selectMode('custom')" id="mode-custom" class="glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden group hover:border-slate-700">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Mode 02</span>
+              <h3 class="text-lg font-bold text-white">Create Your Own Story</h3>
+              <p class="text-xs text-slate-400 mt-1">Invent a custom prompt and select custom cast performance.</p>
+            </div>
+            <span class="text-slate-600 font-bold text-lg group-hover:text-white transition">+</span>
+          </div>
+          <!-- Visual Banner Mockup -->
+          <div class="h-24 rounded-xl bg-slate-900 border border-white/5 overflow-hidden relative mt-2 group-hover:border-slate-700 transition">
+            <div class="absolute inset-0 bg-gradient-to-r from-blue-950/40 via-indigo-950/40 to-black/80 flex items-center justify-center">
+              <span class="text-xs text-slate-400 font-medium tracking-wide">✨ Blank Canvas Generation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: CAST SELECTION GRID -->
+    <section class="glass-card rounded-3xl p-6 border border-kling-border">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <span class="text-xs font-bold tracking-widest text-kling-accent uppercase">Build Your Cast</span>
+          <h2 class="text-2xl font-bold text-white">Choose your characters</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Select up to 4 characters for interactive video synthesis.</p>
+        </div>
+        <div class="flex items-center space-x-3">
+          <!-- Filter Tabs -->
+          <div class="bg-black/40 p-1 rounded-xl border border-white/5 flex text-xs font-medium">
+            <button onclick="filterCast('all')" class="px-4 py-1.5 rounded-lg bg-kling-accent text-slate-950 font-bold transition">All</button>
+            <button onclick="filterCast('animals')" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">Animals</button>
+            <button onclick="filterCast('food')" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">Food</button>
+          </div>
+          <span class="text-xs font-mono px-3 py-1.5 rounded-xl bg-slate-900 border border-white/10 text-kling-accent" id="selected-count">2/4 Selected</span>
+        </div>
+      </div>
+
+      <!-- Character Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5" id="character-grid">
+        <!-- Javascript dynamically updates this -->
+      </div>
+    </section>
+
+    <!-- SECTION 3: KLING-STYLE 3D STAGE PREVIEW -->
+    <section class="glass-card rounded-3xl p-8 border border-kling-border relative overflow-hidden bg-radial-glow">
+      <div class="stage-spotlight absolute inset-0 pointer-events-none"></div>
+
+      <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <span class="text-xs font-bold tracking-widest text-kling-accent uppercase">Meet Your Cast</span>
+          <h2 class="text-2xl font-bold text-white">Character Preview Stage</h2>
+          <p class="text-xs text-slate-400">Your selected performers are mapped and ready for 3D engine render.</p>
+        </div>
+        <span class="text-[11px] font-mono tracking-wider px-3 py-1 rounded-full bg-emerald-500/10 text-kling-accent border border-kling-accent/30 w-max">
+          ● 3D ENGINE PHASE ACTIVE
+        </span>
+      </div>
+
+      <!-- Spotlight Display Stage -->
+      <div class="relative z-10 py-10 px-4 flex justify-center items-center gap-8 sm:gap-16 min-h-[220px]" id="stage-characters">
+        <!-- Rendered selected 3D characters -->
+      </div>
+    </section>
+
+    <!-- SECTION 4: SCENE & PROMPT SETTINGS -->
+    <section class="glass-card rounded-3xl p-6 border border-kling-border space-y-6">
+      <div>
+        <span class="text-xs font-bold tracking-widest text-kling-accent uppercase">Next Scene</span>
+        <h2 class="text-2xl font-bold text-white">Design Your Scene</h2>
+        <p class="text-xs text-slate-400">Pick a preset starting prompt or write custom dialogue.</p>
+      </div>
+
+      <!-- Templates Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div onclick="selectScene('Vegetable Argument')" class="glass-card p-4 rounded-2xl border border-white/10 hover:border-kling-accent cursor-pointer transition group">
+          <div class="text-2xl mb-2">🍅</div>
+          <div class="text-[10px] font-bold text-kling-accent uppercase">Comedy • 30s</div>
+          <h4 class="text-sm font-bold text-white group-hover:text-kling-accent transition">The Vegetable Argument</h4>
+          <p class="text-xs text-slate-400 mt-1">Tomato vs Onion clash in the kitchen garden.</p>
+        </div>
+
+        <div onclick="selectScene('The Lion Interview')" class="glass-card glass-card-active p-4 rounded-2xl cursor-pointer transition group">
+          <div class="text-2xl mb-2">🦁</div>
+          <div class="text-[10px] font-bold text-kling-accent uppercase">Funny • 45s</div>
+          <h4 class="text-sm font-bold text-white group-hover:text-kling-accent transition">The Lion Interview</h4>
+          <p class="text-xs text-slate-400 mt-1">Lion and Monkey discuss royal jungle politics.</p>
+        </div>
+
+        <div onclick="selectScene('Chicken Goes to School')" class="glass-card p-4 rounded-2xl border border-white/10 hover:border-kling-accent cursor-pointer transition group">
+          <div class="text-2xl mb-2">🐔</div>
+          <div class="text-[10px] font-bold text-kling-accent uppercase">Comedy • 40s</div>
+          <h4 class="text-sm font-bold text-white group-hover:text-kling-accent transition">Chicken Goes to School</h4>
+          <p class="text-xs text-slate-400 mt-1">Chicken and Goat try to pass high school math.</p>
+        </div>
+      </div>
+
+      <!-- Prompt Text Area -->
+      <div class="space-y-2">
+        <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Story Script or Dialogue</label>
+        <textarea id="prompt-input" rows="3" class="w-full bg-slate-950/80 border border-white/10 rounded-2xl p-4 text-sm text-slate-200 focus:outline-none focus:border-kling-accent focus:ring-1 focus:ring-kling-accent transition placeholder:text-slate-600">The angry onion catches the tomato stealing vegetables from his garden. The tomato starts crying and makes funny excuses...</textarea>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-white/5 gap-4">
+        <div class="text-xs text-slate-400 flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-kling-accent animate-pulse"></span>
+          <span>Ready for rendering engine pipeline</span>
+        </div>
+        <button class="w-full sm:w-auto bg-hero-btn text-slate-950 font-bold text-sm px-8 py-3.5 rounded-2xl hover:opacity-90 transition shadow-lg shadow-kling-accent/25 flex items-center justify-center space-x-2">
+          <span>Continue to Settings</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-6 mt-12 text-center text-xs text-slate-600 flex justify-between border-t border-white/5 pt-6">
+    <span>© 2026 Character AI Studio</span>
+    <span>Powered by Next-Gen Video AI</span>
+  </footer>
+
+  <!-- INTERACTIVE LOGIC SCRIPT -->
+  <script>
+    const characters = [
+      { id: 'leo', name: 'King Leo', trait: 'Confident', type: 'animals', emoji: '🦁' },
+      { id: 'milo', name: 'Milo Monkey', trait: 'Funny', type: 'animals', emoji: '🐵' },
+      { id: 'benny', name: 'Benny Dog', trait: 'Playful', type: 'animals', emoji: '🐶' },
+      { id: 'cleo', name: 'Cleo Cat', trait: 'Sarcastic', type: 'animals', emoji: '🐱' },
+      { id: 'gigi', name: 'Gigi Goat', trait: 'Stubborn', type: 'animals', emoji: '🐐' },
+      { id: 'chika', name: 'Chika Chicken', trait: 'Dramatic', type: 'animals', emoji: '🐔' },
+      { id: 'tina', name: 'Tina Tomato', trait: 'Dramatic', type: 'food', emoji: '🍅' },
+      { id: 'omar', name: 'Omar Onion', trait: 'Serious', type: 'food', emoji: '🧅' }
+    ];
+
+    let selectedIds = ['leo', 'milo'];
+
+    function renderCharacters() {
+      const grid = document.getElementById('character-grid');
+      grid.innerHTML = characters.map(c => {
+        const isSelected = selectedIds.includes(c.id);
+        return `
+          <div onclick="toggleSelect('${c.id}')" class="p-3.5 rounded-2xl cursor-pointer transition-all duration-200 border ${isSelected ? 'glass-card-active' : 'glass-card hover:border-slate-700'} flex items-center space-x-3 group">
+            <div class="text-3xl p-2 rounded-xl bg-slate-900/80 border border-white/5 group-hover:scale-105 transition">${c.emoji}</div>
+            <div class="overflow-hidden flex-1">
+              <div class="text-xs font-bold text-white truncate">${c.name}</div>
+              <div class="text-[10px] text-slate-400 capitalize">${c.trait} • ${c.type}</div>
+            </div>
+            ${isSelected ? '<span class="text-kling-accent text-xs font-bold">✓</span>' : '<span class="text-slate-600 text-xs">+</span>'}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('selected-count').innerText = `${selectedIds.length}/4 Selected`;
+      renderStage();
+    }
+
+    function toggleSelect(id) {
+      if (selectedIds.includes(id)) {
+        selectedIds = selectedIds.filter(i => i !== id);
+      } else {
+        if (selectedIds.length < 4) {
+          selectedIds.push(id);
+        }
+      }
+      renderCharacters();
+    }
+
+    function renderStage() {
+      const stage = document.getElementById('stage-characters');
+      if (selectedIds.length === 0) {
+        stage.innerHTML = `<span class="text-slate-500 text-xs">No characters selected for preview stage.</span>`;
+        return;
+      }
+
+      stage.innerHTML = selectedIds.map(id => {
+        const c = characters.find(char => char.id === id);
+        return `
+          <div class="flex flex-col items-center group cursor-pointer animate-fade-in">
+            <div class="relative">
+              <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-slate-900/90 border border-kling-accent/40 flex items-center justify-center text-5xl shadow-2xl shadow-kling-accent/20 group-hover:scale-110 transition duration-300">
+                ${c.emoji}
+              </div>
+              <div class="absolute -bottom-2 inset-x-0 h-4 bg-kling-accent/20 blur-md rounded-full"></div>
+            </div>
+            <span class="mt-4 text-sm font-bold text-white">${c.name}</span>
+            <span class="text-[11px] text-kling-accent font-medium">${c.trait}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectMode(mode) {
+      document.getElementById('mode-template').className = mode === 'template' ? 'glass-card glass-card-active rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden group' : 'glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden group';
+      document.getElementById('mode-custom').className = mode === 'custom' ? 'glass-card glass-card-active rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden group' : 'glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden group';
+    }
+
+    function selectScene(title) {
+      document.getElementById('prompt-input').value = `Scene Mode: ${title}. Interactive performance starting now...`;
+    }
+
+    // Initial render
+    renderCharacters();
+  </script>
+</body>
 </html>
