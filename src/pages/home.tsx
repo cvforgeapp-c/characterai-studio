@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+
 import {
 characters,
 type CharacterCategory,
@@ -80,6 +81,29 @@ selected.includes(character.id)
 [selected]
 );
 
+/* -------------------------------------------------
+OPEN STUDIO DIRECTLY
+------------------------------------------------- */
+
+function openStudio() {
+const query = new URLSearchParams();
+
+query.set("characters", selected.join(","));
+
+if (prompt.trim()) {
+  query.set("prompt", prompt.trim());
+}
+
+query.set("mode", mode);
+
+setLocation(`/studio?${query.toString()}`);
+
+}
+
+/* -------------------------------------------------
+CHARACTER SELECTION
+------------------------------------------------- */
+
 function toggleCharacter(id: CharacterId) {
 setNotice("");
 
@@ -98,6 +122,10 @@ if (selected.length >= 4) {
 setSelected((previous) => [...previous, id]);
 
 }
+
+/* -------------------------------------------------
+TEMPLATE SELECTION
+------------------------------------------------- */
 
 function selectTemplate(templateId: string) {
 const template = templates.find(
@@ -124,6 +152,10 @@ setNotice("Template selected. Customize your story!");
 
 }
 
+/* -------------------------------------------------
+CONTINUE TO STUDIO WITH VALIDATION
+------------------------------------------------- */
+
 function startCreation() {
 if (selected.length === 0) {
 setNotice("Please select at least one character.");
@@ -135,15 +167,13 @@ if (!prompt.trim()) {
   return;
 }
 
-const query = new URLSearchParams({
-  characters: selected.join(","),
-  prompt: prompt.trim(),
-  mode
-});
-
-setLocation(`/studio?${query.toString()}`);
+openStudio();
 
 }
+
+/* -------------------------------------------------
+MOBILE NAVIGATION
+------------------------------------------------- */
 
 function goToCreate() {
 setActiveTab("Create");
@@ -157,6 +187,8 @@ document
 return (
 <main className="app-shell">
 <div className="app-container">
+
+    {/* HEADER */}
 
     <header className="section-heading">
       <div>
@@ -172,10 +204,23 @@ return (
         </p>
       </div>
 
-      <span className="preview-engine-pill">
-        CREATOR STUDIO
-      </span>
+      {/* CONNECTED TOP-RIGHT STUDIO BUTTON */}
+
+      <button
+        type="button"
+        className="primary-btn"
+        onClick={openStudio}
+        style={{
+          whiteSpace: "nowrap",
+          alignSelf: "center",
+          cursor: "pointer"
+        }}
+      >
+        Create Studio →
+      </button>
     </header>
+
+    {/* CREATION MODE */}
 
     <section className="section-block">
       <div className="eyebrow">START CREATING</div>
@@ -252,6 +297,8 @@ return (
         </button>
       </div>
     </section>
+
+    {/* CHARACTER SELECTION */}
 
     <section
       className="section-block"
@@ -355,6 +402,8 @@ return (
       </div>
     </section>
 
+    {/* CHARACTER PREVIEW */}
+
     <section className="section-block">
       <div className="section-heading">
         <div>
@@ -416,6 +465,8 @@ return (
         </div>
       </div>
     </section>
+
+    {/* STORY CREATION */}
 
     <section
       className="section-block create-panel"
@@ -503,6 +554,8 @@ return (
       </p>
     </section>
 
+    {/* FOOTER */}
+
     <footer>
       © 2026 CharacterAI Studio
 
@@ -510,6 +563,8 @@ return (
     </footer>
 
   </div>
+
+  {/* MOBILE NAVIGATION */}
 
   <nav className="mobile-nav">
     {["Create", "Characters", "Videos", "Settings"].map(
@@ -550,4 +605,4 @@ return (
 </main>
 
 );
-}
+              }
