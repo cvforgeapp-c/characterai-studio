@@ -3,9 +3,9 @@ import { Link } from "wouter";
 import {
   characters,
   type CharacterId
-} from "../lib/character-catalog";
-import { generateComedyScript, type ComedyStyle } from "../lib/comedy-script";
-import { speakText, stopSpeaking } from "../lib/voice-engine";
+} from "../character-catalog";
+import { generateComedyScript, type ComedyStyle } from "../comedy-script";
+import { speakText, stopSpeaking } from "../voice-engine";
 import CharacterStage, { type CharacterAppearance } from "../components/CharacterStage";
 import ScenePlayer, { type VideoScene } from "../components/ScenePlayer";
 import type { EnvironmentId } from "../components/CharacterCanvas";
@@ -76,14 +76,16 @@ export default function Studio() {
       style: comedyStyle
     });
 
-    const newScenes: VideoScene[] = generated.dialogue.map((line: { characterName: string; text: string; action: any }, idx: number) => ({
-      id: `generated-${idx + 1}`,
-      title: `Scene ${idx + 1}: ${line.characterName}`,
-      duration: Math.max(4, Math.ceil(line.text.length / 12)),
-      background: environment,
-      action: line.action,
-      dialogue: line.text
-    }));
+    const newScenes: VideoScene[] = generated.dialogue.map(
+      (line: { characterName: string; text: string; action: any }, idx: number) => ({
+        id: `generated-${idx + 1}`,
+        title: `Scene ${idx + 1}: ${line.characterName}`,
+        duration: Math.max(4, Math.ceil(line.text.length / 12)),
+        background: environment,
+        action: line.action,
+        dialogue: line.text
+      })
+    );
 
     setScenes(newScenes);
     if (newScenes.length > 0) setActiveSceneId(newScenes[0].id);
