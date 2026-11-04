@@ -37,13 +37,7 @@ TYPES
 
 type Scene = VideoScene;
 
-type StudioTab =
-  | "cast"
-  | "appearance"
-  | "stage"
-  | "animation"
-  | "script"
-  | "timeline";
+type Category = "All" | "Animals" | "Food";
 
 /* -------------------------------------------------
 APPEARANCE PALETTES
@@ -93,7 +87,7 @@ function createDefaultAppearance(
 }
 
 /* -------------------------------------------------
-BACKGROUNDS
+ENVIRONMENTS
 ------------------------------------------------- */
 
 const backgrounds: {
@@ -148,73 +142,18 @@ const animationActions: {
   id: CharacterAction;
   name: string;
   emoji: string;
-  description: string;
 }[] = [
-  {
-    id: "idle",
-    name: "Idle",
-    emoji: "🧍",
-    description: "Stand naturally"
-  },
-  {
-    id: "talk",
-    name: "Talking",
-    emoji: "🗣️",
-    description: "Speak to others"
-  },
-  {
-    id: "laugh",
-    name: "Laughing",
-    emoji: "😂",
-    description: "Laugh out loud"
-  },
-  {
-    id: "dance",
-    name: "Dancing",
-    emoji: "💃",
-    description: "Move to the beat"
-  },
-  {
-    id: "jump",
-    name: "Jumping",
-    emoji: "🦘",
-    description: "Jump with excitement"
-  },
-  {
-    id: "wave",
-    name: "Waving",
-    emoji: "👋",
-    description: "Wave hello"
-  },
-  {
-    id: "walk",
-    name: "Walking",
-    emoji: "🚶",
-    description: "Walk around"
-  },
-  {
-    id: "angry",
-    name: "Angry",
-    emoji: "😡",
-    description: "Show anger"
-  },
-  {
-    id: "cry",
-    name: "Crying",
-    emoji: "😢",
-    description: "Show sadness"
-  },
-  {
-    id: "surprised",
-    name: "Surprised",
-    emoji: "😲",
-    description: "React with shock"
-  }
+  { id: "idle", name: "Idle", emoji: "🧍" },
+  { id: "talk", name: "Talking", emoji: "🗣️" },
+  { id: "laugh", name: "Laugh", emoji: "😂" },
+  { id: "dance", name: "Dance", emoji: "💃" },
+  { id: "jump", name: "Jump", emoji: "🦘" },
+  { id: "wave", name: "Wave", emoji: "👋" },
+  { id: "walk", name: "Walk", emoji: "🚶" },
+  { id: "angry", name: "Angry", emoji: "😡" },
+  { id: "cry", name: "Cry", emoji: "😢" },
+  { id: "surprised", name: "Surprised", emoji: "😲" }
 ];
-
-/* -------------------------------------------------
-COMEDY STYLES
-------------------------------------------------- */
 
 const comedyStyles: ComedyStyle[] = [
   "Funny",
@@ -236,12 +175,12 @@ function createSceneId(): string {
 }
 
 function createEmptyScene(
-  sceneNumber: number,
+  number: number,
   background: EnvironmentId = "studio"
 ): Scene {
   return {
     id: createSceneId(),
-    title: `Scene ${sceneNumber}`,
+    title: `Scene ${number}`,
     duration: 5,
     background,
     action: "idle",
@@ -254,26 +193,28 @@ function getActionFromEmotion(
 ): CharacterAction {
   const value = emotion.toLowerCase();
 
-  if (
-    value.includes("laugh") ||
-    value.includes("funny")
-  ) return "laugh";
+  if (value.includes("laugh") || value.includes("funny")) {
+    return "laugh";
+  }
 
-  if (
-    value.includes("angry") ||
-    value.includes("anger")
-  ) return "angry";
+  if (value.includes("angry") || value.includes("anger")) {
+    return "angry";
+  }
 
   if (
     value.includes("sad") ||
     value.includes("cry") ||
     value.includes("upset")
-  ) return "cry";
+  ) {
+    return "cry";
+  }
 
   if (
     value.includes("surprise") ||
     value.includes("shock")
-  ) return "surprised";
+  ) {
+    return "surprised";
+  }
 
   if (value.includes("dance")) return "dance";
 
@@ -281,66 +222,34 @@ function getActionFromEmotion(
 }
 
 function getInitialCharacters(): CharacterId[] {
-  const params = new URLSearchParams(
-    window.location.search
-  );
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get("characters");
 
-  const requestedIds = params.get("characters");
+  if (!requested) return ["lion", "monkey"];
 
-  if (!requestedIds) {
-    return ["lion", "monkey"];
-  }
-
-  const validIds = requestedIds
+  const valid = requested
     .split(",")
     .filter(
       (id): id is CharacterId =>
-        characters.some(
-          (character) => character.id === id
-        )
+        characters.some((character) => character.id === id)
     );
 
-  return validIds.length > 0
-    ? Array.from(new Set(validIds)).slice(0, 4)
+  return valid.length
+    ? Array.from(new Set(valid)).slice(0, 4)
     : ["lion", "monkey"];
 }
 
 function getInitialTopic(): string {
-  const params = new URLSearchParams(
-    window.location.search
-  );
-
-  return params.get("prompt") ?? "";
+  return new URLSearchParams(window.location.search)
+    .get("prompt") ?? "";
 }
 
 function getInitialMode(): string {
-  const params = new URLSearchParams(
-    window.location.search
-  );
+  const mode = new URLSearchParams(window.location.search)
+    .get("mode");
 
-  const mode = params.get("mode");
-
-  return mode === "original" || mode === "recreate"
-    ? mode
-    : "original";
+  return mode === "recreate" ? "recreate" : "original";
 }
-
-/* -------------------------------------------------
-TAB CONFIGURATION
-------------------------------------------------- */
-
-const tabs: {
-  id: StudioTab;
-  label: string;
-  icon: string;
-}[] = [
-  { id: "cast", label: "Cast", icon: "🎭" },
-  { id: "appearance", label: "Appearance", icon: "🎨" },
-  { id: "stage", label: "Stage", icon: "🌄" },
-  { id: "animation", label: "Motion", icon: "🎞️" },
-  { id: "script", label: "Script", icon: "✍️" },
-  { id: "timeline", label: "Timeline", icon: "🎬" }
-];
 
 /* -------------------------------------------------
 MAIN STUDIO
@@ -356,57 +265,48 @@ export default function Studio() {
 
   const [creationMode] = useState(getInitialMode);
 
-  const [activeTab, setActiveTab] =
-    useState<StudioTab>("cast");
+  const [style, setStyle] = useState<ComedyStyle>("Funny");
 
-  const [style, setStyle] =
-    useState<ComedyStyle>("Funny");
+  const [language, setLanguage] = useState("en-US");
 
-  const [language, setLanguage] =
-    useState("en-US");
-
-  const [script, setScript] =
-    useState<ComedyScript | null>(null);
+  const [script, setScript] = useState<ComedyScript | null>(null);
 
   const [scenes, setScenes] = useState<Scene[]>([
     createEmptyScene(1)
   ]);
 
-  const [activeSceneId, setActiveSceneId] =
-    useState(() => scenes[0].id);
+  const [activeSceneId, setActiveSceneId] = useState(
+    () => scenes[0].id
+  );
 
   const [notice, setNotice] = useState("");
 
   const [characterCategory, setCharacterCategory] =
-    useState<"All" | "Animals" | "Food">("All");
-
-  /* APPEARANCE STATE */
-
-  const [appearances, setAppearances] =
-    useState<Record<string, CharacterAppearance>>(
-      () => {
-        const initial: Record<
-          string,
-          CharacterAppearance
-        > = {};
-
-        getInitialCharacters().forEach((id, index) => {
-          initial[id] = createDefaultAppearance(index);
-        });
-
-        return initial;
-      }
-    );
+    useState<Category>("All");
 
   const [appearanceCharacter, setAppearanceCharacter] =
     useState<CharacterId>(
       () => getInitialCharacters()[0]
     );
 
+  const [appearances, setAppearances] =
+    useState<Record<string, CharacterAppearance>>(() => {
+      const initial: Record<string, CharacterAppearance> = {};
+
+      getInitialCharacters().forEach((id, index) => {
+        initial[id] = createDefaultAppearance(index);
+      });
+
+      return initial;
+    });
+
+  /* -------------------------------------------------
+  DERIVED STATE
+  ------------------------------------------------- */
+
   const activeScene =
-    scenes.find(
-      (scene) => scene.id === activeSceneId
-    ) ?? scenes[0];
+    scenes.find((scene) => scene.id === activeSceneId) ??
+    scenes[0];
 
   const currentBackground =
     backgrounds.find(
@@ -424,14 +324,15 @@ export default function Studio() {
   const activeAppearance =
     appearances[appearanceCharacter] ??
     createDefaultAppearance(
-      Math.max(
-        0,
-        selectedIds.indexOf(appearanceCharacter)
-      )
+      Math.max(0, selectedIds.indexOf(appearanceCharacter))
     );
 
+  const selectedCharacterNames = characters
+    .filter((character) => selectedIds.includes(character.id))
+    .map((character) => character.name);
+
   /* -------------------------------------------------
-  APPEARANCE HELPERS
+  APPEARANCE
   ------------------------------------------------- */
 
   function updateAppearance<
@@ -450,42 +351,27 @@ export default function Studio() {
     }));
   }
 
-  function updateAppearanceStyle(
-    value: CharacterAppearance["style"]
-  ) {
-    updateAppearance("style", value);
-  }
-
-  function selectAppearanceCharacter(
-    id: CharacterId
-  ) {
+  function selectAppearanceCharacter(id: CharacterId) {
     setAppearanceCharacter(id);
 
     setAppearances((previous) => {
       if (previous[id]) return previous;
 
-      const index = Math.max(
-        0,
-        selectedIds.indexOf(id)
-      );
-
       return {
         ...previous,
-        [id]: createDefaultAppearance(index)
+        [id]: createDefaultAppearance(
+          Math.max(0, selectedIds.indexOf(id))
+        )
       };
     });
   }
 
   function resetAppearance() {
-    const index = Math.max(
-      0,
-      selectedIds.indexOf(appearanceCharacter)
-    );
-
     setAppearances((previous) => ({
       ...previous,
-      [appearanceCharacter]:
-        createDefaultAppearance(index)
+      [appearanceCharacter]: createDefaultAppearance(
+        Math.max(0, selectedIds.indexOf(appearanceCharacter))
+      )
     }));
 
     setNotice("Character appearance reset.");
@@ -495,9 +381,7 @@ export default function Studio() {
   SCENE UPDATES
   ------------------------------------------------- */
 
-  function updateActiveScene(
-    updates: Partial<Scene>
-  ) {
+  function updateActiveScene(updates: Partial<Scene>) {
     setScenes((previous) =>
       previous.map((scene) =>
         scene.id === activeSceneId
@@ -520,6 +404,12 @@ export default function Studio() {
     );
   }
 
+  function selectScene(sceneId: string) {
+    stopSpeaking();
+    setActiveSceneId(sceneId);
+    setNotice("");
+  }
+
   /* -------------------------------------------------
   CHARACTER SELECTION
   ------------------------------------------------- */
@@ -527,52 +417,40 @@ export default function Studio() {
   function toggleCharacter(id: CharacterId) {
     setNotice("");
 
-    setSelectedIds((previous) => {
-      if (previous.includes(id)) {
-        if (previous.length === 1) {
-          setNotice(
-            "At least one character must remain selected."
-          );
-
-          return previous;
-        }
-
-        const updated = previous.filter(
-          (item) => item !== id
-        );
-
-        if (appearanceCharacter === id) {
-          setAppearanceCharacter(updated[0]);
-        }
-
-        return updated;
+    if (selectedIds.includes(id)) {
+      if (selectedIds.length <= 1) {
+        setNotice("At least one character must remain selected.");
+        return;
       }
 
-      if (previous.length >= 4) {
-        setNotice(
-          "You can select a maximum of four characters."
-        );
+      const updated = selectedIds.filter((item) => item !== id);
 
-        return previous;
+      setSelectedIds(updated);
+
+      if (appearanceCharacter === id) {
+        setAppearanceCharacter(updated[0]);
+      }
+    } else {
+      if (selectedIds.length >= 4) {
+        setNotice("You can select a maximum of four characters.");
+        return;
       }
 
-      if (!appearances[id]) {
-        const index = previous.length;
+      setSelectedIds((previous) => [...previous, id]);
 
-        setAppearances((old) => ({
-          ...old,
-          [id]: createDefaultAppearance(index)
-        }));
-      }
-
-      return [...previous, id];
-    });
+      setAppearances((previous) => ({
+        ...previous,
+        [id]:
+          previous[id] ??
+          createDefaultAppearance(selectedIds.length)
+      }));
+    }
 
     setScript(null);
   }
 
   /* -------------------------------------------------
-  ADD SCENE
+  SCENE MANAGEMENT
   ------------------------------------------------- */
 
   function addScene() {
@@ -581,18 +459,10 @@ export default function Studio() {
       activeScene.background
     );
 
-    setScenes((previous) => [
-      ...previous,
-      newScene
-    ]);
-
+    setScenes((previous) => [...previous, newScene]);
     setActiveSceneId(newScene.id);
     setNotice("New scene added.");
   }
-
-  /* -------------------------------------------------
-  DUPLICATE SCENE
-  ------------------------------------------------- */
 
   function duplicateScene(sceneId: string) {
     const index = scenes.findIndex(
@@ -610,17 +480,12 @@ export default function Studio() {
     };
 
     const updated = [...scenes];
-
     updated.splice(index + 1, 0, duplicate);
 
     setScenes(updated);
     setActiveSceneId(duplicate.id);
     setNotice("Scene duplicated.");
   }
-
-  /* -------------------------------------------------
-  DELETE SCENE
-  ------------------------------------------------- */
 
   function deleteScene(sceneId: string) {
     if (scenes.length <= 1) {
@@ -639,19 +504,16 @@ export default function Studio() {
     );
 
     if (activeSceneId === sceneId) {
-      const nextScene =
-        updated[Math.min(index, updated.length - 1)];
+      const next = updated[
+        Math.min(index, updated.length - 1)
+      ];
 
-      setActiveSceneId(nextScene.id);
+      setActiveSceneId(next.id);
     }
 
     setScenes(updated);
     setNotice("Scene deleted.");
   }
-
-  /* -------------------------------------------------
-  REORDER SCENES
-  ------------------------------------------------- */
 
   function moveScene(
     sceneId: string,
@@ -664,10 +526,12 @@ export default function Studio() {
     const newIndex = index + direction;
 
     if (
-      index === -1 ||
+      index < 0 ||
       newIndex < 0 ||
       newIndex >= scenes.length
-    ) return;
+    ) {
+      return;
+    }
 
     const updated = [...scenes];
 
@@ -677,11 +541,10 @@ export default function Studio() {
     ];
 
     setScenes(updated);
-    setNotice("Scene order updated.");
   }
 
   /* -------------------------------------------------
-  GENERATE COMEDY SCRIPT
+  SCRIPT GENERATION
   ------------------------------------------------- */
 
   function createScript() {
@@ -691,9 +554,7 @@ export default function Studio() {
     }
 
     if (!topic.trim()) {
-      setNotice(
-        "Describe what your characters should talk about."
-      );
+      setNotice("Describe what your characters should talk about.");
       return;
     }
 
@@ -704,15 +565,12 @@ export default function Studio() {
         style
       });
 
-      setScript(result);
-
       const generatedScenes: Scene[] =
         result.dialogue.map((line, index) => ({
           id: createSceneId(),
           title: `Scene ${index + 1}`,
           duration: 5,
-          background:
-            scenes[0]?.background ?? "studio",
+          background: scenes[0]?.background ?? "studio",
           action: getActionFromEmotion(line.emotion),
           dialogue: line.text
         }));
@@ -723,12 +581,13 @@ export default function Studio() {
           : [createEmptyScene(1)];
 
       stopSpeaking();
+
+      setScript(result);
       setScenes(finalScenes);
       setActiveSceneId(finalScenes[0].id);
-      setActiveTab("timeline");
 
       setNotice(
-        `Comedy script created with ${finalScenes.length} scenes!`
+        `Script created with ${finalScenes.length} dialogue scenes!`
       );
     } catch (error) {
       setNotice(
@@ -740,7 +599,7 @@ export default function Studio() {
   }
 
   /* -------------------------------------------------
-  VOICE PLAYBACK
+  VOICE
   ------------------------------------------------- */
 
   function playDialogue(text: string) {
@@ -758,10 +617,7 @@ export default function Studio() {
 
     if (!started) {
       updateActiveScene({ action: "idle" });
-
-      setNotice(
-        "Speech is not supported by this browser."
-      );
+      setNotice("Speech is not supported by this browser.");
     } else {
       setNotice("Playing character dialogue...");
     }
@@ -774,36 +630,17 @@ export default function Studio() {
   }
 
   /* -------------------------------------------------
-  SCENE SELECTION
-  ------------------------------------------------- */
-
-  function selectScene(sceneId: string) {
-    stopSpeaking();
-    setActiveSceneId(sceneId);
-    setNotice("");
-  }
-
-  /* -------------------------------------------------
-  TAB NAVIGATION
-  ------------------------------------------------- */
-
-  function changeTab(tab: StudioTab) {
-    setActiveTab(tab);
-    setNotice("");
-
-    if (tab !== "script") {
-      stopSpeaking();
-    }
-  }
-
-  /* -------------------------------------------------
   RENDER
   ------------------------------------------------- */
 
   return (
     <main className="studio-app">
-
       <style>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
         .studio-app {
           min-height: 100vh;
           color: #f5f8fa;
@@ -811,37 +648,37 @@ export default function Studio() {
         }
 
         .studio-layout {
-          width: min(1500px, 100%);
-          margin: 0 auto;
-          padding: 22px;
+          width: min(1700px, 100%);
+          margin: auto;
+          padding: 18px;
         }
+
+        /* HEADER */
 
         .studio-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 18px;
-          margin-bottom: 20px;
-          padding: 18px 22px;
+          gap: 15px;
+          margin-bottom: 16px;
+          padding: 15px 20px;
           border: 1px solid rgba(255,255,255,.08);
-          border-radius: 18px;
-          background: rgba(18,28,34,.94);
+          border-radius: 16px;
+          background: #121c22;
         }
 
         .studio-brand {
           display: flex;
           align-items: center;
           gap: 12px;
-          min-width: 0;
         }
 
         .studio-brand-icon {
           display: grid;
           place-items: center;
-          width: 44px;
-          height: 44px;
-          flex-shrink: 0;
-          border-radius: 14px;
+          width: 43px;
+          height: 43px;
+          border-radius: 13px;
           color: #062c28;
           background: linear-gradient(135deg,#2dd4bf,#34d399);
           font-size: 22px;
@@ -849,11 +686,11 @@ export default function Studio() {
 
         .studio-brand h1 {
           margin: 0;
-          font-size: 19px;
+          font-size: 18px;
         }
 
         .studio-brand p {
-          margin: 3px 0 0;
+          margin: 4px 0 0;
           color: #91a2ad;
           font-size: 11px;
         }
@@ -864,217 +701,151 @@ export default function Studio() {
           gap: 10px;
         }
 
-        .studio-back {
-          min-height: 40px;
-          padding: 0 14px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 11px;
-          color: #e5f2f2;
-          background: #1b2931;
-          font-weight: 700;
-        }
-
         .studio-mode {
-          padding: 9px 13px;
+          padding: 8px 12px;
           border: 1px solid rgba(45,212,191,.25);
           border-radius: 30px;
           color: #5eead4;
           background: rgba(45,212,191,.08);
           font-size: 10px;
           font-weight: 800;
-          letter-spacing: .6px;
         }
 
-        .studio-preview-card {
-          position: sticky;
-          top: 8px;
-          z-index: 20;
-          overflow: hidden;
-          margin-bottom: 17px;
-          border: 1px solid rgba(45,212,191,.2);
-          border-radius: 19px;
-          background: #121c22;
-          box-shadow: 0 12px 35px rgba(0,0,0,.3);
-        }
-
-        .studio-preview-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 13px 17px;
-        }
-
-        .studio-preview-heading strong {
-          font-size: 13px;
-        }
-
-        .studio-live {
+        .studio-button {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 7px;
+          min-height: 39px;
+          padding: 0 13px;
+          border: 1px solid rgba(255,255,255,.1);
+          border-radius: 10px;
+          color: #e5f2f2;
+          background: #22343d;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .studio-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 44px;
+          padding: 0 16px;
+          border: 0;
+          border-radius: 11px;
+          color: #062c28;
+          background: linear-gradient(135deg,#2dd4bf,#34d399);
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .studio-button:disabled,
+        .studio-primary:disabled {
+          opacity: .4;
+          cursor: not-allowed;
+        }
+
+        /* NOTICE */
+
+        .studio-notice {
+          margin-bottom: 14px;
+          padding: 12px 15px;
+          border: 1px solid rgba(45,212,191,.2);
+          border-radius: 11px;
           color: #5eead4;
+          background: rgba(45,212,191,.07);
+          font-size: 12px;
+        }
+
+        /* WORKSPACE */
+
+        .studio-workspace {
+          display: grid;
+          grid-template-columns: minmax(245px,290px) minmax(0,1fr) minmax(245px,290px);
+          gap: 14px;
+          align-items: start;
+        }
+
+        .studio-panel {
+          min-width: 0;
+          padding: 16px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 15px;
+          background: #121c22;
+        }
+
+        .studio-panel-title {
+          margin: 0 0 5px;
+          font-size: 14px;
+          font-weight: 900;
+        }
+
+        .studio-panel-description {
+          margin: 0 0 15px;
+          color: #91a2ad;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .studio-kicker {
+          display: block;
+          margin-bottom: 7px;
+          color: #5eead4;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 1.2px;
+        }
+
+        /* LEFT PANEL */
+
+        .studio-category-row {
+          display: flex;
+          gap: 5px;
+          margin-bottom: 12px;
+        }
+
+        .studio-category {
+          flex: 1;
+          min-height: 32px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 8px;
+          color: #91a2ad;
+          background: #17242b;
           font-size: 10px;
           font-weight: 800;
         }
 
-        .studio-live-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #34d399;
-          box-shadow: 0 0 12px #34d399;
-        }
-
-        .studio-preview-stage {
-          overflow: hidden;
-          margin: 0 10px 10px;
-          border-radius: 13px;
-          background: #17272f;
-        }
-
-        .studio-preview-stage .character-stage {
-          min-height: 290px;
-          border: 0;
-          border-radius: 13px;
-        }
-
-        .studio-preview-stage .character-stage canvas {
-          min-height: 290px;
-        }
-
-        .studio-tabs {
-          position: sticky;
-          top: 385px;
-          z-index: 19;
-          display: flex;
-          gap: 7px;
-          overflow-x: auto;
-          margin-bottom: 17px;
-          padding: 8px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 15px;
-          background: rgba(18,28,34,.97);
-          backdrop-filter: blur(18px);
-          scrollbar-width: none;
-        }
-
-        .studio-tabs::-webkit-scrollbar {
-          display: none;
-        }
-
-        .studio-tab {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          flex: 1;
-          min-width: 95px;
-          min-height: 43px;
-          padding: 0 12px;
-          border: 1px solid transparent;
-          border-radius: 11px;
-          color: #91a2ad;
-          background: transparent;
-          font-size: 12px;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .studio-tab.active {
-          border-color: rgba(45,212,191,.25);
+        .studio-category.active {
+          border-color: #2dd4bf;
           color: #5eead4;
           background: rgba(45,212,191,.1);
         }
 
-        .studio-panel {
-          min-height: 330px;
-          padding: 23px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 18px;
-          background: rgba(18,28,34,.92);
-          box-shadow: 0 12px 35px rgba(0,0,0,.15);
-        }
-
-        .studio-panel-header {
+        .studio-character-list {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 20px;
-        }
-
-        .studio-panel-header h2 {
-          margin: 3px 0 5px;
-          font-size: 24px;
-        }
-
-        .studio-panel-header p {
-          margin: 0;
-          color: #91a2ad;
-          font-size: 12px;
-        }
-
-        .studio-kicker {
-          color: #5eead4;
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 1.5px;
-        }
-
-        .studio-count {
-          padding: 8px 12px;
-          border: 1px solid rgba(45,212,191,.2);
-          border-radius: 30px;
-          color: #5eead4;
-          background: rgba(45,212,191,.08);
-          font-size: 11px;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .studio-category-row {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 18px;
-        }
-
-        .studio-category {
-          padding: 9px 15px;
-          border: 1px solid rgba(255,255,255,.09);
-          border-radius: 30px;
-          color: #91a2ad;
-          background: #17242b;
-          font-size: 11px;
-          font-weight: 700;
-        }
-
-        .studio-category.active {
-          border-color: transparent;
-          color: #062c28;
-          background: linear-gradient(135deg,#2dd4bf,#34d399);
-        }
-
-        .studio-character-grid {
-          display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
-          gap: 11px;
+          flex-direction: column;
+          gap: 7px;
+          max-height: 360px;
+          overflow-y: auto;
         }
 
         .studio-character {
-          position: relative;
           display: flex;
           align-items: center;
-          gap: 11px;
-          min-width: 0;
-          min-height: 75px;
-          padding: 12px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 14px;
+          gap: 10px;
+          width: 100%;
+          min-height: 52px;
+          padding: 7px 9px;
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 10px;
           color: #f5f8fa;
           text-align: left;
           background: #17242b;
-          transition: .2s ease;
+          cursor: pointer;
         }
 
         .studio-character.selected {
@@ -1085,104 +856,54 @@ export default function Studio() {
         .studio-character-emoji {
           display: grid;
           place-items: center;
-          width: 42px;
-          height: 42px;
+          width: 35px;
+          height: 35px;
           flex-shrink: 0;
-          border-radius: 12px;
+          border-radius: 9px;
           background: #263840;
-          font-size: 24px;
+          font-size: 20px;
         }
 
         .studio-character-info {
           display: flex;
+          flex: 1;
           flex-direction: column;
-          gap: 4px;
+          gap: 3px;
           min-width: 0;
         }
 
         .studio-character-info strong {
-          overflow: hidden;
-          font-size: 12px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          font-size: 11px;
         }
 
         .studio-character-info small {
           color: #91a2ad;
-          font-size: 10px;
+          font-size: 9px;
         }
 
-        .studio-check {
-          position: absolute;
-          top: 7px;
-          right: 8px;
+        .studio-character-check {
           color: #5eead4;
-          font-size: 11px;
           font-weight: 900;
         }
 
-        .studio-selected-summary {
-          margin-top: 17px;
-          padding: 13px;
-          border: 1px solid rgba(45,212,191,.15);
-          border-radius: 12px;
-          color: #91a2ad;
-          background: rgba(45,212,191,.045);
-          font-size: 12px;
-        }
-
-        .studio-option-grid {
-          display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
-          gap: 12px;
-        }
-
-        .studio-option {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 9px;
-          min-width: 0;
-          padding: 15px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 14px;
-          color: #f5f8fa;
-          text-align: left;
-          background: #17242b;
-          transition: .2s ease;
-        }
-
-        .studio-option.selected {
-          border-color: #2dd4bf;
-          background: rgba(45,212,191,.09);
-        }
-
-        .studio-option strong {
-          font-size: 12px;
-        }
-
-        .studio-option small {
-          color: #91a2ad;
+        .studio-selected {
+          margin: 12px 0;
+          padding: 10px;
+          border-radius: 9px;
+          color: #a8c5c6;
+          background: rgba(45,212,191,.06);
           font-size: 10px;
+          line-height: 1.5;
         }
 
-        .studio-background-swatch {
-          width: 100%;
-          height: 65px;
-          border-radius: 10px;
-        }
-
-        .studio-action-emoji {
-          font-size: 26px;
-        }
+        /* INPUTS */
 
         .studio-field {
           display: block;
-          margin: 18px 0 9px;
+          margin: 13px 0 7px;
           color: #5eead4;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: .5px;
+          font-size: 10px;
+          font-weight: 900;
         }
 
         .studio-input,
@@ -1190,17 +911,17 @@ export default function Studio() {
         .studio-select {
           display: block;
           width: 100%;
-          padding: 13px 14px;
+          padding: 11px;
           border: 1px solid rgba(255,255,255,.1);
-          border-radius: 12px;
+          border-radius: 9px;
           color: #f5f8fa;
-          background: #10191f;
+          background: #0d171c;
           font: inherit;
-          font-size: 13px;
+          font-size: 11px;
         }
 
         .studio-textarea {
-          min-height: 125px;
+          min-height: 100px;
           resize: vertical;
           line-height: 1.6;
         }
@@ -1210,477 +931,534 @@ export default function Studio() {
         .studio-select:focus {
           border-color: #2dd4bf;
           outline: none;
-          box-shadow: 0 0 0 3px rgba(45,212,191,.1);
         }
 
-        .studio-primary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          min-height: 46px;
-          padding: 0 19px;
-          border: 0;
-          border-radius: 12px;
-          color: #062c28;
-          background: linear-gradient(135deg,#2dd4bf,#34d399);
-          font-size: 12px;
-          font-weight: 900;
-          box-shadow: 0 7px 20px rgba(45,212,191,.15);
+        .studio-generate {
+          width: 100%;
+          margin-top: 14px;
         }
 
-        .studio-secondary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          min-height: 40px;
-          padding: 0 14px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 11px;
-          color: #e5f2f2;
-          background: #22343d;
-          font-size: 11px;
-          font-weight: 800;
+        /* CENTER PREVIEW */
+
+        .studio-center {
+          min-width: 0;
         }
 
-        .studio-primary:disabled,
-        .studio-secondary:disabled {
-          opacity: .45;
-          cursor: not-allowed;
-        }
-
-        .studio-notice {
-          margin-bottom: 15px;
-          padding: 13px 16px;
+        .studio-preview {
+          overflow: hidden;
           border: 1px solid rgba(45,212,191,.2);
-          border-radius: 12px;
-          color: #5eead4;
-          background: rgba(45,212,191,.07);
-          font-size: 12px;
+          border-radius: 15px;
+          background: #121c22;
         }
 
-        .studio-scene-list {
-          display: flex;
-          flex-direction: column;
-          gap: 11px;
-          margin-top: 18px;
-        }
-
-        .studio-scene-card {
-          padding: 15px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 14px;
-          background: #17242b;
-        }
-
-        .studio-scene-card.selected {
-          border-color: #2dd4bf;
-          background: rgba(45,212,191,.06);
-        }
-
-        .studio-scene-top {
+        .studio-preview-heading {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 10px;
+          padding: 13px 15px;
         }
 
-        .studio-scene-title {
+        .studio-preview-heading strong {
+          font-size: 12px;
+        }
+
+        .studio-live {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #5eead4;
+          font-size: 9px;
+          font-weight: 900;
+        }
+
+        .studio-live-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #34d399;
+          box-shadow: 0 0 10px #34d399;
+        }
+
+        .studio-preview-stage {
+          overflow: hidden;
+          margin: 0 9px 9px;
+          border-radius: 11px;
+          background: #17272f;
+        }
+
+        .studio-preview-stage .character-stage {
+          min-height: 420px;
           border: 0;
-          color: #f5f8fa;
-          background: transparent;
-          font-weight: 800;
-          text-align: left;
+          border-radius: 11px;
         }
 
-        .studio-scene-duration {
-          color: #91a2ad;
-          font-size: 11px;
+        .studio-preview-stage .character-stage canvas {
+          min-height: 420px;
         }
 
-        .studio-scene-actions {
+        .studio-preview-controls {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 9px;
+          padding: 12px;
+        }
+
+        .studio-preview-actions {
           display: flex;
           flex-wrap: wrap;
           gap: 7px;
-          margin-top: 13px;
         }
 
-        .studio-scene-actions button {
-          min-height: 32px;
-          padding: 0 10px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 8px;
-          color: #cbd5d9;
-          background: #22343d;
+        .studio-scene-indicator {
+          color: #91a2ad;
           font-size: 10px;
-          font-weight: 700;
         }
 
-        .studio-scene-actions button:disabled {
-          opacity: .35;
+        /* RIGHT PANEL */
+
+        .studio-settings-section {
+          padding: 12px 0;
+          border-bottom: 1px solid rgba(255,255,255,.07);
         }
 
-        .studio-editor {
-          margin-top: 22px;
-          padding: 18px;
-          border: 1px solid rgba(45,212,191,.15);
-          border-radius: 15px;
-          background: rgba(45,212,191,.035);
+        .studio-settings-section:last-child {
+          border-bottom: 0;
         }
 
-        .studio-editor h3 {
-          margin: 0 0 8px;
-          font-size: 17px;
-        }
-
-        .studio-dialogue-card {
-          margin-bottom: 12px;
-          padding: 17px;
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 14px;
-          background: #17242b;
-        }
-
-        .studio-dialogue-card p {
-          color: #d8e2e6;
-          font-size: 13px;
-          line-height: 1.7;
-        }
-
-        .studio-dialogue-meta {
+        .studio-settings-section summary {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 10px;
-        }
-
-        .studio-emotion {
-          margin-left: 8px;
-          color: #5eead4;
-          font-size: 10px;
-        }
-
-        .studio-footer {
-          margin-top: 20px;
-          padding: 17px;
-          color: #91a2ad;
-          text-align: center;
-          font-size: 11px;
-        }
-
-        .studio-footer p {
-          margin: 0;
-        }
-
-        .studio-empty {
-          padding: 30px 15px;
-          border: 1px dashed rgba(255,255,255,.12);
-          border-radius: 13px;
-          color: #91a2ad;
-          text-align: center;
-          font-size: 12px;
-        }
-
-        /* APPEARANCE EDITOR */
-
-        .appearance-character-list {
-          display: flex;
-          gap: 9px;
-          overflow-x: auto;
-          padding: 4px 2px 14px;
-          margin-bottom: 18px;
-        }
-
-        .appearance-character-button {
-          display: flex;
-          align-items: center;
           gap: 8px;
-          flex: 0 0 auto;
-          padding: 10px 13px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 12px;
-          color: #d8e2e6;
-          background: #17242b;
-          font-size: 12px;
-          font-weight: 700;
+          color: #e5f2f2;
+          font-size: 11px;
+          font-weight: 900;
+          cursor: pointer;
+          list-style: none;
         }
 
-        .appearance-character-button.active {
-          border-color: #2dd4bf;
-          color: #5eead4;
-          background: rgba(45,212,191,.1);
+        .studio-settings-section summary::-webkit-details-marker {
+          display: none;
         }
 
-        .appearance-style-grid {
+        .studio-settings-content {
+          padding-top: 13px;
+        }
+
+        .studio-background-grid {
           display: grid;
           grid-template-columns: repeat(2,minmax(0,1fr));
-          gap: 12px;
+          gap: 7px;
         }
 
-        .appearance-style-card {
+        .studio-background {
           display: flex;
           flex-direction: column;
           gap: 7px;
-          padding: 17px;
-          border: 1px solid rgba(255,255,255,.1);
-          border-radius: 14px;
+          padding: 8px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 9px;
           color: #f5f8fa;
-          text-align: left;
           background: #17242b;
+          text-align: left;
+          font-size: 10px;
+          cursor: pointer;
         }
 
-        .appearance-style-card.active {
+        .studio-background.active {
           border-color: #2dd4bf;
           background: rgba(45,212,191,.09);
         }
 
-        .appearance-style-icon {
-          font-size: 27px;
+        .studio-background-swatch {
+          height: 37px;
+          border-radius: 6px;
         }
 
-        .appearance-style-card strong {
+        .studio-motion-grid {
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 6px;
+        }
+
+        .studio-motion {
+          min-height: 37px;
+          padding: 6px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 8px;
+          color: #cbd5d9;
+          background: #17242b;
+          font-size: 10px;
+          cursor: pointer;
+        }
+
+        .studio-motion.active {
+          border-color: #2dd4bf;
+          color: #5eead4;
+          background: rgba(45,212,191,.09);
+        }
+
+        .studio-appearance-character-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 12px;
+        }
+
+        .studio-appearance-character {
+          padding: 7px 9px;
+          border: 1px solid rgba(255,255,255,.1);
+          border-radius: 8px;
+          color: #cbd5d9;
+          background: #17242b;
+          font-size: 10px;
+        }
+
+        .studio-appearance-character.active {
+          border-color: #2dd4bf;
+          color: #5eead4;
+        }
+
+        .studio-style-grid {
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 7px;
+        }
+
+        .studio-style-button {
+          padding: 10px 5px;
+          border: 1px solid rgba(255,255,255,.1);
+          border-radius: 8px;
+          color: #cbd5d9;
+          background: #17242b;
+          font-size: 10px;
+        }
+
+        .studio-style-button.active {
+          border-color: #2dd4bf;
+          color: #5eead4;
+          background: rgba(45,212,191,.08);
+        }
+
+        .studio-color-group {
+          margin-top: 14px;
+        }
+
+        .studio-color-heading {
+          margin-bottom: 8px;
+          color: #cbd5d9;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .studio-color-swatches {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .studio-color-swatch {
+          width: 26px;
+          height: 26px;
+          border: 2px solid transparent;
+          border-radius: 50%;
+          box-shadow: 0 0 0 1px rgba(255,255,255,.15);
+          cursor: pointer;
+        }
+
+        .studio-color-swatch.active {
+          border-color: #0b1115;
+          outline: 2px solid #2dd4bf;
+        }
+
+        /* SCRIPT RESULTS */
+
+        .studio-script-result {
+          margin-top: 16px;
+          padding: 12px;
+          border: 1px solid rgba(45,212,191,.18);
+          border-radius: 11px;
+          background: rgba(45,212,191,.04);
+        }
+
+        .studio-script-result h3 {
+          margin: 0 0 6px;
           font-size: 13px;
         }
 
-        .appearance-style-card small {
+        .studio-script-result > p {
           color: #91a2ad;
           font-size: 10px;
           line-height: 1.5;
         }
 
-        .appearance-color-section {
-          margin-top: 23px;
+        .studio-dialogue {
+          margin-top: 10px;
+          padding: 11px;
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 9px;
+          background: #17242b;
         }
 
-        .appearance-color-heading {
+        .studio-dialogue strong {
+          font-size: 10px;
+        }
+
+        .studio-dialogue p {
+          color: #d8e2e6;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+
+        .studio-dialogue-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .studio-dialogue-actions button {
+          min-height: 30px;
+          padding: 0 8px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 7px;
+          color: #cbd5d9;
+          background: #22343d;
+          font-size: 9px;
+        }
+
+        /* TIMELINE */
+
+        .studio-timeline {
+          margin-top: 15px;
+          padding: 16px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 15px;
+          background: #121c22;
+        }
+
+        .studio-timeline-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 12px;
+          gap: 12px;
+          margin-bottom: 13px;
         }
 
-        .appearance-color-heading strong {
+        .studio-timeline-header h2 {
+          margin: 0;
           font-size: 13px;
         }
 
-        .appearance-color-heading small {
+        .studio-timeline-header p {
+          margin: 4px 0 0;
           color: #91a2ad;
           font-size: 10px;
         }
 
-        .appearance-swatches {
+        .studio-timeline-track {
+          display: flex;
+          gap: 9px;
+          overflow-x: auto;
+          padding: 4px 2px 12px;
+        }
+
+        .studio-timeline-card {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+          flex: 0 0 160px;
+          min-height: 105px;
+          padding: 11px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 10px;
+          color: #f5f8fa;
+          background: #17242b;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .studio-timeline-card.active {
+          border-color: #2dd4bf;
+          background: rgba(45,212,191,.09);
+        }
+
+        .studio-timeline-card strong {
+          font-size: 11px;
+        }
+
+        .studio-timeline-card small {
+          color: #91a2ad;
+          font-size: 9px;
+        }
+
+        .studio-timeline-dialogue {
+          overflow: hidden;
+          color: #cbd5d9;
+          font-size: 9px;
+          line-height: 1.5;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+
+        .studio-timeline-actions {
           display: flex;
           flex-wrap: wrap;
-          gap: 11px;
+          gap: 6px;
+          margin-top: 12px;
         }
 
-        .appearance-swatch {
-          position: relative;
-          width: 39px;
-          height: 39px;
-          border: 3px solid transparent;
-          border-radius: 50%;
-          box-shadow: 0 0 0 1px rgba(255,255,255,.15);
+        .studio-timeline-actions button {
+          min-height: 33px;
+          padding: 0 10px;
+          border: 1px solid rgba(255,255,255,.1);
+          border-radius: 8px;
+          color: #d8e2e6;
+          background: #22343d;
+          font-size: 10px;
+          font-weight: 700;
         }
 
-        .appearance-swatch.active {
-          border-color: #0b1115;
-          outline: 2px solid #2dd4bf;
+        .studio-editor {
+          margin-top: 14px;
+          padding: 15px;
+          border: 1px solid rgba(45,212,191,.15);
+          border-radius: 11px;
+          background: rgba(45,212,191,.035);
         }
 
-        .appearance-swatch:focus-visible {
-          outline: 3px solid #5eead4;
-          outline-offset: 3px;
+        .studio-editor h3 {
+          margin: 0 0 10px;
+          font-size: 14px;
         }
 
-        .appearance-selected-color {
-          display: inline-block;
-          width: 12px;
-          height: 12px;
-          margin-right: 7px;
-          border-radius: 50%;
-          vertical-align: middle;
+        .studio-player {
+          margin-top: 16px;
         }
 
-        @media (min-width: 1000px) {
-          .studio-preview-card {
-            position: relative;
-            top: auto;
+        .studio-footer {
+          padding: 18px;
+          color: #91a2ad;
+          text-align: center;
+          font-size: 10px;
+        }
+
+        @media (max-width: 1100px) {
+          .studio-workspace {
+            grid-template-columns: minmax(220px,260px) minmax(0,1fr);
           }
 
-          .studio-preview-stage .character-stage {
-            min-height: 360px;
+          .studio-right-panel {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: 15px;
           }
 
-          .studio-preview-stage .character-stage canvas {
-            min-height: 360px;
-          }
-
-          .studio-tabs {
-            top: 0;
-          }
-
-          .studio-character-grid {
-            grid-template-columns: repeat(4,minmax(0,1fr));
+          .studio-right-panel > .studio-settings-section {
+            border-bottom: 0;
           }
         }
 
         @media (max-width: 700px) {
           .studio-layout {
-            padding: 12px;
+            padding: 10px;
           }
 
           .studio-header {
-            align-items: flex-start;
-            padding: 13px;
-          }
-
-          .studio-brand h1 {
-            font-size: 16px;
-          }
-
-          .studio-brand p {
-            display: none;
-          }
-
-          .studio-mode {
-            display: none;
-          }
-
-          .studio-back {
-            min-height: 36px;
-            padding: 0 10px;
-            font-size: 11px;
-          }
-
-          .studio-preview-card {
-            top: 0;
-          }
-
-          .studio-preview-heading {
-            padding: 10px 13px;
-          }
-
-          .studio-preview-stage .character-stage {
-            min-height: 235px;
-          }
-
-          .studio-preview-stage .character-stage canvas {
-            min-height: 235px;
-          }
-
-          .studio-tabs {
-            top: 275px;
-            gap: 4px;
-            padding: 6px;
-          }
-
-          .studio-tab {
-            flex: 0 0 auto;
-            min-width: 70px;
-            min-height: 42px;
-            flex-direction: column;
-            gap: 3px;
-            padding: 5px 8px;
-            font-size: 10px;
-          }
-
-          .studio-tab span:first-child {
-            font-size: 16px;
-          }
-
-          .studio-panel {
-            padding: 16px;
-          }
-
-          .studio-panel-header h2 {
-            font-size: 21px;
-          }
-
-          .studio-character-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
-            gap: 8px;
-          }
-
-          .studio-character {
-            gap: 8px;
-            min-height: 65px;
-            padding: 8px;
-          }
-
-          .studio-character-emoji {
-            width: 34px;
-            height: 34px;
-            font-size: 19px;
-          }
-
-          .studio-character-info strong {
-            font-size: 10px;
-          }
-
-          .studio-character-info small {
-            font-size: 9px;
-          }
-
-          .studio-option-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
-            gap: 9px;
-          }
-
-          .studio-option {
             padding: 11px;
-          }
-
-          .studio-option strong {
-            font-size: 11px;
-          }
-
-          .studio-scene-actions button {
-            min-height: 35px;
-          }
-
-          .appearance-style-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
-          }
-        }
-
-        @media (max-width: 380px) {
-          .studio-layout {
-            padding: 9px;
-          }
-
-          .studio-header {
-            gap: 8px;
-          }
-
-          .studio-brand-icon {
-            width: 36px;
-            height: 36px;
           }
 
           .studio-brand h1 {
             font-size: 14px;
           }
 
+          .studio-brand p,
+          .studio-mode {
+            display: none;
+          }
+
+          .studio-workspace {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .studio-center {
+            order: -1;
+            width: 100%;
+          }
+
+          .studio-left-panel,
+          .studio-right-panel {
+            width: 100%;
+          }
+
+          .studio-right-panel {
+            display: block;
+          }
+
           .studio-preview-stage .character-stage {
-            min-height: 210px;
+            min-height: 300px;
           }
 
           .studio-preview-stage .character-stage canvas {
-            min-height: 210px;
+            min-height: 300px;
           }
 
-          .studio-tabs {
-            top: 250px;
+          .studio-panel {
+            padding: 13px;
+          }
+
+          .studio-character-list {
+            display: grid;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            max-height: 320px;
           }
 
           .studio-character {
-            gap: 6px;
-            padding: 7px;
+            min-height: 58px;
+            padding: 6px;
+          }
+
+          .studio-character-emoji {
+            width: 30px;
+            height: 30px;
+            font-size: 17px;
+          }
+
+          .studio-timeline {
+            padding: 12px;
+          }
+
+          .studio-preview-controls {
+            align-items: flex-start;
+            flex-direction: column;
           }
         }
+
+        @media (max-width: 380px) {
+          .studio-layout {
+            padding: 7px;
+          }
+
+          .studio-brand-icon {
+            width: 35px;
+            height: 35px;
+          }
+
+          .studio-character-list {
+            gap: 5px;
+          }
+
+          .studio-character-info strong {
+            font-size: 10px;
+          }
+        }
+
       `}</style>
 
       <div className="studio-layout">
@@ -1693,9 +1471,7 @@ export default function Studio() {
 
             <div>
               <h1>CharacterAI Studio</h1>
-              <p>
-                Create characters. Create stories. Make people laugh.
-              </p>
+              <p>Create characters. Create stories. Make people laugh.</p>
             </div>
           </div>
 
@@ -1708,7 +1484,7 @@ export default function Studio() {
 
             <button
               type="button"
-              className="studio-back"
+              className="studio-button"
               onClick={() => {
                 stopSpeaking();
                 setLocation("/");
@@ -1719,85 +1495,29 @@ export default function Studio() {
           </div>
         </header>
 
-        {/* NOTIFICATION */}
-
         {notice && (
           <div className="studio-notice" role="status">
             {notice}
           </div>
         )}
 
-        {/* PERSISTENT 3D PREVIEW */}
+        {/* MAIN WORKSPACE */}
 
-        <section className="studio-preview-card">
-          <div className="studio-preview-heading">
-            <strong>
-              🎬 Live 3D Preview — {activeScene.title}
-            </strong>
+        <div className="studio-workspace">
 
-            <span className="studio-live">
-              <span className="studio-live-dot" />
-              LIVE SCENE
-            </span>
-          </div>
+          {/* LEFT: CHARACTERS AND STORY */}
 
-          <div
-            className="studio-preview-stage"
-            style={{ background: currentBackground.color }}
-          >
-            <CharacterStage
-              selectedIds={selectedIds}
-              height={380}
-              environment={activeScene.background}
-              action={activeScene.action}
-              appearances={appearances}
-            />
-          </div>
-        </section>
+          <aside className="studio-panel studio-left-panel">
 
-        {/* STUDIO TABS */}
+            <span className="studio-kicker">01 / CREATE</span>
 
-        <nav
-          className="studio-tabs"
-          aria-label="Studio sections"
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`studio-tab ${
-                activeTab === tab.id ? "active" : ""
-              }`}
-              onClick={() => changeTab(tab.id)}
-              aria-pressed={activeTab === tab.id}
-            >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
+            <h2 className="studio-panel-title">
+              Your Characters
+            </h2>
 
-        {/* CAST TAB */}
-
-        {activeTab === "cast" && (
-          <section className="studio-panel">
-            <div className="studio-panel-header">
-              <div>
-                <span className="studio-kicker">
-                  STEP 01 / CAST
-                </span>
-
-                <h2>Choose Your Characters</h2>
-
-                <p>
-                  Select the characters who will appear in your comedy.
-                </p>
-              </div>
-
-              <span className="studio-count">
-                {selectedIds.length}/4
-              </span>
-            </div>
+            <p className="studio-panel-description">
+              Choose up to four characters for your comedy.
+            </p>
 
             <div className="studio-category-row">
               {(["All", "Animals", "Food"] as const).map(
@@ -1806,7 +1526,9 @@ export default function Studio() {
                     key={category}
                     type="button"
                     className={`studio-category ${
-                      characterCategory === category ? "active" : ""
+                      characterCategory === category
+                        ? "active"
+                        : ""
                     }`}
                     onClick={() => setCharacterCategory(category)}
                   >
@@ -1816,7 +1538,7 @@ export default function Studio() {
               )}
             </div>
 
-            <div className="studio-character-grid">
+            <div className="studio-character-list">
               {filteredCharacters.map((character) => {
                 const selected = selectedIds.includes(character.id);
 
@@ -1839,520 +1561,97 @@ export default function Studio() {
                       <small>{character.category}</small>
                     </span>
 
-                    {selected && (
-                      <span className="studio-check">✓</span>
-                    )}
+                    <span className="studio-character-check">
+                      {selected ? "✓" : "+"}
+                    </span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="studio-selected-summary">
-              Selected:{" "}
-              {characters
-                .filter((character) =>
-                  selectedIds.includes(character.id)
-                )
-                .map((character) => character.name)
-                .join(", ")}
-            </div>
-          </section>
-        )}
-
-        {/* APPEARANCE TAB */}
-
-        {activeTab === "appearance" && (
-          <section className="studio-panel">
-            <div className="studio-panel-header">
-              <div>
-                <span className="studio-kicker">
-                  CHARACTER DESIGN / CUSTOMIZATION
-                </span>
-
-                <h2>Character Appearance</h2>
-
-                <p>
-                  Customize each character separately. Changes appear in
-                  the live 3D preview.
-                </p>
-              </div>
+            <div className="studio-selected">
+              <strong>{selectedIds.length}/4 selected</strong>
+              <br />
+              {selectedCharacterNames.join(", ")}
             </div>
 
-            {selectedIds.length === 0 ? (
-              <div className="studio-empty">
-                Select a character in the Cast tab first.
-              </div>
-            ) : (
-              <>
-                <div className="appearance-character-list">
-                  {selectedIds.map((id) => {
-                    const character = characters.find(
-                      (item) => item.id === id
-                    );
+            <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 15 }}>
+              <span className="studio-kicker">02 / STORY IDEA</span>
 
-                    if (!character) return null;
+              <h2 className="studio-panel-title">
+                What happens?
+              </h2>
 
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        className={`appearance-character-button ${
-                          appearanceCharacter === id ? "active" : ""
-                        }`}
-                        onClick={() =>
-                          selectAppearanceCharacter(id)
-                        }
-                        aria-pressed={appearanceCharacter === id}
-                      >
-                        <span>{character.emoji}</span>
-                        {character.name}
-                      </button>
-                    );
-                  })}
-                </div>
+              <p className="studio-panel-description">
+                Describe your comedy idea. Your characters will bring it to life.
+              </p>
 
-                <div
-                  className="studio-editor"
-                  style={{ marginTop: 0 }}
-                >
-                  <div className="studio-panel-header">
-                    <div>
-                      <span className="studio-kicker">
-                        EDITING CHARACTER
-                      </span>
+              <label className="studio-field" htmlFor="studio-topic">
+                COMEDY IDEA
+              </label>
 
-                      <h2 style={{ fontSize: 19 }}>
-                        {characters.find(
-                          (item) =>
-                            item.id === appearanceCharacter
-                        )?.name}
-                      </h2>
-                    </div>
+              <textarea
+                id="studio-topic"
+                className="studio-textarea"
+                value={topic}
+                onChange={(event) => setTopic(event.target.value)}
+                placeholder="A lion tries to become a famous TikTok influencer..."
+              />
 
-                    <button
-                      type="button"
-                      className="studio-secondary"
-                      onClick={resetAppearance}
-                    >
-                      ↺ Reset
-                    </button>
-                  </div>
+              <label className="studio-field" htmlFor="studio-comedy-style">
+                COMEDY STYLE
+              </label>
 
-                  <label className="studio-field">
-                    3D CHARACTER STYLE
-                  </label>
+              <select
+                id="studio-comedy-style"
+                className="studio-select"
+                value={style}
+                onChange={(event) =>
+                  setStyle(event.target.value as ComedyStyle)
+                }
+              >
+                {comedyStyles.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
 
-                  <div className="appearance-style-grid">
-                    <button
-                      type="button"
-                      className={`appearance-style-card ${
-                        activeAppearance.style === "pixar"
-                          ? "active"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        updateAppearanceStyle("pixar")
-                      }
-                      aria-pressed={
-                        activeAppearance.style === "pixar"
-                      }
-                    >
-                      <span className="appearance-style-icon">
-                        🎨
-                      </span>
+              <label className="studio-field" htmlFor="studio-language">
+                VOICE LANGUAGE
+              </label>
 
-                      <strong>Pixar Style</strong>
+              <select
+                id="studio-language"
+                className="studio-select"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+              >
+                {SUPPORTED_VOICE_LANGUAGES.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
 
-                      <small>
-                        Stylized proportions and a colorful animated look.
-                      </small>
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`appearance-style-card ${
-                        activeAppearance.style === "realistic"
-                          ? "active"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        updateAppearanceStyle("realistic")
-                      }
-                      aria-pressed={
-                        activeAppearance.style === "realistic"
-                      }
-                    >
-                      <span className="appearance-style-icon">
-                        🧑
-                      </span>
-
-                      <strong>Realistic Style</strong>
-
-                      <small>
-                        More natural proportions and material appearance.
-                      </small>
-                    </button>
-                  </div>
-
-                  {/* SKIN TONE */}
-
-                  <div className="appearance-color-section">
-                    <div className="appearance-color-heading">
-                      <strong>Skin Tone</strong>
-
-                      <small>
-                        <span
-                          className="appearance-selected-color"
-                          style={{
-                            background: activeAppearance.skinTone
-                          }}
-                        />
-                        Selected
-                      </small>
-                    </div>
-
-                    <div className="appearance-swatches">
-                      {skinTones.map((color, index) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className={`appearance-swatch ${
-                            activeAppearance.skinTone === color
-                              ? "active"
-                              : ""
-                          }`}
-                          style={{ background: color }}
-                          title={`Skin tone ${index + 1}`}
-                          aria-label={`Choose skin tone ${index + 1}`}
-                          aria-pressed={
-                            activeAppearance.skinTone === color
-                          }
-                          onClick={() =>
-                            updateAppearance("skinTone", color)
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* CLOTHING COLOR */}
-
-                  <div className="appearance-color-section">
-                    <div className="appearance-color-heading">
-                      <strong>Clothing Color</strong>
-
-                      <small>
-                        <span
-                          className="appearance-selected-color"
-                          style={{
-                            background:
-                              activeAppearance.clothingColor
-                          }}
-                        />
-                        Selected
-                      </small>
-                    </div>
-
-                    <div className="appearance-swatches">
-                      {clothingColors.map((color, index) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className={`appearance-swatch ${
-                            activeAppearance.clothingColor === color
-                              ? "active"
-                              : ""
-                          }`}
-                          style={{ background: color }}
-                          title={`Clothing color ${index + 1}`}
-                          aria-label={`Choose clothing color ${index + 1}`}
-                          aria-pressed={
-                            activeAppearance.clothingColor === color
-                          }
-                          onClick={() =>
-                            updateAppearance("clothingColor", color)
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* HAIR COLOR */}
-
-                  <div className="appearance-color-section">
-                    <div className="appearance-color-heading">
-                      <strong>Hair Color</strong>
-
-                      <small>
-                        <span
-                          className="appearance-selected-color"
-                          style={{
-                            background: activeAppearance.hairColor
-                          }}
-                        />
-                        Selected
-                      </small>
-                    </div>
-
-                    <div className="appearance-swatches">
-                      {hairColors.map((color, index) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className={`appearance-swatch ${
-                            activeAppearance.hairColor === color
-                              ? "active"
-                              : ""
-                          }`}
-                          style={{ background: color }}
-                          title={`Hair color ${index + 1}`}
-                          aria-label={`Choose hair color ${index + 1}`}
-                          aria-pressed={
-                            activeAppearance.hairColor === color
-                          }
-                          onClick={() =>
-                            updateAppearance("hairColor", color)
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="studio-selected-summary">
-                    Appearance settings are stored separately for each
-                    selected character while this Studio session is open.
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
-        {/* STAGE TAB */}
-
-        {activeTab === "stage" && (
-          <section className="studio-panel">
-            <div className="studio-panel-header">
-              <div>
-                <span className="studio-kicker">
-                  STEP 02 / ENVIRONMENT
-                </span>
-
-                <h2>Build Your Scene</h2>
-
-                <p>
-                  Choose where your characters will perform.
-                </p>
-              </div>
+              <button
+                type="button"
+                className="studio-primary studio-generate"
+                onClick={createScript}
+              >
+                ✨ Generate Comedy Script
+              </button>
             </div>
 
-            <div className="studio-option-grid">
-              {backgrounds.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`studio-option ${
-                    activeScene.background === item.id
-                      ? "selected"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    updateActiveScene({
-                      background: item.id
-                    })
-                  }
-                  aria-pressed={
-                    activeScene.background === item.id
-                  }
-                >
-                  <span
-                    className="studio-background-swatch"
-                    style={{ background: item.color }}
-                  />
-
-                  <strong>
-                    {item.emoji} {item.name}
-                  </strong>
-
-                  <small>
-                    {activeScene.background === item.id
-                      ? "Currently selected"
-                      : "Select environment"}
-                  </small>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ANIMATION TAB */}
-
-        {activeTab === "animation" && (
-          <section className="studio-panel">
-            <div className="studio-panel-header">
-              <div>
-                <span className="studio-kicker">
-                  STEP 03 / MOTION
-                </span>
-
-                <h2>Character Animation</h2>
-
-                <p>
-                  Choose how your characters behave in this scene.
-                </p>
-              </div>
-            </div>
-
-            <div className="studio-option-grid">
-              {animationActions.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`studio-option ${
-                    activeScene.action === item.id
-                      ? "selected"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    updateActiveScene({
-                      action: item.id
-                    });
-
-                    setNotice(
-                      `${item.name} animation selected.`
-                    );
-                  }}
-                  aria-pressed={
-                    activeScene.action === item.id
-                  }
-                >
-                  <span className="studio-action-emoji">
-                    {item.emoji}
-                  </span>
-
-                  <strong>{item.name}</strong>
-                  <small>{item.description}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* SCRIPT TAB */}
-
-        {activeTab === "script" && (
-          <section className="studio-panel">
-            <div className="studio-panel-header">
-              <div>
-                <span className="studio-kicker">
-                  STEP 04 / STORY
-                </span>
-
-                <h2>Comedy Scriptwriter</h2>
-
-                <p>
-                  Create dialogue for your selected characters.
-                </p>
-              </div>
-            </div>
-
-            <label
-              className="studio-field"
-              htmlFor="comedy-topic"
-            >
-              STORY IDEA
-            </label>
-
-            <textarea
-              id="comedy-topic"
-              className="studio-textarea"
-              value={topic}
-              onChange={(event) =>
-                setTopic(event.target.value)
-              }
-              placeholder="Example: A lion trying to become a famous TikTok influencer..."
-              rows={5}
-            />
-
-            <label
-              className="studio-field"
-              htmlFor="comedy-style"
-            >
-              COMEDY STYLE
-            </label>
-
-            <select
-              id="comedy-style"
-              className="studio-select"
-              value={style}
-              onChange={(event) =>
-                setStyle(
-                  event.target.value as ComedyStyle
-                )
-              }
-            >
-              {comedyStyles.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-
-            <label
-              className="studio-field"
-              htmlFor="voice-language"
-            >
-              CHARACTER VOICE LANGUAGE
-            </label>
-
-            <select
-              id="voice-language"
-              className="studio-select"
-              value={language}
-              onChange={(event) =>
-                setLanguage(event.target.value)
-              }
-            >
-              {SUPPORTED_VOICE_LANGUAGES.map((item) => (
-                <option
-                  key={item.code}
-                  value={item.code}
-                >
-                  {item.name}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              className="studio-primary"
-              style={{
-                width: "100%",
-                marginTop: 22
-              }}
-              onClick={createScript}
-            >
-              ✨ Generate Comedy Script
-            </button>
+            {/* GENERATED SCRIPT */}
 
             {script && (
-              <div style={{ marginTop: 25 }}>
-                <span className="studio-kicker">
-                  GENERATED STORY
-                </span>
+              <div className="studio-script-result">
+                <span className="studio-kicker">YOUR GENERATED SCRIPT</span>
 
-                <h2 style={{ marginBottom: 6 }}>
-                  {script.title}
-                </h2>
+                <h3>{script.title}</h3>
 
-                <p
-                  style={{
-                    color: "#91a2ad",
-                    fontSize: 12
-                  }}
-                >
-                  {script.description}
-                </p>
+                <p>{script.description}</p>
 
                 {script.dialogue.map((line, index) => {
                   const relatedScene = scenes[index];
@@ -2360,53 +1659,33 @@ export default function Studio() {
                   return (
                     <article
                       key={`${line.characterId}-${index}`}
-                      className="studio-dialogue-card"
+                      className="studio-dialogue"
                     >
-                      <div className="studio-dialogue-meta">
-                        <strong>
-                          {line.characterName}
-
-                          <span className="studio-emotion">
-                            {line.emotion}
-                          </span>
-                        </strong>
-
-                        <span
-                          style={{
-                            color: "#91a2ad",
-                            fontSize: 10
-                          }}
-                        >
-                          Scene {index + 1}
-                        </span>
-                      </div>
+                      <strong>
+                        {line.characterName} · {line.emotion}
+                      </strong>
 
                       <p>{line.text}</p>
 
-                      <div className="studio-scene-actions">
+                      <div className="studio-dialogue-actions">
                         <button
                           type="button"
+                          disabled={!relatedScene}
                           onClick={() => {
                             if (!relatedScene) return;
 
                             stopSpeaking();
-                            setActiveSceneId(
-                              relatedScene.id
-                            );
-                            setActiveTab("timeline");
+                            setActiveSceneId(relatedScene.id);
 
                             updateSceneAction(
                               relatedScene.id,
                               "talk"
                             );
 
-                            const started = speakText(
-                              line.text,
-                              {
-                                ...DEFAULT_VOICE_SETTINGS,
-                                language
-                              }
-                            );
+                            const started = speakText(line.text, {
+                              ...DEFAULT_VOICE_SETTINGS,
+                              language
+                            });
 
                             if (!started) {
                               setNotice(
@@ -2414,22 +1693,19 @@ export default function Studio() {
                               );
                             }
                           }}
-                          disabled={!relatedScene}
                         >
-                          ▶ Play voice
+                          ▶ Play
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => {
-                            if (relatedScene) {
-                              selectScene(relatedScene.id);
-                              setActiveTab("timeline");
-                            }
-                          }}
                           disabled={!relatedScene}
+                          onClick={() => {
+                            if (!relatedScene) return;
+                            selectScene(relatedScene.id);
+                          }}
                         >
-                          Select scene
+                          Select
                         </button>
                       </div>
                     </article>
@@ -2438,137 +1714,168 @@ export default function Studio() {
 
                 <button
                   type="button"
-                  className="studio-secondary"
+                  className="studio-button"
+                  style={{ width: "100%", marginTop: 10 }}
                   onClick={stopDialogue}
                 >
-                  ■ Stop voice
+                  ■ Stop Voice
                 </button>
               </div>
             )}
-          </section>
-        )}
 
-        {/* TIMELINE TAB */}
+          </aside>
 
-        {activeTab === "timeline" && (
-          <section className="studio-panel">
-            <div className="studio-panel-header">
-              <div>
-                <span className="studio-kicker">
-                  STEP 05 / EDITING
+          {/* CENTER: 3D PREVIEW */}
+
+          <section className="studio-center">
+
+            <div className="studio-preview">
+
+              <div className="studio-preview-heading">
+                <strong>
+                  🎬 {activeScene.title}
+                </strong>
+
+                <span className="studio-live">
+                  <span className="studio-live-dot" />
+                  LIVE PREVIEW
                 </span>
-
-                <h2>Scene Timeline</h2>
-
-                <p>
-                  Organize, edit and preview your story scenes.
-                </p>
               </div>
 
-              <span className="studio-count">
-                {scenes.length} scenes
-              </span>
+              <div
+                className="studio-preview-stage"
+                style={{ background: currentBackground.color }}
+              >
+                <CharacterStage
+                  selectedIds={selectedIds}
+                  height={420}
+                  environment={activeScene.background}
+                  action={activeScene.action}
+                  appearances={appearances}
+                />
+              </div>
+
+              <div className="studio-preview-controls">
+                <span className="studio-scene-indicator">
+                  Scene {scenes.findIndex(
+                    (scene) => scene.id === activeSceneId
+                  ) + 1} of {scenes.length}
+                </span>
+
+                <div className="studio-preview-actions">
+                  <button
+                    type="button"
+                    className="studio-button"
+                    onClick={() =>
+                      playDialogue(activeScene.dialogue)
+                    }
+                    disabled={!activeScene.dialogue.trim()}
+                  >
+                    ▶ Play Dialogue
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-button"
+                    onClick={stopDialogue}
+                  >
+                    ■ Stop
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <button
-              type="button"
-              className="studio-primary"
-              onClick={addScene}
-            >
-              + Add New Scene
-            </button>
+            {/* TIMELINE */}
 
-            <div className="studio-scene-list">
-              {scenes.map((scene, index) => (
-                <article
-                  key={scene.id}
-                  className={`studio-scene-card ${
-                    activeSceneId === scene.id
-                      ? "selected"
-                      : ""
-                  }`}
+            <section className="studio-timeline">
+
+              <div className="studio-timeline-header">
+                <div>
+                  <h2>🎞️ Scene Timeline</h2>
+                  <p>
+                    Select a scene to edit and preview it.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="studio-primary"
+                  onClick={addScene}
                 >
-                  <div className="studio-scene-top">
-                    <button
-                      type="button"
-                      className="studio-scene-title"
-                      onClick={() =>
-                        selectScene(scene.id)
-                      }
-                    >
-                      {String(index + 1).padStart(2, "0")}
-                      {" · "}
-                      {scene.title}
-                    </button>
+                  + Add Scene
+                </button>
+              </div>
 
-                    <span className="studio-scene-duration">
-                      {scene.duration}s
+              <div className="studio-timeline-track">
+                {scenes.map((scene, index) => (
+                  <button
+                    key={scene.id}
+                    type="button"
+                    className={`studio-timeline-card ${
+                      scene.id === activeSceneId ? "active" : ""
+                    }`}
+                    onClick={() => selectScene(scene.id)}
+                  >
+                    <strong>
+                      {String(index + 1).padStart(2, "0")} · {scene.title}
+                    </strong>
+
+                    <small>
+                      {scene.duration}s · {scene.action}
+                    </small>
+
+                    <span className="studio-timeline-dialogue">
+                      {scene.dialogue || "No dialogue yet"}
                     </span>
-                  </div>
+                  </button>
+                ))}
+              </div>
 
-                  <div className="studio-scene-actions">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        selectScene(scene.id)
-                      }
-                    >
-                      Edit
-                    </button>
+              {/* TIMELINE ACTIONS */}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        duplicateScene(scene.id)
-                      }
-                    >
-                      Duplicate
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        moveScene(scene.id, -1)
-                      }
-                      disabled={index === 0}
-                    >
-                      ↑ Move up
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        moveScene(scene.id, 1)
-                      }
-                      disabled={index === scenes.length - 1}
-                    >
-                      ↓ Move down
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        deleteScene(scene.id)
-                      }
-                      disabled={scenes.length === 1}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            {/* ACTIVE SCENE EDITOR */}
-
-            {activeScene && (
-              <div className="studio-editor">
-                <h3>Edit {activeScene.title}</h3>
-
-                <label
-                  className="studio-field"
-                  htmlFor="scene-title"
+              <div className="studio-timeline-actions">
+                <button
+                  type="button"
+                  onClick={() => duplicateScene(activeSceneId)}
                 >
+                  Duplicate
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => moveScene(activeSceneId, -1)}
+                  disabled={scenes.findIndex(
+                    (scene) => scene.id === activeSceneId
+                  ) <= 0}
+                >
+                  ↑ Move left
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => moveScene(activeSceneId, 1)}
+                  disabled={scenes.findIndex(
+                    (scene) => scene.id === activeSceneId
+                  ) >= scenes.length - 1}
+                >
+                  Move right ↓
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => deleteScene(activeSceneId)}
+                  disabled={scenes.length <= 1}
+                >
+                  Delete scene
+                </button>
+              </div>
+
+              {/* ACTIVE SCENE EDITOR */}
+
+              <div className="studio-editor">
+                <h3>✏️ Edit {activeScene.title}</h3>
+
+                <label className="studio-field" htmlFor="scene-title">
                   SCENE NAME
                 </label>
 
@@ -2576,18 +1883,15 @@ export default function Studio() {
                   id="scene-title"
                   className="studio-input"
                   value={activeScene.title}
+                  maxLength={50}
                   onChange={(event) =>
                     updateActiveScene({
                       title: event.target.value
                     })
                   }
-                  maxLength={50}
                 />
 
-                <label
-                  className="studio-field"
-                  htmlFor="scene-duration"
-                >
+                <label className="studio-field" htmlFor="scene-duration">
                   DURATION (SECONDS)
                 </label>
 
@@ -2599,47 +1903,31 @@ export default function Studio() {
                   max={30}
                   value={activeScene.duration}
                   onChange={(event) => {
-                    const value = Number(
-                      event.target.value
-                    );
+                    const value = Number(event.target.value);
 
                     updateActiveScene({
-                      duration: Math.min(
-                        30,
-                        Math.max(2, value || 2)
-                      )
+                      duration: Math.min(30, Math.max(2, value || 2))
                     });
                   }}
                 />
 
-                <label
-                  className="studio-field"
-                  htmlFor="scene-dialogue"
-                >
-                  SCENE DIALOGUE
+                <label className="studio-field" htmlFor="scene-dialogue">
+                  DIALOGUE
                 </label>
 
                 <textarea
                   id="scene-dialogue"
                   className="studio-textarea"
-                  rows={4}
                   value={activeScene.dialogue}
                   onChange={(event) =>
                     updateActiveScene({
                       dialogue: event.target.value
                     })
                   }
-                  placeholder="Write what your character should say..."
+                  placeholder="Write what your characters should say..."
                 />
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 9,
-                    marginTop: 15
-                  }}
-                >
+                <div className="studio-preview-actions" style={{ marginTop: 12 }}>
                   <button
                     type="button"
                     className="studio-primary"
@@ -2648,48 +1936,318 @@ export default function Studio() {
                     }
                     disabled={!activeScene.dialogue.trim()}
                   >
-                    ▶ Play dialogue
+                    ▶ Play Dialogue
                   </button>
 
                   <button
                     type="button"
-                    className="studio-secondary"
+                    className="studio-button"
                     onClick={stopDialogue}
                   >
-                    ■ Stop voice
+                    ■ Stop
                   </button>
                 </div>
               </div>
-            )}
 
-            {/* EXISTING SCENE PLAYER */}
+              {/* EXISTING SCENE PLAYER */}
 
-            <div style={{ marginTop: 25 }}>
-              <ScenePlayer
-                scenes={scenes}
-                language={language}
-                onSceneChange={setActiveSceneId}
-                onActionChange={(action) => {
-                  updateSceneAction(
-                    activeSceneId,
-                    action
-                  );
-                }}
-              />
-            </div>
+              <div className="studio-player">
+                <ScenePlayer
+                  scenes={scenes}
+                  language={language}
+                  onSceneChange={(id) => setActiveSceneId(id)}
+                  onActionChange={(action) => {
+                    updateSceneAction(activeSceneId, action);
+                  }}
+                />
+              </div>
+
+            </section>
           </section>
-        )}
 
-        {/* FOOTER */}
+          {/* RIGHT: SETTINGS */}
+
+          <aside className="studio-panel studio-right-panel">
+
+            <span className="studio-kicker">03 / CUSTOMIZE</span>
+
+            <h2 className="studio-panel-title">
+              Studio Settings
+            </h2>
+
+            <p className="studio-panel-description">
+              Customize your scene, character and animation.
+            </p>
+
+            {/* BACKGROUND */}
+
+            <details className="studio-settings-section" open>
+              <summary>
+                🌄 Scene Environment
+                <span>⌄</span>
+              </summary>
+
+              <div className="studio-settings-content">
+                <div className="studio-background-grid">
+                  {backgrounds.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`studio-background ${
+                        activeScene.background === item.id
+                          ? "active"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        updateActiveScene({
+                          background: item.id
+                        })
+                      }
+                    >
+                      <span
+                        className="studio-background-swatch"
+                        style={{ background: item.color }}
+                      />
+
+                      {item.emoji} {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
+
+            {/* ANIMATION */}
+
+            <details className="studio-settings-section" open>
+              <summary>
+                🎭 Character Motion
+                <span>⌄</span>
+              </summary>
+
+              <div className="studio-settings-content">
+                <div className="studio-motion-grid">
+                  {animationActions.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`studio-motion ${
+                        activeScene.action === item.id
+                          ? "active"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        updateActiveScene({
+                          action: item.id
+                        });
+
+                        setNotice(`${item.name} animation selected.`);
+                      }}
+                    >
+                      {item.emoji} {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
+
+            {/* CHARACTER APPEARANCE */}
+
+            <details className="studio-settings-section">
+              <summary>
+                🎨 Character Appearance
+                <span>⌄</span>
+              </summary>
+
+              <div className="studio-settings-content">
+
+                <div className="studio-appearance-character-list">
+                  {selectedIds.map((id) => {
+                    const character = characters.find(
+                      (item) => item.id === id
+                    );
+
+                    if (!character) return null;
+
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`studio-appearance-character ${
+                          appearanceCharacter === id ? "active" : ""
+                        }`}
+                        onClick={() => selectAppearanceCharacter(id)}
+                      >
+                        {character.emoji} {character.name}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="studio-color-heading">
+                  3D STYLE
+                </div>
+
+                <div className="studio-style-grid">
+                  <button
+                    type="button"
+                    className={`studio-style-button ${
+                      activeAppearance.style === "pixar" ? "active" : ""
+                    }`}
+                    onClick={() => updateAppearance("style", "pixar")}
+                  >
+                    🎨 Pixar
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`studio-style-button ${
+                      activeAppearance.style === "realistic" ? "active" : ""
+                    }`}
+                    onClick={() =>
+                      updateAppearance("style", "realistic")
+                    }
+                  >
+                    🧑 Realistic
+                  </button>
+                </div>
+
+                <div className="studio-color-group">
+                  <div className="studio-color-heading">
+                    Skin Tone
+                  </div>
+
+                  <div className="studio-color-swatches">
+                    {skinTones.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`studio-color-swatch ${
+                          activeAppearance.skinTone === color
+                            ? "active"
+                            : ""
+                        }`}
+                        style={{ background: color }}
+                        title={color}
+                        aria-label={`Choose skin tone ${color}`}
+                        onClick={() =>
+                          updateAppearance("skinTone", color)
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="studio-color-group">
+                  <div className="studio-color-heading">
+                    Clothing Color
+                  </div>
+
+                  <div className="studio-color-swatches">
+                    {clothingColors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`studio-color-swatch ${
+                          activeAppearance.clothingColor === color
+                            ? "active"
+                            : ""
+                        }`}
+                        style={{ background: color }}
+                        title={color}
+                        aria-label={`Choose clothing color ${color}`}
+                        onClick={() =>
+                          updateAppearance("clothingColor", color)
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="studio-color-group">
+                  <div className="studio-color-heading">
+                    Hair Color
+                  </div>
+
+                  <div className="studio-color-swatches">
+                    {hairColors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`studio-color-swatch ${
+                          activeAppearance.hairColor === color
+                            ? "active"
+                            : ""
+                        }`}
+                        style={{ background: color }}
+                        title={color}
+                        aria-label={`Choose hair color ${color}`}
+                        onClick={() =>
+                          updateAppearance("hairColor", color)
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="studio-button"
+                  style={{ width: "100%", marginTop: 15 }}
+                  onClick={resetAppearance}
+                >
+                  ↺ Reset Appearance
+                </button>
+
+              </div>
+            </details>
+
+            {/* VOICE */}
+
+            <details className="studio-settings-section" open>
+              <summary>
+                🔊 Voice Settings
+                <span>⌄</span>
+              </summary>
+
+              <div className="studio-settings-content">
+                <label className="studio-field" htmlFor="right-language">
+                  VOICE LANGUAGE
+                </label>
+
+                <select
+                  id="right-language"
+                  className="studio-select"
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value)}
+                >
+                  {SUPPORTED_VOICE_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+
+                <p
+                  style={{
+                    color: "#91a2ad",
+                    fontSize: 9,
+                    lineHeight: 1.5
+                  }}
+                >
+                  Available voices depend on the voices installed in your browser or device.
+                </p>
+              </div>
+            </details>
+
+          </aside>
+
+        </div>
 
         <footer className="studio-footer">
-          <p>
-            CharacterAI Studio · Create characters.
-            Create stories. Make people laugh.
-          </p>
+          CharacterAI Studio · Create characters. Create stories. Make people laugh.
         </footer>
 
       </div>
     </main>
   );
-                   }
+    }
