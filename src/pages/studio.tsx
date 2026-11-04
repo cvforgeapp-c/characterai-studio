@@ -1,15 +1,14 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import {
   characters,
-  type CharacterDefinition,
   type CharacterId
 } from "../lib/character-catalog";
-import { generateComedyScript, type ComedyStyle, type ComedyScript } from "../lib/comedy-script";
+import { generateComedyScript, type ComedyStyle } from "../lib/comedy-script";
 import { speakText, stopSpeaking } from "../lib/voice-engine";
-import CharacterStage, { type CharacterAppearance } from "./CharacterStage";
-import ScenePlayer, { type VideoScene } from "./ScenePlayer";
-import type { EnvironmentId } from "./CharacterCanvas";
+import CharacterStage, { type CharacterAppearance } from "../components/CharacterStage";
+import ScenePlayer, { type VideoScene } from "../components/ScenePlayer";
+import type { EnvironmentId } from "../components/CharacterCanvas";
 
 type StudioTab = "cast" | "scene" | "voice" | "export";
 
@@ -22,7 +21,7 @@ export default function Studio() {
   const [categoryFilter, setCategoryFilter] = useState<"All" | "Animals" | "Food">("All");
 
   // Custom Appearances
-  const [appearances, setAppearances] = useState<Record<string, CharacterAppearance>>({
+  const [appearances] = useState<Record<string, CharacterAppearance>>({
     lion: { style: "pixar", skinTone: "#f1c7a5", clothingColor: "#2563eb", hairColor: "#211a18" },
     monkey: { style: "pixar", skinTone: "#bd805b", clothingColor: "#dc3545", hairColor: "#493026" }
   });
@@ -53,7 +52,7 @@ export default function Studio() {
     }
   ]);
 
-  const [activeSceneId, setActiveSceneId] = useState<string>("scene-1");
+  const [, setActiveSceneId] = useState<string>("scene-1");
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
 
@@ -77,7 +76,7 @@ export default function Studio() {
       style: comedyStyle
     });
 
-    const newScenes: VideoScene[] = generated.dialogue.map((line, idx) => ({
+    const newScenes: VideoScene[] = generated.dialogue.map((line: { characterName: string; text: string; action: any }, idx: number) => ({
       id: `generated-${idx + 1}`,
       title: `Scene ${idx + 1}: ${line.characterName}`,
       duration: Math.max(4, Math.ceil(line.text.length / 12)),
@@ -91,7 +90,7 @@ export default function Studio() {
     setActiveTab("scene");
   };
 
-  // Video Export Simulator (Canvas Recording Engine ready)
+  // Video Export Simulator
   const handleExportVideo = () => {
     setIsExporting(true);
     setExportProgress(0);
@@ -101,7 +100,7 @@ export default function Studio() {
         if (prev >= 100) {
           clearInterval(interval);
           setIsExporting(false);
-          alert("Video export complete! Your MP4/WebM output is ready.");
+          alert("Video export complete! Your output file is ready.");
           return 100;
         }
         return prev + 10;
@@ -119,10 +118,10 @@ export default function Studio() {
       <header className="studio-topbar">
         <div className="studio-brand">
           <Link href="/">
-            <a style={{ textDecoration: "none", color: "inherit", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ textDecoration: "none", color: "inherit", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
               <span style={{ fontSize: 22 }}>🎬</span>
               <span>CHARACTER AI STUDIO</span>
-            </a>
+            </span>
           </Link>
         </div>
 
@@ -407,8 +406,8 @@ export default function Studio() {
               <ScenePlayer
                 scenes={scenes}
                 language={language}
-                onSceneChange={(id) => setActiveSceneId(id)}
-                onActionChange={(action) => console.log("Action changed:", action)}
+                onSceneChange={(id: string) => setActiveSceneId(id)}
+                onActionChange={(action: string) => console.log("Action changed:", action)}
               />
             </div>
           )}
