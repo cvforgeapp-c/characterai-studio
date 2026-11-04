@@ -1,4 +1,6 @@
-export type CharacterCategory = "Animals" | "Food";
+export type CharacterCategory = "Animals" | "Food" | "Humans";
+
+export type CharacterKind = "animal" | "food" | "human";
 
 export type CharacterId =
   | "lion"
@@ -17,25 +19,45 @@ export type CharacterId =
   | "broccoli"
   | "carrot"
   | "banana"
-  | "orange";
+  | "orange"
+  | "amara"
+  | "david"
+  | "sophia"
+  | "michael"
+  | "zara"
+  | "daniel"
+  | "maya"
+  | "ethan";
 
 export interface CharacterDefinition {
   id: CharacterId;
   name: string;
   category: CharacterCategory;
+  kind: CharacterKind;
   emoji: string;
   description: string;
   tone: string;
   color: string;
   secondaryColor: string;
   size: number;
+
+  // Human character appearance
+  skinTone?: string;
+  clothingColor?: string;
+  hairColor?: string;
+  hairstyle?: "short" | "long" | "curly" | "afro" | "bun" | "wavy";
 }
 
 export const characters: CharacterDefinition[] = [
+  // ==========================================
+  // ANIMALS
+  // ==========================================
+
   {
     id: "lion",
     name: "King Leo",
     category: "Animals",
+    kind: "animal",
     emoji: "🦁",
     description: "A proud lion who thinks he rules everything.",
     tone: "Confident",
@@ -47,6 +69,7 @@ export const characters: CharacterDefinition[] = [
     id: "goat",
     name: "Gigi Goat",
     category: "Animals",
+    kind: "animal",
     emoji: "🐐",
     description: "A stubborn goat with a big personality.",
     tone: "Stubborn",
@@ -58,6 +81,7 @@ export const characters: CharacterDefinition[] = [
     id: "chicken",
     name: "Chika",
     category: "Animals",
+    kind: "animal",
     emoji: "🐔",
     description: "A dramatic chicken who loves gossip.",
     tone: "Dramatic",
@@ -69,6 +93,7 @@ export const characters: CharacterDefinition[] = [
     id: "dog",
     name: "Benny Dog",
     category: "Animals",
+    kind: "animal",
     emoji: "🐶",
     description: "A friendly dog who gets into trouble.",
     tone: "Playful",
@@ -80,6 +105,7 @@ export const characters: CharacterDefinition[] = [
     id: "cat",
     name: "Cleo Cat",
     category: "Animals",
+    kind: "animal",
     emoji: "🐱",
     description: "A clever cat with a sarcastic attitude.",
     tone: "Sarcastic",
@@ -91,6 +117,7 @@ export const characters: CharacterDefinition[] = [
     id: "monkey",
     name: "Milo Monkey",
     category: "Animals",
+    kind: "animal",
     emoji: "🐵",
     description: "A mischievous monkey who loves jokes.",
     tone: "Funny",
@@ -102,6 +129,7 @@ export const characters: CharacterDefinition[] = [
     id: "elephant",
     name: "Ellie Elephant",
     category: "Animals",
+    kind: "animal",
     emoji: "🐘",
     description: "A gentle elephant with a loud laugh.",
     tone: "Gentle",
@@ -113,6 +141,7 @@ export const characters: CharacterDefinition[] = [
     id: "rabbit",
     name: "Ruby Rabbit",
     category: "Animals",
+    kind: "animal",
     emoji: "🐰",
     description: "An energetic rabbit who talks very fast.",
     tone: "Energetic",
@@ -124,6 +153,7 @@ export const characters: CharacterDefinition[] = [
     id: "cow",
     name: "Coco Cow",
     category: "Animals",
+    kind: "animal",
     emoji: "🐮",
     description: "A calm cow with unexpected opinions.",
     tone: "Calm",
@@ -135,6 +165,7 @@ export const characters: CharacterDefinition[] = [
     id: "bear",
     name: "Bramble Bear",
     category: "Animals",
+    kind: "animal",
     emoji: "🐻",
     description: "A big bear who is secretly sensitive.",
     tone: "Gentle giant",
@@ -142,10 +173,16 @@ export const characters: CharacterDefinition[] = [
     secondaryColor: "#4F3028",
     size: 1.2
   },
+
+  // ==========================================
+  // FOOD CHARACTERS
+  // ==========================================
+
   {
     id: "tomato",
     name: "Tina Tomato",
     category: "Food",
+    kind: "food",
     emoji: "🍅",
     description: "A dramatic tomato who always makes excuses.",
     tone: "Dramatic",
@@ -157,6 +194,7 @@ export const characters: CharacterDefinition[] = [
     id: "onion",
     name: "Omar Onion",
     category: "Food",
+    kind: "food",
     emoji: "🧅",
     description: "An onion who makes everyone cry.",
     tone: "Serious",
@@ -168,6 +206,7 @@ export const characters: CharacterDefinition[] = [
     id: "potato",
     name: "Pablo Potato",
     category: "Food",
+    kind: "food",
     emoji: "🥔",
     description: "A lazy potato who avoids responsibility.",
     tone: "Lazy",
@@ -179,6 +218,7 @@ export const characters: CharacterDefinition[] = [
     id: "broccoli",
     name: "Brody Broccoli",
     category: "Food",
+    kind: "food",
     emoji: "🥦",
     description: "A fitness-obsessed broccoli.",
     tone: "Energetic",
@@ -190,6 +230,7 @@ export const characters: CharacterDefinition[] = [
     id: "carrot",
     name: "Carla Carrot",
     category: "Food",
+    kind: "food",
     emoji: "🥕",
     description: "A confident carrot who loves attention.",
     tone: "Confident",
@@ -201,6 +242,7 @@ export const characters: CharacterDefinition[] = [
     id: "banana",
     name: "Benny Banana",
     category: "Food",
+    kind: "food",
     emoji: "🍌",
     description: "A banana who slips into ridiculous situations.",
     tone: "Playful",
@@ -212,12 +254,146 @@ export const characters: CharacterDefinition[] = [
     id: "orange",
     name: "Ollie Orange",
     category: "Food",
+    kind: "food",
     emoji: "🍊",
     description: "A cheerful orange who loves conversation.",
     tone: "Cheerful",
     color: "#F28A27",
     secondaryColor: "#4C9A43",
     size: 0.9
+  },
+
+  // ==========================================
+  // HUMAN CHARACTERS
+  // ==========================================
+
+  {
+    id: "amara",
+    name: "Amara",
+    category: "Humans",
+    kind: "human",
+    emoji: "👩🏽",
+    description: "A confident young woman with a warm personality.",
+    tone: "Confident",
+    color: "#A66C4C",
+    secondaryColor: "#493025",
+    size: 1,
+    skinTone: "#A66C4C",
+    clothingColor: "#8B5CF6",
+    hairColor: "#211815",
+    hairstyle: "long"
+  },
+  {
+    id: "david",
+    name: "David",
+    category: "Humans",
+    kind: "human",
+    emoji: "👨🏾",
+    description: "A funny young man who always has an answer.",
+    tone: "Funny",
+    color: "#70452F",
+    secondaryColor: "#211815",
+    size: 1,
+    skinTone: "#70452F",
+    clothingColor: "#2563EB",
+    hairColor: "#171717",
+    hairstyle: "short"
+  },
+  {
+    id: "sophia",
+    name: "Sophia",
+    category: "Humans",
+    kind: "human",
+    emoji: "👩🏻",
+    description: "A clever woman with a sarcastic sense of humor.",
+    tone: "Sarcastic",
+    color: "#F1C7A5",
+    secondaryColor: "#75452D",
+    size: 1,
+    skinTone: "#F1C7A5",
+    clothingColor: "#DB2777",
+    hairColor: "#75452D",
+    hairstyle: "wavy"
+  },
+  {
+    id: "michael",
+    name: "Michael",
+    category: "Humans",
+    kind: "human",
+    emoji: "👨🏻",
+    description: "A serious-looking man who gets into funny situations.",
+    tone: "Serious",
+    color: "#E0B18E",
+    secondaryColor: "#493026",
+    size: 1,
+    skinTone: "#E0B18E",
+    clothingColor: "#34495E",
+    hairColor: "#493026",
+    hairstyle: "short"
+  },
+  {
+    id: "zara",
+    name: "Zara",
+    category: "Humans",
+    kind: "human",
+    emoji: "👩🏿",
+    description: "An energetic woman who loves adventure.",
+    tone: "Energetic",
+    color: "#4D3027",
+    secondaryColor: "#171717",
+    size: 1,
+    skinTone: "#4D3027",
+    clothingColor: "#16A085",
+    hairColor: "#171717",
+    hairstyle: "afro"
+  },
+  {
+    id: "daniel",
+    name: "Daniel",
+    category: "Humans",
+    kind: "human",
+    emoji: "👨🏽",
+    description: "A friendly man who loves making people laugh.",
+    tone: "Playful",
+    color: "#BD805B",
+    secondaryColor: "#211A18",
+    size: 1,
+    skinTone: "#BD805B",
+    clothingColor: "#DC3545",
+    hairColor: "#211A18",
+    hairstyle: "curly"
+  },
+  {
+    id: "maya",
+    name: "Maya",
+    category: "Humans",
+    kind: "human",
+    emoji: "👩🏾",
+    description: "A stylish woman with a big imagination.",
+    tone: "Creative",
+    color: "#925B40",
+    secondaryColor: "#211A18",
+    size: 1,
+    skinTone: "#925B40",
+    clothingColor: "#E68A24",
+    hairColor: "#211A18",
+    hairstyle: "bun"
+  },
+  {
+    id: "ethan",
+    name: "Ethan",
+    category: "Humans",
+    kind: "human",
+    emoji: "👨🏼",
+    description: "An adventurous man who never gives up.",
+    tone: "Adventurous",
+    color: "#DCA47C",
+    secondaryColor: "#75452D",
+    size: 1,
+    skinTone: "#DCA47C",
+    clothingColor: "#16865C",
+    hairColor: "#75452D",
+    hairstyle: "wavy"
   }
 ];
 
@@ -225,4 +401,4 @@ export function characterById(
   id: CharacterId
 ): CharacterDefinition | undefined {
   return characters.find((character) => character.id === id);
-  }
+}
