@@ -1,232 +1,674 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import {
-  characters,
-  type CharacterId
-} from "../lib/character-catalog";
-import CharacterStage, { type CharacterAppearance } from "../components/CharacterStage";
+import CharacterStage from "../components/CharacterStage";
+import { characters } from "../lib/character-catalog";
+
+type CreationMode = "recreate" | "original";
+type Category = "All" | "Animals" | "Food";
+
+const templates = [
+  {
+    id: "vegetable",
+    title: "Vegetable Argument",
+    characters: ["tomato", "onion"],
+    description: "Tomato and Onion",
+    emoji: "🥦",
+    background: "linear-gradient(135deg,#526d38,#a77d43)",
+    prompt:
+      "The angry onion catches the tomato stealing vegetables from his garden. The tomato starts crying and makes funny excuses.",
+  },
+  {
+    id: "interview",
+    title: "Lion Interview",
+    characters: ["lion", "monkey"],
+    description: "Lion and Monkey",
+    emoji: "🦁",
+    background: "linear-gradient(135deg,#54372d,#c18a4d)",
+    prompt:
+      "A serious lion is being interviewed by a mischievous monkey. The interview becomes increasingly ridiculous.",
+  },
+  {
+    id: "school",
+    title: "Chicken Goes to School",
+    characters: ["chicken", "dog"],
+    description: "Chicken and Dog",
+    emoji: "🐔",
+    background: "linear-gradient(135deg,#465c56,#a78b68)",
+    prompt:
+      "A chicken arrives late at school and tries to convince the teacher that an egg is responsible.",
+  },
+];
+
+const categoryFilters: Category[] = ["All", "Animals", "Food"];
 
 export default function Home() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
 
-  const [creationMode, setCreationMode] = useState<"template" | "custom">("template");
-  const [selectedIds, setSelectedIds] = useState<CharacterId[]>(["lion", "monkey"]);
-  const [categoryFilter, setCategoryFilter] = useState<"All" | "Animals" | "Food">("All");
-  const [selectedTemplate, setSelectedTemplate] = useState("Vegetable Argument");
-  const [storyPrompt, setStoryPrompt] = useState(
-    "The angry onion catches the tomato stealing vegetables from his garden. The tomato starts crying and makes funny excuses..."
+  const [mode, setMode] = useState<CreationMode>("recreate");
+  const [category, setCategory] = useState<Category>("All");
+  const [selectedIds, setSelectedIds] = useState<string[]>([
+    "lion",
+    "monkey",
+  ]);
+  const [activeTemplate, setActiveTemplate] = useState("vegetable");
+  const [prompt, setPrompt] = useState(templates[0].prompt);
+  const [notice, setNotice] = useState("");
+
+  const filteredCharacters = useMemo(
+    () =>
+      characters.filter(
+        (character) =>
+          category === "All" || character.category === category
+      ),
+    [category]
   );
 
-  const [appearances] = useState<Record<string, CharacterAppearance>>({
-    lion: { style: "pixar", skinTone: "#f1c7a5", clothingColor: "#2563eb", hairColor: "#211a18" },
-    monkey: { style: "pixar", skinTone: "#bd805b", clothingColor: "#dc3545", hairColor: "#493026" }
-  });
+  const selectedCharacters = characters.filter((character) =>
+    selectedIds.includes(character.id)
+  );
 
-  const toggleCharacter = (id: CharacterId) => {
-    if (selectedIds.includes(id)) {
-      if (selectedIds.length === 1) return;
-      setSelectedIds(selectedIds.filter((item) => item !== id));
-    } else {
-      if (selectedIds.length >= 4) return;
-      setSelectedIds([...selectedIds, id]);
+  function toggleCharacter(id: string) {
+    setNotice("");
+
+    setSelectedIds((previous) => {
+      if (previous.includes(id)) {
+        if (previous.length === 1) {
+          setNotice("Select at least one character.");
+          return previous;
+        }
+
+        return previous.filter((item) => item !== id);
+      }
+
+      if (previous.length >= 4) {
+        setNotice("You can select up to four characters.");
+        return previous;
+      }
+
+      return [...previous, id];
+    });
+  }
+
+  function chooseTemplate(templateId: string) {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+
+    setActiveTemplate(templateId);
+    setMode("recreate");
+    setPrompt(template.prompt);
+
+    setSelectedIds(
+      template.characters.filter((id) =>
+        characters.some((character) => character.id === id)
+      )
+    );
+
+    setNotice("");
+  }
+
+  function continueToStudio() {
+    if (selectedIds.length === 0) {
+      setNotice("Please select at least one character.");
+      return;
     }
-  };
 
-  const filteredCharacters = characters.filter(
-    (c) => categoryFilter === "All" || c.category === categoryFilter
-  );
+    if (!prompt.trim()) {
+      setNotice("Please describe your story first.");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      characters: selectedIds.join(","),
+      prompt: prompt.trim(),
+      mode,
+    });
+
+    navigate(`/studio?${params.toString()}`);
+  }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#070b0e", color: "#f3f7f9", fontFamily: "system-ui, -apple-system, sans-serif", padding: "16px 12px 50px 12px" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
-        
-        {/* TOP HEADER BAR */}
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(16,24,30,0.92)", border: "1px solid rgba(255,255,255,0.08)", padding: "12px 20px", borderRadius: 16, backdropFilter: "blur(12px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, fontSize: 16 }}>
-            <span style={{ fontSize: 22, background: "rgba(45,212,191,0.15)", padding: 6, borderRadius: 10 }}>🎬</span>
+    <main className="landing">
+      <style>{`
+        * { box-sizing: border-box; }
+
+        .landing {
+          min-height: 100vh;
+          padding: 18px;
+          color: #edf7f5;
+          background:
+            radial-gradient(ellipse at 90% 10%,rgba(21,174,151,.18),transparent 40%),
+            radial-gradient(ellipse at 5% 70%,rgba(25,112,106,.15),transparent 40%),
+            #091416;
+          font-family: Inter,system-ui,sans-serif;
+        }
+
+        .landing-shell {
+          max-width: 1120px;
+          margin: auto;
+        }
+
+        .landing-header {
+          height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 18px;
+          border: 1px solid #294447;
+          border-radius: 17px;
+          background: rgba(19,35,38,.94);
+          margin-bottom: 22px;
+        }
+
+        .brand {
+          display: flex;
+          gap: 11px;
+          align-items: center;
+          font-weight: 750;
+          letter-spacing: -.3px;
+        }
+
+        .brand-icon {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          background: #183d3b;
+          color: #63e1c4;
+          font-size: 19px;
+        }
+
+        .primary-button {
+          border: 0;
+          padding: 12px 19px;
+          border-radius: 11px;
+          color: #06211e;
+          background: #55dfbd;
+          font-weight: 800;
+          cursor: pointer;
+          transition: .2s;
+        }
+
+        .primary-button:hover {
+          background: #83f1d4;
+          transform: translateY(-1px);
+        }
+
+        .panel {
+          border: 1px solid #2b4143;
+          background: linear-gradient(145deg,rgba(24,39,42,.97),rgba(15,27,30,.98));
+          border-radius: 19px;
+          padding: 23px;
+          margin-bottom: 20px;
+          box-shadow: 0 12px 35px rgba(0,0,0,.16);
+        }
+
+        .eyebrow {
+          color: #6ad9bf;
+          font-size: 10px;
+          font-weight: 850;
+          letter-spacing: 1.3px;
+          text-transform: uppercase;
+        }
+
+        .panel h1,.panel h2 {
+          margin: 8px 0;
+          color: #f4faf8;
+          letter-spacing: -.7px;
+        }
+
+        .panel h1 { font-size: clamp(23px,4vw,31px); }
+        .panel h2 { font-size: 23px; }
+
+        .muted {
+          color: #9aabaa;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        .mode-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+          margin-top: 18px;
+        }
+
+        .mode-card {
+          min-height: 165px;
+          overflow: hidden;
+          padding: 0;
+          text-align: left;
+          border: 1px solid #34494b;
+          border-radius: 15px;
+          color: white;
+          background: #111e21;
+          cursor: pointer;
+        }
+
+        .mode-card.active {
+          border: 1px solid #5ce3c5;
+          box-shadow: 0 0 0 1px rgba(92,227,197,.18),0 0 22px rgba(68,217,185,.12);
+        }
+
+        .mode-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+        }
+
+        .mode-heading strong { font-size: 14px; }
+
+        .mode-visual {
+          height: 105px;
+          display: grid;
+          place-items: center;
+          font-size: 54px;
+          background:
+            radial-gradient(circle at 50% 50%,rgba(91,224,198,.2),transparent 55%),
+            linear-gradient(135deg,#1b3438,#0b171a);
+        }
+
+        .mode-caption {
+          padding: 9px 15px;
+          color: #9baead;
+          font-size: 12px;
+        }
+
+        .filter-row {
+          display: flex;
+          gap: 9px;
+          flex-wrap: wrap;
+          margin: 16px 0;
+        }
+
+        .filter-button {
+          border: 1px solid #35494b;
+          color: #aabbb9;
+          background: #142326;
+          padding: 8px 17px;
+          border-radius: 22px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
+        .filter-button.active {
+          background: #55dfbd;
+          color: #08221e;
+          border-color: #55dfbd;
+          font-weight: 800;
+        }
+
+        .character-grid {
+          display: grid;
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap: 10px;
+        }
+
+        .character-card {
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          padding: 11px;
+          border: 1px solid #304347;
+          border-radius: 12px;
+          background: rgba(17,30,33,.8);
+          color: white;
+          text-align: left;
+          cursor: pointer;
+          transition: .18s;
+        }
+
+        .character-card:hover { border-color: #5acdb2; }
+
+        .character-card.selected {
+          border-color: #5ce3c5;
+          background: rgba(48,132,115,.2);
+        }
+
+        .character-emoji {
+          width: 43px;
+          height: 43px;
+          flex: 0 0 43px;
+          display: grid;
+          place-items: center;
+          border-radius: 11px;
+          background: #263a3e;
+          font-size: 26px;
+        }
+
+        .character-name {
+          display: block;
+          font-size: 13px;
+          font-weight: 750;
+        }
+
+        .character-description {
+          display: block;
+          margin-top: 4px;
+          color: #91a4a1;
+          font-size: 10px;
+        }
+
+        .selected-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin: 23px 0 12px;
+          font-size: 13px;
+          font-weight: 750;
+        }
+
+        .selected-preview {
+          overflow: hidden;
+          border: 1px solid #3a5050;
+          border-radius: 15px;
+          background: linear-gradient(120deg,#17282a,#263c3d,#142426);
+          min-height: 300px;
+        }
+
+        .template-grid {
+          display: grid;
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap: 12px;
+          margin: 16px 0;
+        }
+
+        .template-card {
+          overflow: hidden;
+          padding: 0;
+          text-align: left;
+          border: 1px solid #34494b;
+          border-radius: 13px;
+          color: white;
+          background: #142326;
+          cursor: pointer;
+        }
+
+        .template-card.active { border: 1px solid #5ce3c5; }
+
+        .template-image {
+          height: 120px;
+          display: grid;
+          place-items: center;
+          font-size: 47px;
+        }
+
+        .template-info { padding: 11px; }
+        .template-info strong { font-size: 12px; }
+        .template-info p {
+          margin: 5px 0 0;
+          color: #9aadaa;
+          font-size: 10px;
+        }
+
+        .story-input {
+          width: 100%;
+          min-height: 115px;
+          resize: vertical;
+          padding: 15px;
+          color: #eaf4f1;
+          background: #111e21;
+          border: 1px solid #35494b;
+          border-radius: 12px;
+          outline: none;
+          font: inherit;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        .story-input:focus { border-color: #55dfbd; }
+
+        .bottom-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: 17px;
+        }
+
+        .notice {
+          color: #ffbd86;
+          font-size: 12px;
+          margin-top: 12px;
+        }
+
+        .landing-footer {
+          display: flex;
+          justify-content: space-between;
+          gap: 15px;
+          padding: 20px 5px;
+          border-top: 1px solid #293d40;
+          color: #819492;
+          font-size: 10px;
+        }
+
+        @media(max-width:700px) {
+          .landing { padding: 10px; }
+          .panel { padding: 16px; }
+          .character-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+          .template-grid { grid-template-columns: 1fr; }
+          .template-card { display: grid; grid-template-columns: 110px 1fr; }
+          .template-image { height: 100%; min-height: 100px; }
+          .mode-grid { gap: 9px; }
+          .mode-card { min-height: 145px; }
+          .mode-heading { padding: 11px; }
+          .mode-heading strong { font-size: 12px; }
+          .mode-visual { height: 90px; }
+          .selected-preview { min-height: 260px; }
+          .bottom-actions { align-items: stretch; flex-direction: column; }
+          .bottom-actions button { width: 100%; }
+          .landing-footer { flex-direction: column; }
+        }
+
+        @media(max-width:390px) {
+          .character-grid { grid-template-columns: 1fr; }
+          .brand { font-size: 13px; }
+          .landing-header { padding: 0 10px; }
+        }
+      `}</style>
+
+      <div className="landing-shell">
+        <header className="landing-header">
+          <div className="brand">
+            <span className="brand-icon">⌂</span>
             <span>Character AI Studio</span>
           </div>
-          <button 
-            onClick={() => setLocation("/studio")}
-            style={{ padding: "8px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #2dd4bf 0%, #34d399 100%)", color: "#041a18", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 4px 15px rgba(45,212,191,0.3)" }}
+
+          <button
+            className="primary-button"
+            onClick={() =>
+              document
+                .getElementById("creation-mode")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
           >
-            Create Studio ➔
+            Create Studio →
           </button>
         </header>
 
-        {/* SECTION 1: SELECT YOUR CREATION MODE */}
-        <section style={{ background: "rgba(16,24,30,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 22 }}>
-          <div style={{ color: "#5eead4", fontSize: 10, fontWeight: 800, letterSpacing: 1.8, marginBottom: 6, textTransform: "uppercase" }}>YOU AI COMEDY CREATION STUDIO</div>
-          <h2 style={{ fontSize: "1.6rem", marginBottom: 14 }}>Select Your Creation Mode</h2>
-          
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
-            
-            {/* Mode 1 */}
-            <div
-              onClick={() => setCreationMode("template")}
-              style={{ background: creationMode === "template" ? "rgba(45,212,191,0.08)" : "#10181e", border: `1px solid ${creationMode === "template" ? "#2dd4bf" : "rgba(255,255,255,0.08)"}`, borderRadius: 16, padding: 18, cursor: "pointer", position: "relative", transition: "all 0.2s" }}
-            >
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#2dd4bf", marginBottom: 4 }}>RECREATE A TEMPLATE</div>
-              <h3 style={{ fontSize: 15, marginBottom: 4 }}>Start with a popular idea and customize the story</h3>
-              <div style={{ display: "flex", gap: 6, margin: "12px 0", opacity: 0.8 }}>
-                <span style={{ fontSize: 20 }}>🦁</span>
-                <span style={{ fontSize: 20 }}>👩‍🦰</span>
-                <span style={{ fontSize: 20 }}>🦁</span>
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#2dd4bf" }}>Recreate →</span>
-              {creationMode === "template" && <div style={{ position: "absolute", top: 14, right: 14, width: 22, height: 22, background: "#2dd4bf", color: "#041a18", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900 }}>✓</div>}
-            </div>
+        <section className="panel" id="creation-mode">
+          <span className="eyebrow">Your AI Comedy Creation Studio</span>
+          <h1>Select Your Creation Mode</h1>
+          <p className="muted">
+            Start with a popular idea or create a completely original story.
+          </p>
 
-            {/* Mode 2 */}
-            <div
-              onClick={() => setCreationMode("custom")}
-              style={{ background: creationMode === "custom" ? "rgba(45,212,191,0.08)" : "#10181e", border: `1px solid ${creationMode === "custom" ? "#2dd4bf" : "rgba(255,255,255,0.08)"}`, borderRadius: 16, padding: 18, cursor: "pointer", position: "relative", transition: "all 0.2s" }}
-            >
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#8899a6", marginBottom: 4 }}>CREATE YOUR OWN STORY</div>
-              <h3 style={{ fontSize: 15, marginBottom: 4 }}>Choose your characters and invent a completely</h3>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 35, background: "rgba(255,255,255,0.03)", borderRadius: 8, margin: "12px 0" }}>
-                <span style={{ fontSize: 14, color: "#5eead4", fontWeight: 700 }}>✦ Network Node Canvas</span>
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#8899a6" }}>Create Your Own +</span>
-              {creationMode === "custom" && <div style={{ position: "absolute", top: 14, right: 14, width: 22, height: 22, background: "#2dd4bf", color: "#041a18", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900 }}>✓</div>}
-            </div>
-
-          </div>
-        </section>
-
-        {/* SECTION 2: ASSEMBLE YOUR CAST */}
-        <section style={{ background: "rgba(16,24,30,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-            <div>
-              <div style={{ color: "#5eead4", fontSize: 10, fontWeight: 800, letterSpacing: 1.8, marginBottom: 6, textTransform: "uppercase" }}>BUILD YOUR CAST</div>
-              <h2 style={{ fontSize: "1.6rem", marginBottom: 4 }}>Assemble Your Cast</h2>
-              <p style={{ fontSize: 12, color: "#8899a6" }}>Select up to 4 characters for your story.</p>
-            </div>
-            <div style={{ background: "rgba(45,212,191,0.08)", border: "1px solid rgba(45,212,191,0.25)", padding: "5px 14px", borderRadius: 20, color: "#2dd4bf", fontSize: 11, fontWeight: 800 }}>
-              {selectedIds.length}/4 SELECTED
-            </div>
-          </div>
-
-          {/* Filter Chips */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
-            {(["All", "Animals", "Food"] as const).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                style={{ padding: "6px 18px", borderRadius: 20, border: `1px solid ${categoryFilter === cat ? "#2dd4bf" : "rgba(255,255,255,0.08)"}`, background: categoryFilter === cat ? "#2dd4bf" : "#10181e", color: categoryFilter === cat ? "#041a18" : "#8899a6", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Character Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10, maxHeight: 280, overflowY: "auto", paddingRight: 4 }}>
-            {filteredCharacters.map((char) => {
-              const isSelected = selectedIds.includes(char.id);
-              return (
-                <div
-                  key={char.id}
-                  onClick={() => toggleCharacter(char.id)}
-                  style={{ background: isSelected ? "rgba(45,212,191,0.1)" : "#10181e", border: `1px solid ${isSelected ? "#2dd4bf" : "rgba(255,255,255,0.08)"}`, borderRadius: 12, padding: 12, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", position: "relative" }}
-                >
-                  <div style={{ fontSize: 26 }}>{char.emoji}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={{ fontSize: 12, display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{char.name}</strong>
-                    <span style={{ fontSize: 9, color: "#8899a6", display: "block" }}>{char.tone}</span>
-                  </div>
-                  {isSelected && <div style={{ position: "absolute", top: 8, right: 8, color: "#2dd4bf", fontSize: 11, fontWeight: 800 }}>✓</div>}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Selected Characters Viewport Strip */}
-          <div style={{ marginTop: 20, background: "#10181e", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div>
-                <strong style={{ fontSize: 13, display: "block" }}>Selected Characters</strong>
-                <span style={{ fontSize: 11, color: "#8899a6" }}>{selectedIds.length}/4 selected</span>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
-              {selectedIds.map((id) => {
-                const char = characters.find((c) => c.id === id);
-                return (
-                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#17232c", padding: "8px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
-                    <span style={{ fontSize: 22 }}>{char?.emoji}</span>
-                    <div>
-                      <strong style={{ fontSize: 12, display: "block" }}>{char?.name}</strong>
-                      <small style={{ fontSize: 10, color: "#8899a6" }}>{char?.tone}</small>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 3D Stage Preview Box matching image layout */}
-          <div style={{ marginTop: 16, position: "relative", minHeight: 240, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "#060a0d" }}>
-            <CharacterStage
-              selectedIds={selectedIds}
-              environment="studio"
-              height={240}
-              appearances={appearances}
-            />
-          </div>
-        </section>
-
-        {/* SECTION 3: DESIGN YOUR SCENE */}
-        <section style={{ background: "rgba(16,24,30,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 22 }}>
-          <div style={{ color: "#5eead4", fontSize: 10, fontWeight: 800, letterSpacing: 1.8, marginBottom: 6, textTransform: "uppercase" }}>NEXT SCENE SCENE</div>
-          <h2 style={{ fontSize: "1.6rem", marginBottom: 4 }}>Design Your Scene</h2>
-          <p style={{ fontSize: 12, color: "#8899a6", marginBottom: 16 }}>Choose a template</p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 18 }}>
-            {[
-              { title: "Vegetable Argument", desc: "Tomato vs Onion", emoji: "🍅" },
-              { title: "Lion Interview", desc: "Lion and Monkey", emoji: "🦁" },
-              { title: "Chicken Goes to School", desc: "Chicken and Goat", emoji: "🐔" }
-            ].map((tmpl) => (
-              <div
-                key={tmpl.title}
-                onClick={() => setSelectedTemplate(tmpl.title)}
-                style={{ background: selectedTemplate === tmpl.title ? "rgba(45,212,191,0.08)" : "#10181e", border: `1px solid ${selectedTemplate === tmpl.title ? "#2dd4bf" : "rgba(255,255,255,0.08)"}`, borderRadius: 12, padding: 14, cursor: "pointer", display: "flex", gap: 12, alignItems: "center" }}
-              >
-                <div style={{ fontSize: 32 }}>{tmpl.emoji}</div>
-                <div>
-                  <strong style={{ fontSize: 13, display: "block", marginBottom: 2 }}>{tmpl.title}</strong>
-                  <span style={{ fontSize: 11, color: "#8899a6" }}>{tmpl.desc}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Story or Dialogue</label>
-          <textarea
-            value={storyPrompt}
-            onChange={(e) => setStoryPrompt(e.target.value)}
-            style={{ width: "100%", minHeight: 90, padding: 14, borderRadius: 12, background: "#10191f", border: "1px solid rgba(255,255,255,0.08)", color: "#f3f7f9", fontSize: 13, resize: "vertical", outline: "none" }}
-          />
-
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, flexWrap: "wrap", gap: 12 }}>
-            <span style={{ fontSize: 12, color: "#8899a6" }}>{selectedIds.length} characters selected</span>
+          <div className="mode-grid">
             <button
-              onClick={() => setLocation("/studio")}
-              style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #2dd4bf 0%, #34d399 100%)", color: "#041a18", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 4px 15px rgba(45,212,191,0.3)" }}
+              className={`mode-card ${mode === "recreate" ? "active" : ""}`}
+              onClick={() => setMode("recreate")}
+              aria-pressed={mode === "recreate"}
             >
-              Continue to Settings ➔
+              <div className="mode-heading">
+                <strong>◉ Recreate a Template</strong>
+                <span>{mode === "recreate" ? "✓" : "+"}</span>
+              </div>
+              <div className="mode-visual">🎬 🦁 🐵</div>
+              <div className="mode-caption">
+                Start with a popular idea and customize the story.
+              </div>
+            </button>
+
+            <button
+              className={`mode-card ${mode === "original" ? "active" : ""}`}
+              onClick={() => setMode("original")}
+              aria-pressed={mode === "original"}
+            >
+              <div className="mode-heading">
+                <strong>✳ Create Your Own Story</strong>
+                <span>{mode === "original" ? "✓" : "+"}</span>
+              </div>
+              <div className="mode-visual">✦ · ✧ · ✦</div>
+              <div className="mode-caption">
+                Choose your characters and invent a completely new story.
+              </div>
             </button>
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer style={{ textAlign: "center", fontSize: 11, color: "#8899a6", lineHeight: 1.6, marginTop: 10 }}>
-          <div>Clean icon, sophisticated, cinematic, and professional copy of Kling Studio.</div>
-          <div>© 2026 Character AI Studio · Development build</div>
-        </footer>
+        <section className="panel">
+          <span className="eyebrow">Build Your Cast</span>
 
+          <div className="selected-header">
+            <h2>Assemble Your Cast</h2>
+            <span className="eyebrow">
+              {selectedIds.length}/4 SELECTED
+            </span>
+          </div>
+
+          <p className="muted">
+            Select up to four characters for your story.
+          </p>
+
+          <div className="filter-row">
+            {categoryFilters.map((item) => (
+              <button
+                key={item}
+                className={`filter-button ${category === item ? "active" : ""}`}
+                onClick={() => setCategory(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          <div className="character-grid">
+            {filteredCharacters.map((character) => {
+              const selected = selectedIds.includes(character.id);
+
+              return (
+                <button
+                  key={character.id}
+                  className={`character-card ${selected ? "selected" : ""}`}
+                  onClick={() => toggleCharacter(character.id)}
+                  aria-pressed={selected}
+                >
+                  <span className="character-emoji">
+                    {character.emoji}
+                  </span>
+
+                  <span>
+                    <span className="character-name">
+                      {character.name} {selected ? "✓" : ""}
+                    </span>
+                    <span className="character-description">
+                      {character.tone} · {character.category}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="selected-header">
+            <span>Selected Characters</span>
+            <span className="eyebrow">
+              {selectedCharacters.length}/4 SELECTED
+            </span>
+          </div>
+
+          <div className="selected-preview">
+            <CharacterStage
+              selectedIds={selectedIds}
+              height={290}
+              showControls={false}
+              environment="studio"
+            />
+          </div>
+        </section>
+
+        <section className="panel">
+          <span className="eyebrow">Next Step · Scene Design</span>
+          <h2>Design Your Scene</h2>
+          <p className="muted">Choose a starting template.</p>
+
+          <div className="template-grid">
+            {templates.map((template) => (
+              <button
+                key={template.id}
+                className={`template-card ${
+                  activeTemplate === template.id && mode === "recreate"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => chooseTemplate(template.id)}
+              >
+                <div
+                  className="template-image"
+                  style={{ background: template.background }}
+                >
+                  {template.emoji}
+                </div>
+                <div className="template-info">
+                  <strong>{template.title}</strong>
+                  <p>{template.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <label htmlFor="story-prompt" className="muted">
+            Story or Dialogue
+          </label>
+
+          <textarea
+            id="story-prompt"
+            className="story-input"
+            value={prompt}
+            onChange={(event) => {
+              setPrompt(event.target.value);
+              setMode("original");
+            }}
+            placeholder="Describe your comedy story..."
+          />
+
+          {notice && <div className="notice">{notice}</div>}
+
+          <div className="bottom-actions">
+            <span className="muted">
+              {selectedIds.length} characters selected
+            </span>
+
+            <button
+              className="primary-button"
+              onClick={continueToStudio}
+            >
+              Continue to Settings →
+            </button>
+          </div>
+        </section>
+
+        <footer className="landing-footer">
+          <span>
+            Clean, cinematic character storytelling.
+            <br />
+            © 2026 Character AI Studio. All rights reserved.
+          </span>
+          <span>Made for stories worth sharing.</span>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }
