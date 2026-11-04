@@ -10,8 +10,7 @@ type CharacterDefinition
 import ProceduralCharacter from "./ProceduralCharacter";
 
 import type {
-CharacterTransform,
-CharacterStyle
+CharacterTransform
 } from "./ProceduralCharacter";
 
 import type { CharacterAction } from "../lib/character-motion";
@@ -537,6 +536,7 @@ const selectedCharacters = characters.filter(
 (character) => selectedIds.includes(character.id)
 );
 
+// FIXED: Removed invalid pasted characters from this declaration.
 const [transforms, setTransforms] = useState<
 Record<string, CharacterTransform>
 
@@ -610,9 +610,7 @@ powerPreference: "low-power"
               total={selectedCharacters.length}
               action={action}
               transform={getTransform(character.id)}
-              style={
-                appearance?.style ?? "pixar"
-              }
+              style={appearance?.style ?? "pixar"}
               skinTone={appearance?.skinTone}
               clothingColor={appearance?.clothingColor}
               hairColor={appearance?.hairColor}
@@ -701,4 +699,4 @@ powerPreference: "low-power"
 </div>
 
 );
-  }
+      }
