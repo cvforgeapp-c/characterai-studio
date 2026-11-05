@@ -24,6 +24,11 @@ import CinematicCameraRig, {
 type CinematicCameraSettings,
 } from "./CinematicCameraRig";
 
+import {
+calculateComposition,
+type CompositionMode,
+} from "./CinematicComposition";
+
 import { CHARACTER_MODELS } from "../lib/character-models";
 
 import type { CharacterAction } from "../lib/character-motion";
@@ -44,6 +49,9 @@ environment?: EnvironmentId;
 action?: CharacterAction;
 appearances?: Record<string, unknown>;
 cameraSettings?: CinematicCameraSettings;
+compositionMode?: CompositionMode;
+characterSpacing?: number;
+characterDepth?: number;
 }
 
 interface Settings {
@@ -229,53 +237,52 @@ args={[new Color(settings.background)]}
 }
 
 function CharacterCollection({
-selectedIds,
+placements,
 action,
 }: {
-selectedIds: string[];
+placements: ReturnType<typeof calculateComposition>["placements"];
 action: CharacterAction;
 }) {
-const models = useMemo(() => {
-return selectedIds
-.map((id) => CHARACTER_MODELS[id])
-.filter((model) => Boolean(model));
-}, [selectedIds]);
-
-const spacing = 2.3;
+const models = useMemo(
+() =>
+placements
+.map((placement) => ({
+placement,
+model: CHARACTER_MODELS[placement.id],
+}))
+.filter((item) => Boolean(item.model)),
+[placements]
+);
 
 return (
 <>
-{models.map((model, index) => {
-const x =
-(index - (models.length - 1) / 2) * spacing;
-
-    return (
-      <group
-        key={model.id}
-        position={[x, 0, 0]}
-      >
-        <ModelErrorBoundary>
-          <Suspense
-            fallback={
-              <Html center>
-                <div style={styles.loading}>
-                  Loading {model.name}...
-                </div>
-              </Html>
-            }
-          >
-            <GLBCharacter
-              modelUrl={model.modelUrl}
-              action={action}
-              targetHeight={model.targetHeight}
-            />
-          </Suspense>
-        </ModelErrorBoundary>
-      </group>
-    );
-  })}
+{models.map(({ placement, model }) => (
+<group
+key={model.id}
+position={placement.position}
+rotation={placement.rotation}
+scale={placement.scale}
+>
+<ModelErrorBoundary>
+<Suspense
+fallback={
+<Html center>
+<div style={styles.loading}>
+Loading {model.name}...
+</div>
+</Html>
+}
+>
+<GLBCharacter
+modelUrl={model.modelUrl}
+action={action}
+targetHeight={model.targetHeight}
+/>
+</Suspense>
+</ModelErrorBoundary>
+</group>
+))}
 </>
-
 );
 }
 
@@ -286,6 +293,9 @@ showControls = true,
 environment = "studio",
 action = "idle",
 cameraSettings,
+compositionMode = "auto",
+characterSpacing = 2.3,
+characterDepth = 1.5,
 }: Props) {
 const [cameraDistance, setCameraDistance] = useState(9);
 
@@ -302,6 +312,27 @@ const supportedIds = useMemo(
 ),
 [selectedIds]
 );
+
+const composition = useMemo(
+() =>
+calculateComposition({
+characterIds: supportedIds,
+mode: compositionMode,
+spacing: characterSpacing,
+depth: characterDepth,
+}),
+[
+supportedIds,
+compositionMode,
+characterSpacing,
+characterDepth,
+]
+);
+
+const cameraTarget =
+cameraSettings?.characterPosition ??
+cameraSettings?.target ??
+composition.cameraTarget;
 
 return (
 <div style={{ ...styles.container, height }}>
@@ -326,7 +357,7 @@ far={100}
       <CinematicCameraRig
         shot={cameraSettings.shot}
         target={cameraSettings.target}
-        characterPosition={cameraSettings.characterPosition}
+        characterPosition={cameraTarget}
         secondaryCharacterPosition={
           cameraSettings.secondaryCharacterPosition
         }
@@ -340,7 +371,8 @@ far={100}
           cameraSettings.fieldOfView ?? 40
         }
         orbitRadius={
-          cameraSettings.orbitRadius ?? 5.5
+          cameraSettings.orbitRadius ??
+          composition.cameraDistance
         }
         orbitHeight={
           cameraSettings.orbitHeight ?? 2.3
@@ -358,7 +390,7 @@ far={100}
 
     <Suspense fallback={null}>
       <CharacterCollection
-        selectedIds={supportedIds}
+        placements={composition.placements}
         action={action}
       />
     </Suspense>
@@ -370,10 +402,10 @@ far={100}
         dampingFactor={0.08}
         enablePan
         minDistance={3}
-        maxDistance={20}
+        maxDistance={30}
         minPolarAngle={0.2}
         maxPolarAngle={Math.PI / 2.05}
-        target={[0, 1, 0]}
+        target={composition.cameraTarget}
       />
     )}
   </Canvas>
@@ -391,6 +423,10 @@ far={100}
 
         <span style={styles.count}>
           {supportedIds.length} CHARACTERS
+        </span>
+
+        <span style={styles.compositionBadge}>
+          {compositionMode.toUpperCase()}
         </span>
 
         {cinematicEnabled && (
@@ -505,6 +541,15 @@ borderRadius: 7,
 background: "rgba(15,23,42,0.72)",
 color: "#86efac",
 fontSize: 10,
+},
+
+compositionBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(15,23,42,0.8)",
+color: "#fcd34d",
+fontSize: 10,
+fontWeight: 800,
 },
 
 cameraBadge: {
