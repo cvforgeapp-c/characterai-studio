@@ -1,6 +1,8 @@
 import React, {
 useCallback,
 useEffect,
+useMemo,
+useRef,
 } from "react";
 
 import CinematicDialoguePlayback, {
@@ -28,7 +30,7 @@ playing: boolean
 
 onSpeak?: (
 line: DialoguePlaybackLine
-) => void;
+) => void | Promise<void>;
 
 onStopSpeaking?: () => void;
 }
@@ -42,19 +44,37 @@ onStopSpeaking,
 }: Props) {
 const performance = useCinematicPerformance();
 
-// Register every character used in the dialogue.
-useEffect(() => {
-const characterIds = Array.from(
-new Set(lines.map((line) => line.characterId))
+const previousCharacterIds = useRef<string[]>([]);
+
+// Collect unique dialogue characters.
+const characterIds = useMemo(
+() =>
+Array.from(
+new Set(
+lines
+.map((line) => line.characterId)
+.filter(Boolean)
+)
+),
+[lines]
 );
 
-if (characterIds.length > 0) {
-  performance.registerCharacters(characterIds);
+// Register dialogue characters with the shared provider.
+useEffect(() => {
+if (characterIds.length === 0) {
+return;
 }
 
-}, [lines, performance.registerCharacters]);
+performance.registerCharacters(characterIds);
 
-// Send individual acting instructions to the 3D actors.
+previousCharacterIds.current = characterIds;
+
+}, [
+characterIds,
+performance.registerCharacters,
+]);
+
+// Synchronize individual character acting instructions.
 const handleActingChange = useCallback(
 (
 characterId: string,
@@ -68,6 +88,26 @@ settings
 [performance.updatePerformance]
 );
 
+// Forward speech requests to the synchronized speech engine.
+const handleSpeak = useCallback(
+async (line: DialoguePlaybackLine) => {
+if (!onSpeak) {
+return;
+}
+
+  await onSpeak(line);
+},
+[onSpeak]
+
+);
+
+// Stop speech when playback stops.
+const handleStopSpeaking = useCallback(() => {
+onStopSpeaking?.();
+}, [onStopSpeaking]);
+
+const connectedCharacters = characterIds.length;
+
 return (
 <div
 style={{
@@ -75,8 +115,15 @@ width: "100%",
 display: "flex",
 flexDirection: "column",
 gap: 16,
+padding: 18,
+borderRadius: 16,
+background:
+"linear-gradient(145deg, #111827, #0b1220)",
+border: "1px solid rgba(148,163,184,0.16)",
+boxSizing: "border-box",
 }}
 >
+{/* Header */}
 <div
 style={{
 display: "flex",
@@ -93,6 +140,7 @@ margin: 0,
 color: "#ffffff",
 fontSize: 19,
 fontWeight: 800,
+letterSpacing: "-0.4px",
 }}
 >
 Character Performance Director
@@ -100,7 +148,7 @@ Character Performance Director
 
       <p
         style={{
-          margin: "5px 0 0",
+          margin: "6px 0 0",
           color: "#929bad",
           fontSize: 12,
         }}
@@ -109,31 +157,127 @@ Character Performance Director
       </p>
     </div>
 
+    {/* Connection status */}
     <div
       style={{
-        padding: "8px 12px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "9px 13px",
         borderRadius: 20,
-        background: "#18352e",
-        color: "#66e6ae",
+        background:
+          connectedCharacters > 0
+            ? "rgba(22,101,52,0.25)"
+            : "rgba(148,163,184,0.10)",
+        border:
+          connectedCharacters > 0
+            ? "1px solid rgba(74,222,128,0.25)"
+            : "1px solid rgba(148,163,184,0.15)",
+        color:
+          connectedCharacters > 0
+            ? "#66e6ae"
+            : "#9ca3af",
         fontSize: 11,
         fontWeight: 800,
       }}
     >
-      {new Set(
-        lines.map((line) => line.characterId)
-      ).size}{" "}
-      CHARACTERS CONNECTED
+      <span
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background:
+            connectedCharacters > 0
+              ? "#4ade80"
+              : "#64748b",
+          boxShadow:
+            connectedCharacters > 0
+              ? "0 0 10px rgba(74,222,128,0.65)"
+              : "none",
+        }}
+      />
+
+      {connectedCharacters} CHARACTERS CONNECTED
     </div>
   </div>
 
-  <CinematicDialoguePlayback
-    lines={lines}
-    onActingChange={handleActingChange}
-    onLineChange={onLineChange}
-    onPlaybackChange={onPlaybackChange}
-    onSpeak={onSpeak}
-    onStopSpeaking={onStopSpeaking}
-  />
+  {/* Character connection information */}
+  {connectedCharacters > 0 && (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 7,
+      }}
+    >
+      {characterIds.map((characterId) => (
+        <span
+          key={characterId}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            background: "rgba(59,130,246,0.10)",
+            border:
+              "1px solid rgba(59,130,246,0.20)",
+            color: "#93c5fd",
+            fontSize: 10,
+            fontWeight: 700,
+          }}
+        >
+          ● {characterId}
+        </span>
+      ))}
+    </div>
+  )}
+
+  {/* Dialogue playback and acting controller */}
+  {lines.length > 0 ? (
+    <CinematicDialoguePlayback
+      lines={lines}
+      onActingChange={handleActingChange}
+      onLineChange={onLineChange}
+      onPlaybackChange={onPlaybackChange}
+      onSpeak={handleSpeak}
+      onStopSpeaking={handleStopSpeaking}
+    />
+  ) : (
+    <div
+      style={{
+        padding: 28,
+        borderRadius: 12,
+        background: "rgba(255,255,255,0.03)",
+        border:
+          "1px dashed rgba(148,163,184,0.25)",
+        textAlign: "center",
+        color: "#94a3b8",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 28,
+          marginBottom: 10,
+        }}
+      >
+        🎬
+      </div>
+
+      <strong
+        style={{
+          display: "block",
+          color: "#e2e8f0",
+          fontSize: 13,
+          marginBottom: 5,
+        }}
+      >
+        No dialogue available
+      </strong>
+
+      <span style={{ fontSize: 11 }}>
+        Generate a comedy script to start character
+        performances.
+      </span>
+    </div>
+  )}
 </div>
 
 );
