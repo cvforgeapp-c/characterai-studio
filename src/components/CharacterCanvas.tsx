@@ -24,6 +24,8 @@ import CinematicCameraRig, {
 type CinematicCameraSettings,
 } from "./CinematicCameraRig";
 
+import CinematicLighting from "./CinematicLighting";
+
 import {
 calculateComposition,
 type CompositionMode,
@@ -58,8 +60,7 @@ interface Settings {
 background: string;
 floor: string;
 fog: string;
-ambient: number;
-directional: number;
+warmLighting: boolean;
 }
 
 const ENVIRONMENTS: Record<EnvironmentId, Settings> = {
@@ -67,43 +68,42 @@ studio: {
 background: "#101827",
 floor: "#202b3b",
 fog: "#101827",
-ambient: 1.2,
-directional: 2.5,
+warmLighting: false,
 },
+
 park: {
 background: "#91b9a0",
 floor: "#426b49",
 fog: "#91b9a0",
-ambient: 1.3,
-directional: 2.2,
+warmLighting: true,
 },
+
 kitchen: {
 background: "#c9bba8",
 floor: "#71685d",
 fog: "#c9bba8",
-ambient: 1.4,
-directional: 2.2,
+warmLighting: true,
 },
+
 city: {
 background: "#68788e",
 floor: "#343b48",
 fog: "#68788e",
-ambient: 1.1,
-directional: 2.3,
+warmLighting: false,
 },
+
 space: {
 background: "#030712",
 floor: "#111827",
 fog: "#030712",
-ambient: 0.9,
-directional: 2,
+warmLighting: false,
 },
+
 beach: {
 background: "#79b8d1",
 floor: "#c9ad7b",
 fog: "#79b8d1",
-ambient: 1.4,
-directional: 2.2,
+warmLighting: true,
 },
 };
 
@@ -113,12 +113,18 @@ class ModelErrorBoundary extends Component<
 
 «{
 constructor(props: { children: ReactNode }) {
-super(props);
-this.state = { hasError: false };
-}»
+super(props);»
+
+this.state = {
+  hasError: false,
+};
+
+}
 
 static getDerivedStateFromError() {
-return { hasError: true };
+return {
+hasError: true,
+};
 }
 
 render() {
@@ -135,47 +141,6 @@ Character model failed to load.
 return this.props.children;
 
 }
-}
-
-function Lighting({ settings }: { settings: Settings }) {
-return (
-<>
-<ambientLight intensity={settings.ambient} />
-
-  <hemisphereLight
-    args={["#ffffff", "#263449", 1.1]}
-  />
-
-  <directionalLight
-    position={[5, 9, 7]}
-    intensity={settings.directional}
-    castShadow
-    shadow-mapSize-width={2048}
-    shadow-mapSize-height={2048}
-  />
-
-  <directionalLight
-    position={[-6, 5, -5]}
-    intensity={1.1}
-    color="#a5c8ff"
-  />
-
-  <spotLight
-    position={[0, 8, 4]}
-    angle={0.55}
-    penumbra={0.8}
-    intensity={1.5}
-    castShadow
-  />
-
-  <pointLight
-    position={[0, 2, -5]}
-    intensity={0.8}
-    color="#7dd3fc"
-  />
-</>
-
-);
 }
 
 function Environment({
@@ -206,6 +171,18 @@ args={[new Color(settings.background)]}
       saturation={0}
       fade
       speed={0.5}
+    />
+  )}
+
+  {environment === "city" && (
+    <Stars
+      radius={45}
+      depth={25}
+      count={350}
+      factor={2}
+      saturation={0.2}
+      fade
+      speed={0.15}
     />
   )}
 
@@ -240,7 +217,10 @@ function CharacterCollection({
 placements,
 action,
 }: {
-placements: ReturnType<typeof calculateComposition>["placements"];
+placements: ReturnType<
+typeof calculateComposition
+
+«["placements"];
 action: CharacterAction;
 }) {
 const models = useMemo(
@@ -252,7 +232,7 @@ model: CHARACTER_MODELS[placement.id],
 }))
 .filter((item) => Boolean(item.model)),
 [placements]
-);
+);»
 
 return (
 <>
@@ -335,7 +315,12 @@ cameraSettings?.target ??
 composition.cameraTarget;
 
 return (
-<div style={{ ...styles.container, height }}>
+<div
+style={{
+...styles.container,
+height,
+}}
+>
 <Canvas
 shadows
 dpr={[1, 1.5]}
@@ -353,7 +338,7 @@ near={0.1}
 far={100}
 />
 
-    {cinematicEnabled && (
+    {cinematicEnabled && cameraSettings && (
       <CinematicCameraRig
         shot={cameraSettings.shot}
         target={cameraSettings.target}
@@ -381,13 +366,20 @@ far={100}
       />
     )}
 
-    <Lighting settings={settings} />
+    {/* Cinematic three-point lighting */}
+    <CinematicLighting
+      intensity={0.85}
+      dramatic={true}
+      warm={settings.warmLighting}
+    />
 
+    {/* Environment and atmospheric treatment */}
     <Environment
       environment={environment}
       settings={settings}
     />
 
+    {/* Live character staging */}
     <Suspense fallback={null}>
       <CharacterCollection
         placements={composition.placements}
@@ -431,7 +423,7 @@ far={100}
 
         {cinematicEnabled && (
           <span style={styles.cameraBadge}>
-            🎥 {cameraSettings.shot.toUpperCase()}
+            🎥 {cameraSettings?.shot.toUpperCase()}
           </span>
         )}
       </div>
@@ -477,7 +469,9 @@ far={100}
   {supportedIds.length === 0 && (
     <div style={styles.empty}>
       <div style={{ fontSize: 36 }}>🎬</div>
+
       <strong>Select a character</strong>
+
       <span>
         Choose a character from the studio library.
       </span>
