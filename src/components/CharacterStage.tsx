@@ -1,81 +1,62 @@
-import { Suspense } from "react";
+import React from "react";
 
-import CharacterCanvas from "./CharacterCanvas";
+import CharacterCanvas, {
+type EnvironmentId,
+} from "./CharacterCanvas";
 
 import type { CharacterAction } from "../lib/character-motion";
 
-import type { CharacterStyle } from "./ProceduralCharacter";
+import type {
+CinematicCameraSettings,
+} from "./CinematicCameraRig";
 
-export type CharacterAppearance = {
-  style: CharacterStyle;
-  skinTone: string;
-  clothingColor: string;
-  hairColor: string;
-};
-
-interface CharacterStageProps {
-  selectedIds: string[];
-  height?: number;
-  showControls?: boolean;
-  environment?:
-    | "studio"
-    | "park"
-    | "kitchen"
-    | "city"
-    | "space"
-    | "beach";
-  action?: CharacterAction;
-  appearances?: Record<string, CharacterAppearance>;
+export interface CharacterAppearance {
+style?: string;
+color?: string;
+secondaryColor?: string;
+clothing?: string;
+accessories?: string[];
+[key: string]: unknown;
 }
 
-function LoadingScreen() {
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        minHeight: 200,
-        display: "grid",
-        placeItems: "center",
-        color: "#36d6ba",
-        background: "#101a22",
-        fontSize: 13
-      }}
-    >
-      Preparing cinematic 3D scene...
-    </div>
-  );
+interface CharacterStageProps {
+selectedIds: string[];
+height?: number;
+showControls?: boolean;
+environment?: EnvironmentId;
+action?: CharacterAction;
+appearances?: Record<string, CharacterAppearance>;
+cameraSettings?: CinematicCameraSettings;
 }
 
 export default function CharacterStage({
-  selectedIds,
-  height = 380,
-  environment = "studio",
-  action = "idle",
-  appearances = {}
+selectedIds,
+height = 560,
+showControls = true,
+environment = "studio",
+action = "idle",
+appearances = {},
+cameraSettings,
 }: CharacterStageProps) {
-
-  return (
-    <div
-      className="character-preview-panel"
-      style={{
-        width: "100%",
-        height,
-        minHeight: 0,
-        overflow: "hidden",
-        position: "relative",
-        borderRadius: "inherit"
-      }}
-    >
-      <Suspense fallback={<LoadingScreen />}>
-        <CharacterCanvas
-          selectedIds={selectedIds}
-          environment={environment}
-          action={action}
-          appearances={appearances}
-          height={height}
-        />
-      </Suspense>
-    </div>
-  );
+return (
+<section
+className="character-stage"
+style={{
+width: "100%",
+minWidth: 0,
+position: "relative",
+}}
+data-camera-mode={cameraSettings?.shot ?? "manual"}
+>
+<CharacterCanvas
+selectedIds={selectedIds}
+height={height}
+showControls={showControls}
+environment={environment}
+action={action}
+appearances={appearances}
+cameraSettings={cameraSettings}
+/>
+</section>
+);
 }
