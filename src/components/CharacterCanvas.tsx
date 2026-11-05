@@ -382,12 +382,28 @@ characterCameraFraming.characterCount
 [characterCameraFraming]
 );
 
-const cameraTarget =
+const cameraTarget: [number, number, number] =
 directorCameraEnabled
 ? characterCameraFraming.target
 : cameraSettings?.characterPosition ??
 cameraSettings?.target ??
 characterCameraFraming.target;
+
+/* ---------------------------------------
+STAGE 51: ADAPTIVE CAMERA FRAMING
+--------------------------------------- */
+
+const adaptiveFramingDistance = useMemo(
+() =>
+Math.max(
+characterCameraDistance,
+directorCommand?.orbitRadius ?? 0
+),
+[
+characterCameraDistance,
+directorCommand?.orbitRadius,
+]
+);
 
 return (
 <div
@@ -415,12 +431,13 @@ powerPreference: "high-performance",
       far={100}
     />
 
-    {/* STAGE 49 + 50: DIRECTOR CAMERA */}
+    {/* STAGE 49 + 50 + 51: DIRECTOR CAMERA */}
 
     {directorCameraEnabled && (
       <CinematicCameraCommandRig
         enabled
         target={cameraTarget}
+        framingDistance={adaptiveFramingDistance}
       />
     )}
 
