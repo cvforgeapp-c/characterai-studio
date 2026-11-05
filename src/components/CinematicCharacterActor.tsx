@@ -1,23 +1,35 @@
-import React, { Suspense } from "react";
+import React, {
+Suspense,
+useEffect,
+useState,
+} from "react";
 
 import GLBCharacter from "./GLBCharacter";
+
 import CinematicActingRig from "./CinematicActingRig";
+
+import {
+useCinematicPerformance,
+} from "./CinematicPerformanceContext";
+
+import {
+subscribeToSpeechPerformance,
+type SpeechPerformanceEvent,
+} from "../lib/synchronized-speech";
+
+import type {
+CharacterAction,
+} from "../lib/character-motion";
 
 import {
 DEFAULT_ACTING_SETTINGS,
 type CinematicActingSettings,
 } from "./CinematicActingPanel";
 
-import {
-useCinematicPerformance,
-} from "./CinematicPerformanceContext";
-
-import type { CharacterAction } from "../lib/character-motion";
-
-interface Props {
+interface CinematicCharacterActorProps {
 characterId: string;
 modelUrl: string;
-action?: CharacterAction;
+action: CharacterAction;
 targetHeight?: number;
 actingSettings?: CinematicActingSettings;
 actingEnabled?: boolean;
@@ -26,9 +38,9 @@ actingEnabled?: boolean;
 interface ActorBodyProps {
 characterId: string;
 modelUrl: string;
-action?: CharacterAction;
+action: CharacterAction;
 targetHeight?: number;
-fallbackSettings: CinematicActingSettings;
+fallbackSettings?: CinematicActingSettings;
 actingEnabled: boolean;
 }
 
@@ -45,15 +57,61 @@ const performance = useCinematicPerformance();
 const individualPerformance =
 performance.performances[characterId];
 
-// Use individual dialogue performance only when it is active.
-// Otherwise, preserve the global Studio acting settings.
-const settings = individualPerformance?.isActive
+const settings =
+individualPerformance?.isActive
 ? individualPerformance.settings
-: fallbackSettings;
+: fallbackSettings ?? DEFAULT_ACTING_SETTINGS;
+
+const [speechOverride, setSpeechOverride] =
+useState<boolean | null>(null);
+
+useEffect(() => {
+const handleSpeechEvent = (
+event: SpeechPerformanceEvent
+) => {
+// Never animate another character's mouth.
+if (event.characterId !== characterId) {
+return;
+}
+
+  switch (event.type) {
+    case "start":
+    case "boundary":
+      setSpeechOverride(true);
+      break;
+
+    case "end":
+    case "error":
+    case "cancel":
+      setSpeechOverride(false);
+      break;
+
+    default:
+      break;
+  }
+};
+
+const unsubscribe =
+  subscribeToSpeechPerformance(handleSpeechEvent);
+
+return () => {
+  unsubscribe();
+  setSpeechOverride(null);
+};
+
+}, [characterId]);
+
+const actorSettings: CinematicActingSettings = {
+...settings,
+isSpeaking:
+speechOverride !== null
+? speechOverride
+: settings.isSpeaking,
+};
 
 return (
 <CinematicActingRig
-settings={settings}
+settings={actorSettings}
 enabled={actingEnabled}
 >
 <GLBCharacter
@@ -72,10 +130,7 @@ action,
 targetHeight,
 actingSettings,
 actingEnabled = true,
-}: Props) {
-const fallbackSettings =
-actingSettings ?? DEFAULT_ACTING_SETTINGS;
-
+}: CinematicCharacterActorProps) {
 return (
 <group>
 <Suspense fallback={null}>
@@ -84,7 +139,7 @@ characterId={characterId}
 modelUrl={modelUrl}
 action={action}
 targetHeight={targetHeight}
-fallbackSettings={fallbackSettings}
+fallbackSettings={actingSettings}
 actingEnabled={actingEnabled}
 />
 </Suspense>
