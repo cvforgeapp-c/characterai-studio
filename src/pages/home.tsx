@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+
 import CharacterStage from "../components/CharacterStage";
 import { characters } from "../lib/character-catalog";
 
@@ -11,11 +12,10 @@ const templates = [
     id: "vegetable",
     title: "Vegetable Argument",
     characters: ["tomato", "onion"],
-    description: "Tomato and Onion",
+    description: "Tomato vs Onion",
     emoji: "🥦",
-    background: "linear-gradient(135deg,#526d38,#a77d43)",
     prompt:
-      "The angry onion catches the tomato stealing vegetables from his garden. The tomato starts crying and makes funny excuses.",
+      "The angry onion catches the tomato stealing vegetables from his garden. The tomato starts crying and makes funny excuses."
   },
   {
     id: "interview",
@@ -23,9 +23,8 @@ const templates = [
     characters: ["lion", "monkey"],
     description: "Lion and Monkey",
     emoji: "🦁",
-    background: "linear-gradient(135deg,#54372d,#c18a4d)",
     prompt:
-      "A serious lion is being interviewed by a mischievous monkey. The interview becomes increasingly ridiculous.",
+      "A serious lion is being interviewed by a mischievous monkey. The interview becomes increasingly ridiculous."
   },
   {
     id: "school",
@@ -33,642 +32,864 @@ const templates = [
     characters: ["chicken", "dog"],
     description: "Chicken and Dog",
     emoji: "🐔",
-    background: "linear-gradient(135deg,#465c56,#a78b68)",
     prompt:
-      "A chicken arrives late at school and tries to convince the teacher that an egg is responsible.",
-  },
+      "A chicken arrives late at school and tries to convince the teacher that an egg is responsible."
+  }
 ];
 
-const categoryFilters: Category[] = ["All", "Animals", "Food"];
+const categories: Category[] = ["All", "Animals", "Food"];
 
 export default function Home() {
   const [, navigate] = useLocation();
 
   const [mode, setMode] = useState<CreationMode>("recreate");
   const [category, setCategory] = useState<Category>("All");
+
   const [selectedIds, setSelectedIds] = useState<string[]>([
     "lion",
-    "monkey",
+    "monkey"
   ]);
-  const [activeTemplate, setActiveTemplate] = useState("vegetable");
-  const [prompt, setPrompt] = useState(templates[0].prompt);
+
+  const [activeTemplate, setActiveTemplate] =
+    useState("interview");
+
+  const [prompt, setPrompt] = useState(
+    templates[1].prompt
+  );
+
   const [notice, setNotice] = useState("");
 
   const filteredCharacters = useMemo(
     () =>
       characters.filter(
-        (character) =>
-          category === "All" || character.category === category
+        character =>
+          category === "All" ||
+          character.category === category
       ),
     [category]
   );
 
-  const selectedCharacters = characters.filter((character) =>
+  const selectedCharacters = characters.filter(character =>
     selectedIds.includes(character.id)
   );
 
   function toggleCharacter(id: string) {
     setNotice("");
 
-    setSelectedIds((previous) => {
+    setSelectedIds(previous => {
       if (previous.includes(id)) {
         if (previous.length === 1) {
-          setNotice("Select at least one character.");
+          setNotice("At least one character must remain selected.");
           return previous;
         }
 
-        return previous.filter((item) => item !== id);
+        return previous.filter(item => item !== id);
       }
 
       if (previous.length >= 4) {
-        setNotice("You can select up to four characters.");
+        setNotice("You can select a maximum of four characters.");
         return previous;
       }
 
       return [...previous, id];
     });
+
+    setMode("original");
   }
 
   function chooseTemplate(templateId: string) {
-    const template = templates.find((item) => item.id === templateId);
+    const template = templates.find(
+      item => item.id === templateId
+    );
+
     if (!template) return;
+
+    const validCharacters = template.characters.filter(id =>
+      characters.some(character => character.id === id)
+    );
 
     setActiveTemplate(templateId);
     setMode("recreate");
     setPrompt(template.prompt);
-
-    setSelectedIds(
-      template.characters.filter((id) =>
-        characters.some((character) => character.id === id)
-      )
-    );
-
+    setSelectedIds(validCharacters);
     setNotice("");
   }
 
   function continueToStudio() {
     if (selectedIds.length === 0) {
-      setNotice("Please select at least one character.");
+      setNotice("Select at least one character.");
       return;
     }
 
     if (!prompt.trim()) {
-      setNotice("Please describe your story first.");
+      setNotice("Enter a story description first.");
       return;
     }
 
     const params = new URLSearchParams({
       characters: selectedIds.join(","),
       prompt: prompt.trim(),
-      mode,
+      mode
     });
 
     navigate(`/studio?${params.toString()}`);
   }
 
   return (
-    <main className="landing">
+    <main className="cinematic-home">
       <style>{`
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+        }
 
-        .landing {
-          min-height: 100vh;
-          padding: 18px;
+        html, body, #root {
+          width: 100%;
+          min-height: 100%;
+          margin: 0;
+        }
+
+        body {
+          overflow: hidden;
+        }
+
+        .cinematic-home {
+          width: 100%;
+          height: 100dvh;
+          min-height: 0;
+          padding: 12px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
           color: #edf7f5;
           background:
-            radial-gradient(ellipse at 90% 10%,rgba(21,174,151,.18),transparent 40%),
-            radial-gradient(ellipse at 5% 70%,rgba(25,112,106,.15),transparent 40%),
-            #091416;
-          font-family: Inter,system-ui,sans-serif;
+            radial-gradient(ellipse at 50% -15%, rgba(34,190,160,.19), transparent 48%),
+            radial-gradient(ellipse at 5% 90%, rgba(26,107,112,.15), transparent 40%),
+            #071112;
+          font-family: Inter, system-ui, sans-serif;
         }
 
-        .landing-shell {
-          max-width: 1120px;
-          margin: auto;
-        }
-
-        .landing-header {
-          height: 64px;
+        .cinematic-header {
+          flex: 0 0 54px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 18px;
+          padding: 0 16px;
           border: 1px solid #294447;
-          border-radius: 17px;
-          background: rgba(19,35,38,.94);
-          margin-bottom: 22px;
+          border-radius: 13px;
+          background: rgba(15,31,33,.96);
         }
 
-        .brand {
+        .cinematic-brand {
           display: flex;
-          gap: 11px;
           align-items: center;
-          font-weight: 750;
-          letter-spacing: -.3px;
+          gap: 10px;
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: .3px;
         }
 
-        .brand-icon {
+        .cinematic-logo {
           width: 34px;
           height: 34px;
           display: grid;
           place-items: center;
           border-radius: 10px;
-          background: #183d3b;
-          color: #63e1c4;
-          font-size: 19px;
+          color: #66e6c5;
+          background: #183b38;
+          font-size: 20px;
         }
 
-        .primary-button {
-          border: 0;
-          padding: 12px 19px;
-          border-radius: 11px;
-          color: #06211e;
-          background: #55dfbd;
-          font-weight: 800;
-          cursor: pointer;
-          transition: .2s;
-        }
-
-        .primary-button:hover {
-          background: #83f1d4;
-          transform: translateY(-1px);
-        }
-
-        .panel {
-          border: 1px solid #2b4143;
-          background: linear-gradient(145deg,rgba(24,39,42,.97),rgba(15,27,30,.98));
-          border-radius: 19px;
-          padding: 23px;
-          margin-bottom: 20px;
-          box-shadow: 0 12px 35px rgba(0,0,0,.16);
-        }
-
-        .eyebrow {
-          color: #6ad9bf;
-          font-size: 10px;
-          font-weight: 850;
-          letter-spacing: 1.3px;
-          text-transform: uppercase;
-        }
-
-        .panel h1,.panel h2 {
-          margin: 8px 0;
-          color: #f4faf8;
-          letter-spacing: -.7px;
-        }
-
-        .panel h1 { font-size: clamp(23px,4vw,31px); }
-        .panel h2 { font-size: 23px; }
-
-        .muted {
-          color: #9aabaa;
-          font-size: 13px;
-          line-height: 1.6;
-        }
-
-        .mode-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 15px;
-          margin-top: 18px;
-        }
-
-        .mode-card {
-          min-height: 165px;
-          overflow: hidden;
-          padding: 0;
-          text-align: left;
-          border: 1px solid #34494b;
-          border-radius: 15px;
-          color: white;
-          background: #111e21;
-          cursor: pointer;
-        }
-
-        .mode-card.active {
-          border: 1px solid #5ce3c5;
-          box-shadow: 0 0 0 1px rgba(92,227,197,.18),0 0 22px rgba(68,217,185,.12);
-        }
-
-        .mode-heading {
+        .cinematic-status {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          padding: 14px 16px;
-        }
-
-        .mode-heading strong { font-size: 14px; }
-
-        .mode-visual {
-          height: 105px;
-          display: grid;
-          place-items: center;
-          font-size: 54px;
-          background:
-            radial-gradient(circle at 50% 50%,rgba(91,224,198,.2),transparent 55%),
-            linear-gradient(135deg,#1b3438,#0b171a);
-        }
-
-        .mode-caption {
-          padding: 9px 15px;
-          color: #9baead;
-          font-size: 12px;
-        }
-
-        .filter-row {
-          display: flex;
-          gap: 9px;
-          flex-wrap: wrap;
-          margin: 16px 0;
-        }
-
-        .filter-button {
-          border: 1px solid #35494b;
-          color: #aabbb9;
-          background: #142326;
-          padding: 8px 17px;
-          border-radius: 22px;
-          cursor: pointer;
-          font-size: 12px;
-        }
-
-        .filter-button.active {
-          background: #55dfbd;
-          color: #08221e;
-          border-color: #55dfbd;
+          gap: 8px;
+          color: #8bdcca;
+          font-size: 10px;
           font-weight: 800;
+          letter-spacing: 1px;
         }
 
-        .character-grid {
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #42e0ad;
+          box-shadow: 0 0 12px #42e0ad;
+        }
+
+        .cinematic-workspace {
+          flex: 1;
+          min-height: 0;
           display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
+          grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(245px, 300px);
           gap: 10px;
         }
 
-        .character-card {
+        .cinematic-panel {
           min-width: 0;
+          min-height: 0;
+          overflow: hidden;
           display: flex;
+          flex-direction: column;
+          border: 1px solid #294447;
+          border-radius: 15px;
+          background: linear-gradient(150deg, rgba(21,39,41,.98), rgba(11,24,26,.98));
+          box-shadow: 0 12px 30px rgba(0,0,0,.16);
+        }
+
+        .panel-heading {
+          flex: 0 0 auto;
+          padding: 15px 14px 10px;
+          border-bottom: 1px solid rgba(115,160,154,.13);
+        }
+
+        .eyebrow {
+          color: #67d9bd;
+          font-size: 9px;
+          font-weight: 850;
+          letter-spacing: 1.25px;
+          text-transform: uppercase;
+        }
+
+        .panel-heading h2 {
+          margin: 6px 0 3px;
+          color: #f3faf7;
+          font-size: 16px;
+          letter-spacing: -.4px;
+        }
+
+        .subtext {
+          margin: 0;
+          color: #91a8a4;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .panel-content {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          padding: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: #345957 transparent;
+        }
+
+        .category-tabs {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 12px;
+        }
+
+        .category-button {
+          padding: 7px 11px;
+          border: 1px solid #30494a;
+          border-radius: 20px;
+          color: #9eb4b0;
+          background: #122326;
+          font-size: 10px;
+          cursor: pointer;
+        }
+
+        .category-button.active {
+          color: #08221d;
+          border-color: #55dfbd;
+          background: #55dfbd;
+          font-weight: 800;
+        }
+
+        .character-library {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: 7px;
+        }
+
+        .character-option {
+          min-width: 0;
+          min-height: 83px;
+          padding: 8px 5px;
+          display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 11px;
-          padding: 11px;
-          border: 1px solid #304347;
-          border-radius: 12px;
-          background: rgba(17,30,33,.8);
+          justify-content: center;
+          gap: 4px;
+          position: relative;
+          border: 1px solid #304447;
+          border-radius: 10px;
           color: white;
-          text-align: left;
+          background: #102023;
           cursor: pointer;
           transition: .18s;
         }
 
-        .character-card:hover { border-color: #5acdb2; }
+        .character-option:hover {
+          border-color: #54cbb1;
+        }
 
-        .character-card.selected {
+        .character-option.selected {
           border-color: #5ce3c5;
-          background: rgba(48,132,115,.2);
+          background: rgba(49,132,115,.22);
+          box-shadow: inset 0 0 15px rgba(67,211,178,.06);
         }
 
-        .character-emoji {
-          width: 43px;
-          height: 43px;
-          flex: 0 0 43px;
-          display: grid;
-          place-items: center;
-          border-radius: 11px;
-          background: #263a3e;
-          font-size: 26px;
+        .character-option .emoji {
+          font-size: 27px;
         }
 
-        .character-name {
-          display: block;
-          font-size: 13px;
-          font-weight: 750;
-        }
-
-        .character-description {
-          display: block;
-          margin-top: 4px;
-          color: #91a4a1;
+        .character-option strong {
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
           font-size: 10px;
         }
 
-        .selected-header {
+        .character-option small {
+          color: #91a7a2;
+          font-size: 8px;
+        }
+
+        .character-check {
+          position: absolute;
+          top: 5px;
+          right: 6px;
+          color: #65e7c4;
+          font-size: 11px;
+        }
+
+        .selected-cast {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px solid #2a4143;
+        }
+
+        .cast-chip {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 8px;
+          border: 1px solid #385352;
+          border-radius: 20px;
+          color: #e1f4ee;
+          background: #193331;
+          font-size: 10px;
+        }
+
+        .preview-panel {
+          position: relative;
+        }
+
+        .preview-heading {
+          flex: 0 0 52px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin: 23px 0 12px;
-          font-size: 13px;
-          font-weight: 750;
+          gap: 10px;
+          padding: 0 15px;
+          border-bottom: 1px solid rgba(115,160,154,.13);
         }
 
-        .selected-preview {
+        .preview-heading strong {
+          font-size: 12px;
+        }
+
+        .preview-heading small {
+          color: #7eaaa0;
+          font-size: 9px;
+        }
+
+        .preview-screen {
+          flex: 1;
+          min-height: 0;
+          position: relative;
           overflow: hidden;
-          border: 1px solid #3a5050;
-          border-radius: 15px;
-          background: linear-gradient(120deg,#17282a,#263c3d,#142426);
-          min-height: 300px;
+          background:
+            radial-gradient(ellipse at 50% 75%, rgba(69,93,139,.45), transparent 48%),
+            linear-gradient(145deg,#171b35,#25213e 52%,#101a2a);
         }
 
-        .template-grid {
+        .preview-screen .character-preview-panel {
+          width: 100%;
+          height: 100%;
+          min-height: 0 !important;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .preview-screen .character-stage-header {
+          display: none !important;
+        }
+
+        .preview-screen .character-stage {
+          height: 100% !important;
+          min-height: 0 !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+        }
+
+        .preview-screen .character-stage canvas {
+          display: block;
+        }
+
+        /* Hide the extra position editor here.
+           Character arrangement will be available inside Studio. */
+        .preview-screen .character-preview-panel > div > div:nth-child(2) {
+          display: none !important;
+        }
+
+        .preview-footer {
+          flex: 0 0 42px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 14px;
+          border-top: 1px solid rgba(115,160,154,.13);
+          color: #8fa9a4;
+          font-size: 10px;
+        }
+
+        .preview-footer strong {
+          color: #6ee2c3;
+        }
+
+        .right-content {
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+        }
+
+        .mode-selector {
           display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
-          gap: 12px;
-          margin: 16px 0;
+          grid-template-columns: 1fr 1fr;
+          gap: 7px;
         }
 
-        .template-card {
-          overflow: hidden;
-          padding: 0;
-          text-align: left;
-          border: 1px solid #34494b;
-          border-radius: 13px;
-          color: white;
-          background: #142326;
+        .mode-button {
+          min-width: 0;
+          padding: 10px 7px;
+          border: 1px solid #304649;
+          border-radius: 9px;
+          color: #9db2ad;
+          background: #112124;
+          font-size: 10px;
           cursor: pointer;
         }
 
-        .template-card.active { border: 1px solid #5ce3c5; }
-
-        .template-image {
-          height: 120px;
-          display: grid;
-          place-items: center;
-          font-size: 47px;
+        .mode-button.active {
+          color: #70e4c5;
+          border-color: #58d8bb;
+          background: rgba(53,139,119,.16);
         }
 
-        .template-info { padding: 11px; }
-        .template-info strong { font-size: 12px; }
-        .template-info p {
-          margin: 5px 0 0;
-          color: #9aadaa;
+        .template-list {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+
+        .template-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 9px;
+          border: 1px solid #304649;
+          border-radius: 10px;
+          color: white;
+          background: #112124;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .template-option.active {
+          border-color: #5ce3c5;
+          background: rgba(49,132,115,.2);
+        }
+
+        .template-emoji {
+          width: 39px;
+          height: 39px;
+          flex: 0 0 39px;
+          display: grid;
+          place-items: center;
+          border-radius: 8px;
+          font-size: 22px;
+        }
+
+        .template-option strong {
+          display: block;
           font-size: 10px;
+        }
+
+        .template-option small {
+          display: block;
+          margin-top: 4px;
+          color: #8da6a1;
+          font-size: 9px;
+        }
+
+        .story-label {
+          display: block;
+          margin-bottom: 7px;
+          color: #b7cac5;
+          font-size: 10px;
+          font-weight: 700;
         }
 
         .story-input {
           width: 100%;
           min-height: 115px;
           resize: vertical;
-          padding: 15px;
-          color: #eaf4f1;
-          background: #111e21;
-          border: 1px solid #35494b;
-          border-radius: 12px;
+          padding: 11px;
+          border: 1px solid #355052;
+          border-radius: 10px;
           outline: none;
+          color: #eaf5f1;
+          background: #0c1b1e;
           font: inherit;
-          font-size: 13px;
-          line-height: 1.6;
+          font-size: 11px;
+          line-height: 1.55;
         }
 
-        .story-input:focus { border-color: #55dfbd; }
+        .story-input:focus {
+          border-color: #58d9ba;
+        }
 
-        .bottom-actions {
+        .notice {
+          color: #ffb985;
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        .cinematic-footer {
+          flex: 0 0 54px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          margin-top: 17px;
+          padding: 0 14px;
+          border: 1px solid #294447;
+          border-radius: 13px;
+          background: rgba(15,31,33,.96);
         }
 
-        .notice {
-          color: #ffbd86;
-          font-size: 12px;
-          margin-top: 12px;
-        }
-
-        .landing-footer {
-          display: flex;
-          justify-content: space-between;
-          gap: 15px;
-          padding: 20px 5px;
-          border-top: 1px solid #293d40;
-          color: #819492;
+        .footer-summary {
+          color: #8fa9a4;
           font-size: 10px;
         }
 
-        @media(max-width:700px) {
-          .landing { padding: 10px; }
-          .panel { padding: 16px; }
-          .character-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-          .template-grid { grid-template-columns: 1fr; }
-          .template-card { display: grid; grid-template-columns: 110px 1fr; }
-          .template-image { height: 100%; min-height: 100px; }
-          .mode-grid { gap: 9px; }
-          .mode-card { min-height: 145px; }
-          .mode-heading { padding: 11px; }
-          .mode-heading strong { font-size: 12px; }
-          .mode-visual { height: 90px; }
-          .selected-preview { min-height: 260px; }
-          .bottom-actions { align-items: stretch; flex-direction: column; }
-          .bottom-actions button { width: 100%; }
-          .landing-footer { flex-direction: column; }
+        .footer-summary strong {
+          color: #e4f5ef;
         }
 
-        @media(max-width:390px) {
-          .character-grid { grid-template-columns: 1fr; }
-          .brand { font-size: 13px; }
-          .landing-header { padding: 0 10px; }
+        .launch-button {
+          min-height: 38px;
+          padding: 0 18px;
+          border: 0;
+          border-radius: 9px;
+          color: #06231d;
+          background: #55dfbd;
+          font-size: 11px;
+          font-weight: 850;
+          cursor: pointer;
+        }
+
+        .launch-button:hover {
+          background: #82f0d3;
+        }
+
+        @media(max-width:850px) {
+          .cinematic-workspace {
+            grid-template-columns: 205px minmax(0,1fr);
+          }
+
+          .story-panel {
+            grid-column: 1 / -1;
+            display: none;
+          }
+        }
+
+        @media(max-width:600px) {
+          .cinematic-home {
+            padding: 7px;
+            gap: 7px;
+          }
+
+          .cinematic-header {
+            flex-basis: 45px;
+            padding: 0 10px;
+          }
+
+          .cinematic-brand {
+            font-size: 12px;
+          }
+
+          .cinematic-status {
+            font-size: 8px;
+          }
+
+          .cinematic-workspace {
+            grid-template-columns: minmax(0,1fr);
+            grid-template-rows: minmax(230px, 42%) minmax(0,1fr);
+            gap: 7px;
+          }
+
+          .preview-panel {
+            grid-row: 1;
+          }
+
+          .cinematic-panel:not(.preview-panel) {
+            min-height: 0;
+          }
+
+          .cinematic-workspace > .cinematic-panel:first-child {
+            grid-row: 2;
+          }
+
+          .cinematic-workspace > .story-panel {
+            display: flex;
+            grid-row: 2;
+          }
+
+          .cinematic-workspace {
+            overflow-y: auto;
+          }
+
+          .cinematic-footer {
+            flex-basis: 48px;
+            padding: 0 9px;
+          }
+
+          .footer-summary {
+            max-width: 48%;
+            font-size: 9px;
+          }
+
+          .launch-button {
+            padding: 0 12px;
+            font-size: 10px;
+          }
         }
       `}</style>
 
-      <div className="landing-shell">
-        <header className="landing-header">
-          <div className="brand">
-            <span className="brand-icon">⌂</span>
-            <span>Character AI Studio</span>
+      <header className="cinematic-header">
+        <div className="cinematic-brand">
+          <span className="cinematic-logo">🎬</span>
+          <span>CHARACTER AI STUDIO</span>
+        </div>
+
+        <div className="cinematic-status">
+          <span className="status-dot" />
+          3D ENGINE READY
+        </div>
+      </header>
+
+      <section className="cinematic-workspace">
+
+        {/* LEFT: CHARACTER LIBRARY */}
+        <aside className="cinematic-panel">
+          <div className="panel-heading">
+            <span className="eyebrow">01 / Character Library</span>
+            <h2>Build Your Cast</h2>
+            <p className="subtext">
+              Select up to four characters.
+            </p>
           </div>
 
-          <button
-            className="primary-button"
-            onClick={() =>
-              document
-                .getElementById("creation-mode")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-          >
-            Create Studio →
-          </button>
-        </header>
-
-        <section className="panel" id="creation-mode">
-          <span className="eyebrow">Your AI Comedy Creation Studio</span>
-          <h1>Select Your Creation Mode</h1>
-          <p className="muted">
-            Start with a popular idea or create a completely original story.
-          </p>
-
-          <div className="mode-grid">
-            <button
-              className={`mode-card ${mode === "recreate" ? "active" : ""}`}
-              onClick={() => setMode("recreate")}
-              aria-pressed={mode === "recreate"}
-            >
-              <div className="mode-heading">
-                <strong>◉ Recreate a Template</strong>
-                <span>{mode === "recreate" ? "✓" : "+"}</span>
-              </div>
-              <div className="mode-visual">🎬 🦁 🐵</div>
-              <div className="mode-caption">
-                Start with a popular idea and customize the story.
-              </div>
-            </button>
-
-            <button
-              className={`mode-card ${mode === "original" ? "active" : ""}`}
-              onClick={() => setMode("original")}
-              aria-pressed={mode === "original"}
-            >
-              <div className="mode-heading">
-                <strong>✳ Create Your Own Story</strong>
-                <span>{mode === "original" ? "✓" : "+"}</span>
-              </div>
-              <div className="mode-visual">✦ · ✧ · ✦</div>
-              <div className="mode-caption">
-                Choose your characters and invent a completely new story.
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <section className="panel">
-          <span className="eyebrow">Build Your Cast</span>
-
-          <div className="selected-header">
-            <h2>Assemble Your Cast</h2>
-            <span className="eyebrow">
-              {selectedIds.length}/4 SELECTED
-            </span>
-          </div>
-
-          <p className="muted">
-            Select up to four characters for your story.
-          </p>
-
-          <div className="filter-row">
-            {categoryFilters.map((item) => (
-              <button
-                key={item}
-                className={`filter-button ${category === item ? "active" : ""}`}
-                onClick={() => setCategory(item)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          <div className="character-grid">
-            {filteredCharacters.map((character) => {
-              const selected = selectedIds.includes(character.id);
-
-              return (
+          <div className="panel-content">
+            <div className="category-tabs">
+              {categories.map(item => (
                 <button
-                  key={character.id}
-                  className={`character-card ${selected ? "selected" : ""}`}
-                  onClick={() => toggleCharacter(character.id)}
-                  aria-pressed={selected}
+                  key={item}
+                  className={`category-button ${
+                    category === item ? "active" : ""
+                  }`}
+                  onClick={() => setCategory(item)}
                 >
-                  <span className="character-emoji">
-                    {character.emoji}
-                  </span>
-
-                  <span>
-                    <span className="character-name">
-                      {character.name} {selected ? "✓" : ""}
-                    </span>
-                    <span className="character-description">
-                      {character.tone} · {character.category}
-                    </span>
-                  </span>
+                  {item}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+
+            <div className="character-library">
+              {filteredCharacters.map(character => {
+                const selected = selectedIds.includes(character.id);
+
+                return (
+                  <button
+                    key={character.id}
+                    className={`character-option ${
+                      selected ? "selected" : ""
+                    }`}
+                    onClick={() => toggleCharacter(character.id)}
+                    aria-pressed={selected}
+                  >
+                    {selected && (
+                      <span className="character-check">✓</span>
+                    )}
+
+                    <span className="emoji">
+                      {character.emoji}
+                    </span>
+
+                    <strong>{character.name}</strong>
+
+                    <small>{character.tone}</small>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="selected-cast">
+              {selectedCharacters.map(character => (
+                <span className="cast-chip" key={character.id}>
+                  {character.emoji} {character.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTER: LIVE 3D VIEWPORT */}
+        <section className="cinematic-panel preview-panel">
+          <div className="preview-heading">
+            <strong>02 / Cinematic 3D Viewport</strong>
+            <small>
+              {selectedIds.length} / 4 CHARACTERS
+            </small>
           </div>
 
-          <div className="selected-header">
-            <span>Selected Characters</span>
-            <span className="eyebrow">
-              {selectedCharacters.length}/4 SELECTED
-            </span>
-          </div>
-
-          <div className="selected-preview">
+          <div className="preview-screen">
             <CharacterStage
               selectedIds={selectedIds}
-              height={290}
+              height={500}
               showControls={false}
               environment="studio"
             />
           </div>
+
+          <div className="preview-footer">
+            <span>LIVE CHARACTER PREVIEW</span>
+            <strong>● RENDER READY</strong>
+          </div>
         </section>
 
-        <section className="panel">
-          <span className="eyebrow">Next Step · Scene Design</span>
-          <h2>Design Your Scene</h2>
-          <p className="muted">Choose a starting template.</p>
+        {/* RIGHT: STORY DESIGN */}
+        <aside className="cinematic-panel story-panel">
+          <div className="panel-heading">
+            <span className="eyebrow">03 / Story Creation</span>
+            <h2>Direct Your Story</h2>
+            <p className="subtext">
+              Choose a starting point or create something original.
+            </p>
+          </div>
 
-          <div className="template-grid">
-            {templates.map((template) => (
-              <button
-                key={template.id}
-                className={`template-card ${
-                  activeTemplate === template.id && mode === "recreate"
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() => chooseTemplate(template.id)}
-              >
-                <div
-                  className="template-image"
-                  style={{ background: template.background }}
+          <div className="panel-content right-content">
+            <div>
+              <span className="story-label">CREATION MODE</span>
+
+              <div className="mode-selector">
+                <button
+                  className={`mode-button ${
+                    mode === "recreate" ? "active" : ""
+                  }`}
+                  onClick={() => setMode("recreate")}
                 >
-                  {template.emoji}
+                  🎬 Templates
+                </button>
+
+                <button
+                  className={`mode-button ${
+                    mode === "original" ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setMode("original");
+                    setActiveTemplate("");
+                  }}
+                >
+                  ✨ Original
+                </button>
+              </div>
+            </div>
+
+            {mode === "recreate" && (
+              <div>
+                <span className="story-label">STORY TEMPLATES</span>
+
+                <div className="template-list">
+                  {templates.map(template => (
+                    <button
+                      key={template.id}
+                      className={`template-option ${
+                        activeTemplate === template.id ? "active" : ""
+                      }`}
+                      onClick={() => chooseTemplate(template.id)}
+                    >
+                      <span
+                        className="template-emoji"
+                        style={{
+                          background:
+                            template.id === "vegetable"
+                              ? "#586b3d"
+                              : template.id === "interview"
+                              ? "#67442f"
+                              : "#465d57"
+                        }}
+                      >
+                        {template.emoji}
+                      </span>
+
+                      <span>
+                        <strong>{template.title}</strong>
+                        <small>{template.description}</small>
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                <div className="template-info">
-                  <strong>{template.title}</strong>
-                  <p>{template.description}</p>
-                </div>
-              </button>
-            ))}
+              </div>
+            )}
+
+            <div>
+              <label className="story-label" htmlFor="story-prompt">
+                STORY DESCRIPTION
+              </label>
+
+              <textarea
+                id="story-prompt"
+                className="story-input"
+                value={prompt}
+                onChange={event => {
+                  setPrompt(event.target.value);
+                  setMode("original");
+                  setActiveTemplate("");
+                }}
+                placeholder="Describe what happens in your comedy story..."
+              />
+            </div>
+
+            {notice && (
+              <div className="notice">{notice}</div>
+            )}
           </div>
+        </aside>
+      </section>
 
-          <label htmlFor="story-prompt" className="muted">
-            Story or Dialogue
-          </label>
+      <footer className="cinematic-footer">
+        <div className="footer-summary">
+          <strong>{selectedIds.length} characters</strong>
+          {" "}selected · Story ready for production
+        </div>
 
-          <textarea
-            id="story-prompt"
-            className="story-input"
-            value={prompt}
-            onChange={(event) => {
-              setPrompt(event.target.value);
-              setMode("original");
-            }}
-            placeholder="Describe your comedy story..."
-          />
-
-          {notice && <div className="notice">{notice}</div>}
-
-          <div className="bottom-actions">
-            <span className="muted">
-              {selectedIds.length} characters selected
-            </span>
-
-            <button
-              className="primary-button"
-              onClick={continueToStudio}
-            >
-              Continue to Settings →
-            </button>
-          </div>
-        </section>
-
-        <footer className="landing-footer">
-          <span>
-            Clean, cinematic character storytelling.
-            <br />
-            © 2026 Character AI Studio. All rights reserved.
-          </span>
-          <span>Made for stories worth sharing.</span>
-        </footer>
-      </div>
+        <button
+          className="launch-button"
+          onClick={continueToStudio}
+        >
+          OPEN CINEMATIC STUDIO →
+        </button>
+      </footer>
     </main>
   );
 }
