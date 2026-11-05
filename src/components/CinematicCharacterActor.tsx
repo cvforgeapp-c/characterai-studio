@@ -8,7 +8,9 @@ DEFAULT_ACTING_SETTINGS,
 type CinematicActingSettings,
 } from "./CinematicActingPanel";
 
-import { useCinematicPerformance } from "./CinematicPerformanceContext";
+import {
+useCinematicPerformance,
+} from "./CinematicPerformanceContext";
 
 import type { CharacterAction } from "../lib/character-motion";
 
@@ -21,6 +23,15 @@ actingSettings?: CinematicActingSettings;
 actingEnabled?: boolean;
 }
 
+interface ActorBodyProps {
+characterId: string;
+modelUrl: string;
+action?: CharacterAction;
+targetHeight?: number;
+fallbackSettings: CinematicActingSettings;
+actingEnabled: boolean;
+}
+
 function ActorBody({
 characterId,
 modelUrl,
@@ -28,22 +39,16 @@ action,
 targetHeight,
 fallbackSettings,
 actingEnabled,
-}: {
-characterId: string;
-modelUrl: string;
-action: CharacterAction;
-targetHeight?: number;
-fallbackSettings: CinematicActingSettings;
-actingEnabled: boolean;
-}) {
+}: ActorBodyProps) {
 const performance = useCinematicPerformance();
 
-const individualSettings =
-performance.getPerformance(characterId);
+const individualPerformance =
+performance.performances[characterId];
 
-const settings =
-performance.performances[characterId]
-? individualSettings
+// Use individual dialogue performance only when it is active.
+// Otherwise, preserve the global Studio acting settings.
+const settings = individualPerformance?.isActive
+? individualPerformance.settings
 : fallbackSettings;
 
 return (
@@ -63,20 +68,23 @@ targetHeight={targetHeight}
 export default function CinematicCharacterActor({
 characterId,
 modelUrl,
-action = "idle",
+action,
 targetHeight,
-actingSettings = DEFAULT_ACTING_SETTINGS,
+actingSettings,
 actingEnabled = true,
 }: Props) {
+const fallbackSettings =
+actingSettings ?? DEFAULT_ACTING_SETTINGS;
+
 return (
-<group name={"cinematic-actor-${characterId}"}>
+<group>
 <Suspense fallback={null}>
 <ActorBody
 characterId={characterId}
 modelUrl={modelUrl}
 action={action}
 targetHeight={targetHeight}
-fallbackSettings={actingSettings}
+fallbackSettings={fallbackSettings}
 actingEnabled={actingEnabled}
 />
 </Suspense>
