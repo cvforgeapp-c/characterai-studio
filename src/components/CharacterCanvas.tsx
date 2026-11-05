@@ -27,6 +27,8 @@ import CinematicLighting from "./CinematicLighting";
 import CinematicEnvironment from "./CinematicEnvironment";
 
 import CinematicCharacterActor from "./CinematicCharacterActor";
+import CinematicTrackedCharacter from "./CinematicTrackedCharacter";
+import CinematicLiveTargetTracker from "./CinematicLiveTargetTracker";
 
 import {
 useCinematicCameraCommand,
@@ -252,8 +254,9 @@ model: NonNullable<typeof item.model>;
 return (
 <group name="cinematic-character-collection">
 {models.map(({ placement, model }) => (
-<group
+<CinematicTrackedCharacter
 key={model.id}
+id={model.id}
 position={placement.position}
 rotation={placement.rotation}
 scale={placement.scale}
@@ -278,7 +281,7 @@ actingEnabled
 />
 </Suspense>
 </ModelErrorBoundary>
-</group>
+</CinematicTrackedCharacter>
 ))}
 </group>
 );
@@ -432,7 +435,11 @@ powerPreference: "high-performance",
       far={100}
     />
 
-    {/* STAGE 49 + 50 + 51 + 52: DIRECTOR CAMERA */}
+    {/* STAGE 53–55: LIVE CHARACTER TARGET TRACKER */}
+
+    <CinematicLiveTargetTracker enabled />
+
+    {/* STAGE 47–52: DIRECTOR CAMERA */}
 
     {directorCameraEnabled && (
       <CinematicCameraCommandRig
