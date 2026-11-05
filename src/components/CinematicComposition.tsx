@@ -1,6 +1,3 @@
-import { useMemo } from "react";
-import * as THREE from "three";
-
 export type CompositionMode =
 | "auto"
 | "single"
@@ -18,143 +15,461 @@ scale: number;
 
 export interface CompositionResult {
 placements: CharacterPlacement[];
+center: [number, number, number];
 cameraTarget: [number, number, number];
 cameraDistance: number;
 }
 
-interface Props {
+interface CompositionOptions {
 characterIds: string[];
 mode?: CompositionMode;
 spacing?: number;
 depth?: number;
 }
 
+const clamp = (
+value: number,
+min: number,
+max: number
+) => Math.max(min, Math.min(max, value));
+
+const uniqueIds = (ids: string[]) =>
+[...new Set(ids.filter(Boolean))];
+
+function facePosition(
+position: [number, number, number],
+target: [number, number, number]
+): [number, number, number] {
+const dx = target[0] - position[0];
+const dz = target[2] - position[2];
+
+return [
+0,
+Math.atan2(dx, dz),
+0,
+];
+}
+
+function createPlacement(
+id: string,
+position: [number, number, number],
+rotation: [number, number, number],
+scale = 1
+): CharacterPlacement {
+return {
+id,
+position,
+rotation,
+scale,
+};
+}
+
+/* ---------------------------------------
+SINGLE CHARACTER
+--------------------------------------- */
+
+function createSingle(
+ids: string[]
+): CharacterPlacement[] {
+return ids.map((id, index) =>
+createPlacement(
+id,
+[0, 0, index * 0.05],
+[0, 0, 0],
+1
+)
+);
+}
+
+/* ---------------------------------------
+NATURAL TWO-PERSON DIALOGUE
+--------------------------------------- */
+
+function createDialogue(
+ids: string[],
+spacing: number,
+depth: number
+): CharacterPlacement[] {
+if (ids.length === 1) {
+return createSingle(ids);
+}
+
+const positions: Array<
+[number, number, number]
+
+«= [];»
+
+if (ids.length === 2) {
+positions.push(
+[-spacing / 2, 0, depth * 0.12],
+[spacing / 2, 0, -depth * 0.12]
+);
+} else {
+positions.push(
+[-spacing / 2, 0, depth * 0.2],
+[spacing / 2, 0, -depth * 0.2]
+);
+
+for (let i = 2; i < ids.length; i++) {
+  const row = Math.floor((i - 2) / 3);
+  const column = (i - 2) % 3;
+
+  positions.push([
+    (column - 1) * spacing * 0.8,
+    0,
+    -depth * (0.8 + row * 0.65),
+  ]);
+}
+
+}
+
+const center: [number, number, number] = [
+0,
+0,
+-depth * 0.05,
+];
+
+return ids.map((id, index) => {
+const position = positions[index];
+
+return createPlacement(
+  id,
+  position,
+  facePosition(position, center)
+);
+
+});
+}
+
+/* ---------------------------------------
+TRIANGLE CINEMATIC COMPOSITION
+--------------------------------------- */
+
+function createTriangle(
+ids: string[],
+spacing: number,
+depth: number
+): CharacterPlacement[] {
+if (ids.length <= 2) {
+return createDialogue(ids, spacing, depth);
+}
+
+const radius = spacing * 0.72;
+
+return ids.map((id, index) => {
+const angle =
+-Math.PI / 2 +
+(index * Math.PI * 2) / ids.length;
+
+const position: [number, number, number] = [
+  Math.cos(angle) * radius,
+  0,
+  Math.sin(angle) * radius * 0.65,
+];
+
+return createPlacement(
+  id,
+  position,
+  facePosition(position, [0, 0, 0])
+);
+
+});
+}
+
+/* ---------------------------------------
+GROUP CINEMATIC COMPOSITION
+--------------------------------------- */
+
+function createGroup(
+ids: string[],
+spacing: number,
+depth: number
+): CharacterPlacement[] {
+const columns = Math.min(
+4,
+Math.ceil(Math.sqrt(ids.length))
+);
+
+const rows = Math.ceil(ids.length / columns);
+
+return ids.map((id, index) => {
+const row = Math.floor(index / columns);
+const column = index % columns;
+
+const rowCount = Math.min(
+  columns,
+  ids.length - row * columns
+);
+
+const x =
+  (column - (rowCount - 1) / 2) *
+  spacing;
+
+const z =
+  (row - (rows - 1) / 2) *
+  depth;
+
+const position: [number, number, number] = [
+  x,
+  0,
+  z,
+];
+
+return createPlacement(
+  id,
+  position,
+  facePosition(position, [0, 0, 0])
+);
+
+});
+}
+
+/* ---------------------------------------
+DRAMATIC HERO COMPOSITION
+--------------------------------------- */
+
+function createDramatic(
+ids: string[],
+spacing: number,
+depth: number
+): CharacterPlacement[] {
+if (ids.length === 1) {
+return createSingle(ids);
+}
+
+const hero = ids[0];
+
+const placements: CharacterPlacement[] = [
+createPlacement(
+hero,
+[0, 0, depth * 0.65],
+[0, 0, 0],
+1.12
+),
+];
+
+const supportingIds = ids.slice(1);
+const count = supportingIds.length;
+
+supportingIds.forEach((id, index) => {
+const angle =
+-Math.PI / 2 +
+(index * Math.PI) / Math.max(1, count - 1);
+
+const position: [number, number, number] = [
+  Math.cos(angle) * spacing * 0.85,
+  0,
+  -depth * 0.7 +
+    Math.sin(angle) * spacing * 0.35,
+];
+
+placements.push(
+  createPlacement(
+    id,
+    position,
+    facePosition(position, [0, 0, depth * 0.4]),
+    0.92
+  )
+);
+
+});
+
+return placements;
+}
+
+/* ---------------------------------------
+AUTOMATIC COMPOSITION SELECTION
+--------------------------------------- */
+
+function resolveMode(
+requested: CompositionMode,
+characterCount: number
+): CompositionMode {
+if (requested !== "auto") {
+return requested;
+}
+
+if (characterCount <= 1) {
+return "single";
+}
+
+if (characterCount === 2) {
+return "dialogue";
+}
+
+if (characterCount <= 4) {
+return "triangle";
+}
+
+return "group";
+}
+
+/* ---------------------------------------
+CAMERA FRAMING
+--------------------------------------- */
+
+function calculateCameraDistance(
+placements: CharacterPlacement[],
+spacing: number
+): number {
+if (placements.length <= 1) {
+return 6.5;
+}
+
+const xs = placements.map(
+(item) => item.position[0]
+);
+
+const zs = placements.map(
+(item) => item.position[2]
+);
+
+const width =
+Math.max(...xs) - Math.min(...xs);
+
+const depth =
+Math.max(...zs) - Math.min(...zs);
+
+const largestDimension = Math.max(
+width,
+depth,
+spacing
+);
+
+return clamp(
+5.5 + largestDimension * 0.9,
+6.5,
+18
+);
+}
+
+/* ---------------------------------------
+MAIN COMPOSITION ENGINE
+--------------------------------------- */
+
 export function calculateComposition({
 characterIds,
 mode = "auto",
 spacing = 2.3,
 depth = 1.5,
-}: Props): CompositionResult {
-const count = characterIds.length;
+}: CompositionOptions): CompositionResult {
+const ids = uniqueIds(characterIds);
 
-if (count === 0) {
+const safeSpacing = clamp(
+spacing,
+1.2,
+5
+);
+
+const safeDepth = clamp(
+depth,
+0.5,
+5
+);
+
+if (ids.length === 0) {
 return {
 placements: [],
-cameraTarget: [0, 1, 0],
-cameraDistance: 7,
+center: [0, 0, 0],
+cameraTarget: [0, 1.15, 0],
+cameraDistance: 9,
 };
 }
 
-const selectedMode =
-mode === "auto"
-? count === 1
-? "single"
-: count === 2
-? "dialogue"
-: count === 3
-? "triangle"
-: "group"
-: mode;
+const selectedMode = resolveMode(
+mode,
+ids.length
+);
 
-const placements: CharacterPlacement[] =
-characterIds.map((id, index) => {
-let x = 0;
-let y = 0;
-let z = 0;
-let rotationY = 0;
-let scale = 1;
+let placements: CharacterPlacement[];
 
-  if (selectedMode === "single") {
-    x = 0;
-  }
+switch (selectedMode) {
+case "single":
+placements = createSingle(ids);
+break;
 
-  if (selectedMode === "dialogue") {
-    x = index === 0 ? -spacing / 2 : spacing / 2;
-    rotationY = index === 0 ? 0.15 : -0.15;
-  }
+case "dialogue":
+  placements = createDialogue(
+    ids,
+    safeSpacing,
+    safeDepth
+  );
+  break;
 
-  if (selectedMode === "triangle") {
-    const positions: [number, number, number][] = [
-      [-spacing, 0, 0],
-      [spacing, 0, 0],
-      [0, 0, -depth],
-    ];
+case "triangle":
+  placements = createTriangle(
+    ids,
+    safeSpacing,
+    safeDepth
+  );
+  break;
 
-    [x, y, z] = positions[index % 3];
-    rotationY = index === 0 ? 0.18 : index === 1 ? -0.18 : 0;
-  }
+case "group":
+  placements = createGroup(
+    ids,
+    safeSpacing,
+    safeDepth
+  );
+  break;
 
-  if (selectedMode === "group") {
-    const columns = Math.ceil(Math.sqrt(count));
-    const rows = Math.ceil(count / columns);
+case "dramatic":
+  placements = createDramatic(
+    ids,
+    safeSpacing,
+    safeDepth
+  );
+  break;
 
-    const column = index % columns;
-    const row = Math.floor(index / columns);
+default:
+  placements = createSingle(ids);
 
-    x = (column - (columns - 1) / 2) * spacing;
-    z = -row * depth;
+}
 
-    scale = count > 5 ? 0.85 : 1;
-  }
+const centerX =
+placements.reduce(
+(sum, item) => sum + item.position[0],
+0
+) / placements.length;
 
-  if (selectedMode === "dramatic") {
-    const center = (count - 1) / 2;
+const centerZ =
+placements.reduce(
+(sum, item) => sum + item.position[2],
+0
+) / placements.length;
 
-    x = (index - center) * spacing * 0.85;
-    z = index === Math.floor(center) ? 0.5 : -depth * 0.35;
-    scale = index === Math.floor(center) ? 1.12 : 0.92;
-    rotationY = (center - index) * 0.12;
-  }
+const center: [number, number, number] = [
+centerX,
+0,
+centerZ,
+];
 
-  return {
-    id,
-    position: [x, y, z],
-    rotation: [0, rotationY, 0],
-    scale,
-  };
-});
-
-const minX = Math.min(...placements.map((p) => p.position[0]));
-const maxX = Math.max(...placements.map((p) => p.position[0]));
-
-const minZ = Math.min(...placements.map((p) => p.position[2]));
-const maxZ = Math.max(...placements.map((p) => p.position[2]));
-
-const centerX = (minX + maxX) / 2;
-const centerZ = (minZ + maxZ) / 2;
-
-const width = maxX - minX;
-const depthSize = maxZ - minZ;
+const cameraTarget: [number, number, number] = [
+centerX,
+1.15,
+centerZ,
+];
 
 return {
 placements,
-cameraTarget: [centerX, 1.1, centerZ],
-cameraDistance: Math.max(5, 4.5 + width * 0.75 + depthSize * 0.4),
+center,
+cameraTarget,
+cameraDistance: calculateCameraDistance(
+placements,
+safeSpacing
+),
 };
 }
 
-export default function CinematicCompositionPreview({
-characterIds,
-mode = "auto",
-spacing = 2.3,
-depth = 1.5,
-}: Props) {
-const result = useMemo(
-() =>
-calculateComposition({
-characterIds,
-mode,
-spacing,
-depth,
-}),
-[characterIds, mode, spacing, depth]
-);
-
-return null;
-}
+/* ---------------------------------------
+CAMERA TARGET HELPER
+--------------------------------------- */
 
 export function getCompositionTarget(
 result: CompositionResult
-): THREE.Vector3 {
-return new THREE.Vector3(...result.cameraTarget);
+): [number, number, number] {
+return [...result.cameraTarget];
+}
+
+export default function CinematicComposition() {
+return null;
 }
