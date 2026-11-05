@@ -1,1061 +1,519 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-
-import {
-  DEFAULT_VOICE_SETTINGS,
-  speakText,
-  stopSpeaking
-} from "../lib/voice-engine";
-
-import type { CharacterAction } from "../lib/character-motion";
-import type { EnvironmentId } from "./CharacterCanvas";
+import React, {
+useEffect,
+useMemo,
+useRef,
+useState,
+} from "react";
 
 export interface VideoScene {
-  id: string;
-  title: string;
-  duration: number;
-  background: EnvironmentId;
-  action: CharacterAction;
-  dialogue: string;
+id: string;
+title: string;
+duration: number;
+background: string;
+action: string;
+dialogue: string;
 }
 
 interface ScenePlayerProps {
-  scenes: VideoScene[];
-  language: string;
-  onSceneChange: (sceneId: string) => void;
-  onActionChange: (action: CharacterAction) => void;
-}
+scenes: VideoScene[];
+language?: string;
 
-type PlaybackMode = "all" | "single" | null;
+onSceneChange?: (id: string) => void;
+onActionChange?: (action: string) => void;
 
-function formatTime(seconds: number): string {
-  const safeSeconds = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainingSeconds = safeSeconds % 60;
-
-  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
-}
-
-function getTotalDuration(scenes: VideoScene[]): number {
-  return scenes.reduce(
-    (total, scene) => total + Math.max(1, scene.duration),
-    0
-  );
-}
-
-function getSceneStartTime(
-  scenes: VideoScene[],
-  sceneIndex: number
-): number {
-  return scenes
-    .slice(0, sceneIndex)
-    .reduce(
-      (total, scene) => total + Math.max(1, scene.duration),
-      0
-    );
+// Controlled playback support.
+activeSceneId?: string;
+isPlaying?: boolean;
 }
 
 export default function ScenePlayer({
-  scenes,
-  language,
-  onSceneChange,
-  onActionChange
+scenes,
+language = "en-US",
+onSceneChange,
+onActionChange,
+activeSceneId,
+isPlaying = false,
 }: ScenePlayerProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>(null);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastTickRef = useRef<number>(0);
-  const elapsedRef = useRef(0);
-  const currentIndexRef = useRef(0);
-  const playingRef = useRef(false);
-  const pausedRef = useRef(false);
-  const modeRef = useRef<PlaybackMode>(null);
-  const scenesRef = useRef(scenes);
-  const onSceneChangeRef = useRef(onSceneChange);
-  const onActionChangeRef = useRef(onActionChange);
-  const languageRef = useRef(language);
-
-  const currentScene = scenes[currentIndex];
-
-  const totalDuration = getTotalDuration(scenes);
-
-  const currentSceneDuration = currentScene
-    ? Math.max(1, currentScene.duration)
-    : 1;
-
-  const overallElapsed =
-    getSceneStartTime(scenes, currentIndex) + elapsed;
-
-  const overallProgress =
-    totalDuration > 0
-      ? Math.min(100, (overallElapsed / totalDuration) * 100)
-      : 0;
-
-  const sceneProgress = Math.min(
-    100,
-    (elapsed / currentSceneDuration) * 100
-  );
-
-  useEffect(() => {
-    scenesRef.current = scenes;
-  }, [scenes]);
-
-  useEffect(() => {
-    onSceneChangeRef.current = onSceneChange;
-  }, [onSceneChange]);
-
-  useEffect(() => {
-    onActionChangeRef.current = onActionChange;
-  }, [onActionChange]);
-
-  useEffect(() => {
-    languageRef.current = language;
-  }, [language]);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current !== null) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const changeScene = useCallback((index: number) => {
-    const currentScenes = scenesRef.current;
-
-    if (currentScenes.length === 0) {
-      return;
-    }
-
-    const safeIndex = Math.max(
-      0,
-      Math.min(index, currentScenes.length - 1)
-    );
-
-    currentIndexRef.current = safeIndex;
-    elapsedRef.current = 0;
-
-    setCurrentIndex(safeIndex);
-    setElapsed(0);
-
-    const scene = currentScenes[safeIndex];
-
-    onSceneChangeRef.current(scene.id);
-    onActionChangeRef.current(
-      scene.dialogue.trim() ? "talk" : scene.action
-    );
-  }, []);
-
-  const stopPlayback = useCallback(() => {
-    clearTimer();
-    stopSpeaking();
-
-    playingRef.current = false;
-    pausedRef.current = false;
-    modeRef.current = null;
-    elapsedRef.current = 0;
-
-    setIsPlaying(false);
-    setIsPaused(false);
-    setPlaybackMode(null);
-    setElapsed(0);
-
-    onActionChangeRef.current("idle");
-  }, [clearTimer]);
-
-  const finishPlayback = useCallback(() => {
-    clearTimer();
-    stopSpeaking();
-
-    playingRef.current = false;
-    pausedRef.current = false;
-    modeRef.current = null;
-    elapsedRef.current = 0;
-
-    setIsPlaying(false);
-    setIsPaused(false);
-    setPlaybackMode(null);
-    setElapsed(0);
-
-    onActionChangeRef.current("idle");
-  }, [clearTimer]);
-
-  const startScene = useCallback((index: number) => {
-    const currentScenes = scenesRef.current;
-    const scene = currentScenes[index];
-
-    if (!scene) {
-      finishPlayback();
-      return;
-    }
-
-    changeScene(index);
-
-    if (scene.dialogue.trim()) {
-      onActionChangeRef.current("talk");
-
-      speakText(scene.dialogue, {
-        ...DEFAULT_VOICE_SETTINGS,
-        language: languageRef.current
-      });
-    } else {
-      onActionChangeRef.current(scene.action);
-    }
-  }, [changeScene, finishPlayback]);
-
-  const startTimer = useCallback(() => {
-    clearTimer();
-
-    lastTickRef.current = Date.now();
-
-    timerRef.current = setInterval(() => {
-      if (!playingRef.current || pausedRef.current) {
-        return;
-      }
-
-      const now = Date.now();
-
-      const delta = (now - lastTickRef.current) / 1000;
-
-      lastTickRef.current = now;
-
-      let nextElapsed = elapsedRef.current + delta;
-
-      const currentScenes = scenesRef.current;
-      let index = currentIndexRef.current;
-
-      while (
-        index < currentScenes.length &&
-        nextElapsed >= Math.max(1, currentScenes[index].duration)
-      ) {
-        nextElapsed -= Math.max(
-          1,
-          currentScenes[index].duration
-        );
-
-        if (modeRef.current === "single") {
-          finishPlayback();
-          return;
-        }
-
-        index += 1;
-
-        if (index >= currentScenes.length) {
-          finishPlayback();
-          return;
-        }
-
-        startScene(index);
-      }
-
-      elapsedRef.current = nextElapsed;
-
-      setElapsed(nextElapsed);
-    }, 100);
-  }, [clearTimer, finishPlayback, startScene]);
-
-  const playAll = useCallback(() => {
-    if (scenesRef.current.length === 0) {
-      return;
-    }
-
-    stopSpeaking();
-
-    playingRef.current = true;
-    pausedRef.current = false;
-    modeRef.current = "all";
-
-    setIsPlaying(true);
-    setIsPaused(false);
-    setPlaybackMode("all");
-
-    startScene(0);
-    startTimer();
-  }, [startScene, startTimer]);
-
-  const playCurrentScene = useCallback(() => {
-    if (scenesRef.current.length === 0) {
-      return;
-    }
-
-    stopSpeaking();
-
-    playingRef.current = true;
-    pausedRef.current = false;
-    modeRef.current = "single";
-
-    setIsPlaying(true);
-    setIsPaused(false);
-    setPlaybackMode("single");
-
-    startScene(currentIndexRef.current);
-    startTimer();
-  }, [startScene, startTimer]);
-
-  const pausePlayback = useCallback(() => {
-    if (!playingRef.current || pausedRef.current) {
-      return;
-    }
-
-    pausedRef.current = true;
-
-    setIsPaused(true);
-
-    stopSpeaking();
-    onActionChangeRef.current("idle");
-
-    clearTimer();
-  }, [clearTimer]);
-
-  const resumePlayback = useCallback(() => {
-    if (!playingRef.current || !pausedRef.current) {
-      return;
-    }
-
-    pausedRef.current = false;
-
-    setIsPaused(false);
-
-    const scene = scenesRef.current[currentIndexRef.current];
-
-    if (scene?.dialogue.trim()) {
-      onActionChangeRef.current("talk");
-
-      const remainingText = scene.dialogue;
-
-      speakText(remainingText, {
-        ...DEFAULT_VOICE_SETTINGS,
-        language: languageRef.current
-      });
-    } else if (scene) {
-      onActionChangeRef.current(scene.action);
-    }
-
-    startTimer();
-  }, [startTimer]);
-
-  const selectScene = useCallback((index: number) => {
-    stopPlayback();
-    changeScene(index);
-  }, [changeScene, stopPlayback]);
-
-  const skipForward = useCallback(() => {
-    const nextIndex = currentIndexRef.current + 1;
-
-    if (nextIndex < scenesRef.current.length) {
-      const wasPlaying = playingRef.current;
-      const mode = modeRef.current;
-
-      if (wasPlaying && mode === "all") {
-        stopSpeaking();
-        startScene(nextIndex);
-        startTimer();
-      } else {
-        selectScene(nextIndex);
-      }
-    }
-  }, [selectScene, startScene, startTimer]);
-
-  const skipBackward = useCallback(() => {
-    const previousIndex = currentIndexRef.current - 1;
-
-    if (previousIndex >= 0) {
-      const wasPlaying = playingRef.current;
-      const mode = modeRef.current;
-
-      if (wasPlaying && mode === "all") {
-        stopSpeaking();
-        startScene(previousIndex);
-        startTimer();
-      } else {
-        selectScene(previousIndex);
-      }
-    } else {
-      selectScene(0);
-    }
-  }, [selectScene, startScene, startTimer]);
-
-  useEffect(() => {
-    return () => {
-      clearTimer();
-      stopSpeaking();
-    };
-  }, [clearTimer]);
-
-  useEffect(() => {
-    if (scenes.length === 0) {
-      stopPlayback();
-      setCurrentIndex(0);
-      return;
-    }
-
-    if (currentIndex >= scenes.length) {
-      selectScene(scenes.length - 1);
-    }
-  }, [
-    scenes.length,
-    currentIndex,
-    selectScene,
-    stopPlayback
-  ]);
-
-  if (scenes.length === 0) {
-    return (
-      <section className="scene-player">
-        <div className="scene-player-empty">
-          <div className="scene-player-empty-icon">🎬</div>
-          <h3>Your timeline is empty</h3>
-          <p>Add a scene to start creating your comedy video.</p>
-        </div>
-
-        <style>{scenePlayerStyles}</style>
-      </section>
-    );
+const [internalSceneId, setInternalSceneId] =
+useState<string>(scenes[0]?.id ?? "");
+
+const [transitioning, setTransitioning] =
+useState(false);
+
+const transitionTimer = useRef<
+ReturnType<typeof setTimeout> | null
+
+«(null);»
+
+const controlled = activeSceneId !== undefined;
+
+const selectedSceneId = controlled
+? activeSceneId
+: internalSceneId;
+
+const activeIndex = useMemo(
+() =>
+scenes.findIndex(
+(scene) => scene.id === selectedSceneId
+),
+[scenes, selectedSceneId]
+);
+
+const activeScene =
+activeIndex >= 0 ? scenes[activeIndex] : scenes[0];
+
+// Keep internal selection valid when scenes change.
+useEffect(() => {
+if (scenes.length === 0) {
+setInternalSceneId("");
+return;
+}
+
+const exists = scenes.some(
+  (scene) => scene.id === internalSceneId
+);
+
+if (!exists) {
+  setInternalSceneId(scenes[0].id);
+}
+
+}, [scenes, internalSceneId]);
+
+// Notify the acting system when the displayed action changes.
+useEffect(() => {
+if (activeScene) {
+onActionChange?.(activeScene.action);
+}
+}, [
+activeScene?.id,
+activeScene?.action,
+onActionChange,
+]);
+
+// Cinematic transition whenever the active scene changes.
+useEffect(() => {
+if (!activeScene) return;
+
+setTransitioning(true);
+
+if (transitionTimer.current) {
+  clearTimeout(transitionTimer.current);
+}
+
+transitionTimer.current = setTimeout(() => {
+  setTransitioning(false);
+}, 450);
+
+return () => {
+  if (transitionTimer.current) {
+    clearTimeout(transitionTimer.current);
   }
+};
 
-  return (
-    <section className="scene-player">
-      <style>{scenePlayerStyles}</style>
+}, [activeScene?.id]);
 
-      <div className="scene-player-header">
-        <div>
-          <div className="scene-player-eyebrow">
-            VIDEO EDITOR
-          </div>
+const selectScene = (sceneId: string) => {
+if (!scenes.some((scene) => scene.id === sceneId)) {
+return;
+}
 
-          <h2>Scene Timeline</h2>
+if (!controlled) {
+  setInternalSceneId(sceneId);
+}
 
-          <p>
-            Arrange and preview your comedy video scenes.
-          </p>
-        </div>
+onSceneChange?.(sceneId);
 
-        <div className="scene-player-count">
-          <span>🎞️</span>
-          {scenes.length} {scenes.length === 1 ? "Scene" : "Scenes"}
-        </div>
+};
+
+const previousScene = () => {
+if (activeIndex > 0) {
+selectScene(scenes[activeIndex - 1].id);
+}
+};
+
+const nextScene = () => {
+if (activeIndex < scenes.length - 1) {
+selectScene(scenes[activeIndex + 1].id);
+}
+};
+
+if (!activeScene) {
+return (
+<div style={styles.empty}>
+<span style={{ fontSize: 30 }}>🎬</span>
+<strong>No scenes available</strong>
+<p>Generate a script to create your scene sequence.</p>
+</div>
+);
+}
+
+return (
+<section style={styles.container}>
+{/* PLAYER HEADER */}
+
+  <div style={styles.header}>
+    <div>
+      <span style={styles.eyebrow}>
+        CINEMATIC SCENE PLAYER
+      </span>
+
+      <h3 style={styles.heading}>
+        {activeScene.title}
+      </h3>
+    </div>
+
+    <div style={styles.status}>
+      <span
+        style={{
+          ...styles.statusDot,
+          background: isPlaying ? "#4ade80" : "#64748b",
+          boxShadow: isPlaying
+            ? "0 0 10px rgba(74,222,128,0.7)"
+            : "none",
+        }}
+      />
+
+      {isPlaying ? "PLAYING" : "READY"}
+    </div>
+  </div>
+
+  {/* CINEMATIC PREVIEW */}
+
+  <div
+    key={activeScene.id}
+    style={{
+      ...styles.preview,
+      opacity: transitioning ? 0.45 : 1,
+      transform: transitioning
+        ? "scale(0.985)"
+        : "scale(1)",
+    }}
+  >
+    <div style={styles.previewOverlay} />
+
+    <div style={styles.previewContent}>
+      <span style={styles.sceneNumber}>
+        SCENE {activeIndex + 1} / {scenes.length}
+      </span>
+
+      <div style={styles.sceneIcon}>
+        🎬
       </div>
 
-      {/* Playback preview information */}
+      <h2 style={styles.previewTitle}>
+        {activeScene.title}
+      </h2>
 
-      <div className="scene-player-preview">
-        <div className="scene-player-current">
-          <span className="scene-player-live-dot" />
+      <p style={styles.dialogue}>
+        "{activeScene.dialogue}"
+      </p>
 
-          <span>
-            {isPlaying
-              ? isPaused
-                ? "PAUSED"
-                : "PLAYING"
-              : "READY TO PREVIEW"}
-          </span>
-        </div>
-
-        <div className="scene-player-current-title">
-          <strong>
-            {currentScene?.title ?? "No scene selected"}
-          </strong>
-
-          <span>
-            Scene {currentIndex + 1} of {scenes.length}
-          </span>
-        </div>
-
-        <div className="scene-player-time">
-          <span>{formatTime(elapsed)}</span>
-
-          <span>{formatTime(currentSceneDuration)}</span>
-        </div>
-
-        <div className="scene-player-progress">
-          <div
-            className="scene-player-progress-fill"
-            style={{ width: `${sceneProgress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Main playback controls */}
-
-      <div className="scene-player-controls">
-        <button
-          type="button"
-          className="scene-control-button"
-          onClick={skipBackward}
-          title="Previous scene"
-          disabled={currentIndex === 0}
-        >
-          ⏮
-        </button>
-
-        {isPlaying && !isPaused ? (
-          <button
-            type="button"
-            className="scene-play-button"
-            onClick={pausePlayback}
-            title="Pause"
-          >
-            ❚❚
-          </button>
-        ) : isPlaying && isPaused ? (
-          <button
-            type="button"
-            className="scene-play-button"
-            onClick={resumePlayback}
-            title="Resume"
-          >
-            ▶
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="scene-play-button"
-            onClick={playCurrentScene}
-            title="Play current scene"
-          >
-            ▶
-          </button>
-        )}
-
-        <button
-          type="button"
-          className="scene-control-button"
-          onClick={skipForward}
-          title="Next scene"
-          disabled={currentIndex >= scenes.length - 1}
-        >
-          ⏭
-        </button>
-
-        <button
-          type="button"
-          className="scene-control-button scene-stop-button"
-          onClick={stopPlayback}
-          title="Stop playback"
-        >
-          ■
-        </button>
-
-        <div className="scene-control-divider" />
-
-        <button
-          type="button"
-          className="scene-play-all-button"
-          onClick={playAll}
-          disabled={isPlaying && playbackMode === "all"}
-        >
-          ▶ Play All
-        </button>
-      </div>
-
-      {/* Overall video progress */}
-
-      <div className="scene-player-total">
-        <div className="scene-player-total-heading">
-          <span>VIDEO PROGRESS</span>
-
-          <strong>{Math.round(overallProgress)}%</strong>
-        </div>
-
-        <div className="scene-player-progress total">
-          <div
-            className="scene-player-progress-fill"
-            style={{ width: `${overallProgress}%` }}
-          />
-        </div>
-
-        <div className="scene-player-total-time">
-          <span>{formatTime(overallElapsed)}</span>
-          <span>{formatTime(totalDuration)}</span>
-        </div>
-      </div>
-
-      {/* Scene timeline */}
-
-      <div className="scene-player-timeline-heading">
-        <h3>Timeline</h3>
+      <div style={styles.sceneMetadata}>
+        <span>
+          🌍 {activeScene.background}
+        </span>
 
         <span>
-          {formatTime(totalDuration)} total duration
+          🎭 {activeScene.action}
+        </span>
+
+        <span>
+          ⏱ {activeScene.duration}s
         </span>
       </div>
+    </div>
 
-      <div className="scene-player-timeline">
-        {scenes.map((scene, index) => {
-          const isActive = index === currentIndex;
+    <div style={styles.previewFooter}>
+      <span>
+        {language.toUpperCase()}
+      </span>
 
-          const sceneStart = getSceneStartTime(
-            scenes,
-            index
-          );
+      <span>
+        {isPlaying ? "● LIVE PERFORMANCE" : "● STANDBY"}
+      </span>
+    </div>
+  </div>
 
-          const sceneEnd =
-            sceneStart + Math.max(1, scene.duration);
+  {/* NAVIGATION */}
 
-          return (
-            <button
-              type="button"
-              key={scene.id}
-              className={`scene-timeline-card ${
-                isActive ? "active" : ""
-              }`}
-              onClick={() => selectScene(index)}
-            >
-              <div className="scene-timeline-card-top">
-                <span className="scene-timeline-number">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
+  <div style={styles.navigation}>
+    <button
+      type="button"
+      onClick={previousScene}
+      disabled={activeIndex <= 0}
+      style={{
+        ...styles.navButton,
+        opacity: activeIndex <= 0 ? 0.35 : 1,
+      }}
+    >
+      ← Previous
+    </button>
 
-                {isActive && (
-                  <span className="scene-timeline-active">
-                    ACTIVE
-                  </span>
-                )}
-              </div>
+    <span style={styles.position}>
+      {activeIndex + 1} of {scenes.length}
+    </span>
 
-              <strong>{scene.title}</strong>
+    <button
+      type="button"
+      onClick={nextScene}
+      disabled={activeIndex >= scenes.length - 1}
+      style={{
+        ...styles.navButton,
+        opacity:
+          activeIndex >= scenes.length - 1 ? 0.35 : 1,
+      }}
+    >
+      Next →
+    </button>
+  </div>
 
-              <span className="scene-timeline-duration">
-                {formatTime(scene.duration)}
-              </span>
+  {/* SCENE SELECTOR */}
 
-              <div className="scene-timeline-mini-track">
-                <div
-                  className="scene-timeline-mini-fill"
-                  style={{
-                    width: isActive
-                      ? `${sceneProgress}%`
-                      : "0%"
-                  }}
-                />
-              </div>
+  <div style={styles.sceneList}>
+    {scenes.map((scene, index) => {
+      const active = scene.id === activeScene.id;
 
-              <small>
-                {formatTime(sceneStart)} – {formatTime(sceneEnd)}
-              </small>
-            </button>
-          );
-        })}
-      </div>
+      return (
+        <button
+          key={scene.id}
+          type="button"
+          onClick={() => selectScene(scene.id)}
+          aria-pressed={active}
+          style={{
+            ...styles.sceneItem,
+            ...(active ? styles.sceneItemActive : {}),
+          }}
+        >
+          <span style={styles.sceneItemNumber}>
+            {String(index + 1).padStart(2, "0")}
+          </span>
 
-      <div className="scene-player-footer">
-        <span>🎙️ Voice playback enabled</span>
-        <span>🌍 {language}</span>
-      </div>
-    </section>
-  );
+          <span style={styles.sceneItemText}>
+            {scene.title}
+          </span>
+
+          <span style={styles.sceneItemDuration}>
+            {scene.duration}s
+          </span>
+        </button>
+      );
+    })}
+  </div>
+</section>
+
+);
 }
 
-const scenePlayerStyles = `
-.scene-player {
-  width: 100%;
-  min-width: 0;
-  padding: 20px;
-  border: 1px solid rgba(255,255,255,.085);
-  border-radius: 20px;
-  background: linear-gradient(145deg,#17262d,#10191f);
-  color: #f5f8fa;
-  box-shadow: 0 15px 45px rgba(0,0,0,.2);
-  font-family: "DM Sans", sans-serif;
-}
+const styles: Record<string, React.CSSProperties> = {
+container: {
+width: "100%",
+padding: 16,
+boxSizing: "border-box",
+borderRadius: 15,
+background: "#0b131a",
+border: "1px solid rgba(255,255,255,0.09)",
+display: "flex",
+flexDirection: "column",
+gap: 15,
+color: "#f8fafc",
+},
 
-.scene-player * {
-  box-sizing: border-box;
-}
+header: {
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+gap: 10,
+},
 
-.scene-player-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
+eyebrow: {
+color: "#4ade80",
+fontSize: 9,
+fontWeight: 900,
+letterSpacing: 1.5,
+},
 
-.scene-player-eyebrow {
-  margin-bottom: 5px;
-  color: #5eead4;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.6px;
-}
+heading: {
+fontSize: 17,
+margin: "6px 0 0",
+fontWeight: 800,
+},
 
-.scene-player-header h2 {
-  margin: 0;
-  font-size: 21px;
-  font-weight: 800;
-}
+status: {
+display: "flex",
+alignItems: "center",
+gap: 7,
+fontSize: 9,
+fontWeight: 800,
+color: "#cbd5e1",
+},
 
-.scene-player-header p {
-  margin: 5px 0 0;
-  color: #91a2ad;
-  font-size: 12px;
-}
+statusDot: {
+width: 7,
+height: 7,
+borderRadius: "50%",
+},
 
-.scene-player-count {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border: 1px solid rgba(45,212,191,.2);
-  border-radius: 30px;
-  background: rgba(45,212,191,.07);
-  color: #5eead4;
-  font-size: 12px;
-  font-weight: 800;
-}
+preview: {
+position: "relative",
+minHeight: 245,
+overflow: "hidden",
+borderRadius: 13,
+background:
+"radial-gradient(ellipse at 50% 35%, #294a45 0%, #142b32 45%, #09121a 100%)",
+border: "1px solid rgba(74,222,128,0.15)",
+transition: "opacity 450ms ease, transform 450ms ease",
+},
 
-.scene-player-preview {
-  padding: 16px;
-  border: 1px solid rgba(45,212,191,.16);
-  border-radius: 15px;
-  background: rgba(45,212,191,.045);
-}
+previewOverlay: {
+position: "absolute",
+inset: 0,
+background:
+"linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.55))",
+pointerEvents: "none",
+},
 
-.scene-player-current {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #5eead4;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
+previewContent: {
+position: "relative",
+zIndex: 1,
+minHeight: 245,
+boxSizing: "border-box",
+padding: 22,
+display: "flex",
+flexDirection: "column",
+justifyContent: "center",
+alignItems: "center",
+textAlign: "center",
+},
 
-.scene-player-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 12px rgba(52,211,153,.7);
-}
+sceneNumber: {
+color: "#86efac",
+fontSize: 9,
+fontWeight: 900,
+letterSpacing: 2,
+},
 
-.scene-player-current-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-}
+sceneIcon: {
+fontSize: 38,
+marginTop: 12,
+},
 
-.scene-player-current-title strong {
-  overflow: hidden;
-  font-size: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+previewTitle: {
+fontSize: 21,
+fontWeight: 900,
+margin: "12px 0",
+color: "#ffffff",
+},
 
-.scene-player-current-title span {
-  flex-shrink: 0;
-  color: #91a2ad;
-  font-size: 11px;
-}
+dialogue: {
+maxWidth: 480,
+margin: 0,
+color: "#dbeafe",
+fontSize: 12,
+lineHeight: 1.7,
+},
 
-.scene-player-time {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 13px;
-  color: #91a2ad;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
+sceneMetadata: {
+display: "flex",
+justifyContent: "center",
+flexWrap: "wrap",
+gap: 14,
+marginTop: 18,
+color: "#bbf7d0",
+fontSize: 10,
+fontWeight: 700,
+},
 
-.scene-player-progress {
-  width: 100%;
-  height: 6px;
-  overflow: hidden;
-  margin-top: 8px;
-  border-radius: 20px;
-  background: #26383e;
-}
+previewFooter: {
+position: "absolute",
+bottom: 12,
+left: 14,
+right: 14,
+zIndex: 2,
+display: "flex",
+justifyContent: "space-between",
+color: "#94a3b8",
+fontSize: 8,
+fontWeight: 900,
+letterSpacing: 1,
+},
 
-.scene-player-progress-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg,#2dd4bf,#34d399);
-  transition: width .12s linear;
-}
+navigation: {
+display: "flex",
+alignItems: "center",
+justifyContent: "space-between",
+gap: 10,
+},
 
-.scene-player-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 18px 0;
-  flex-wrap: wrap;
-}
+navButton: {
+padding: "9px 13px",
+borderRadius: 8,
+border: "1px solid rgba(255,255,255,0.12)",
+background: "#17232d",
+color: "#e2e8f0",
+fontSize: 10,
+fontWeight: 800,
+cursor: "pointer",
+},
 
-.scene-player-controls button {
-  display: grid;
-  place-items: center;
-  min-width: 40px;
-  height: 40px;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 11px;
-  background: #1b2931;
-  color: #f5f8fa;
-  font-size: 15px;
-  transition: .2s ease;
-}
+position: {
+color: "#94a3b8",
+fontSize: 10,
+fontWeight: 800,
+},
 
-.scene-player-controls button:hover:not(:disabled) {
-  border-color: rgba(45,212,191,.5);
-  background: #22343d;
-}
+sceneList: {
+display: "flex",
+flexDirection: "column",
+gap: 7,
+},
 
-.scene-player-controls button:disabled {
-  opacity: .35;
-  cursor: not-allowed;
-}
+sceneItem: {
+width: "100%",
+display: "flex",
+alignItems: "center",
+gap: 10,
+padding: "11px 12px",
+borderRadius: 9,
+background: "#111c26",
+border: "1px solid rgba(255,255,255,0.07)",
+color: "#cbd5e1",
+textAlign: "left",
+cursor: "pointer",
+},
 
-.scene-player-controls .scene-play-button {
-  width: 49px;
-  height: 49px;
-  border: 0;
-  border-radius: 50%;
-  background: linear-gradient(135deg,#2dd4bf,#34d399);
-  color: #062c28;
-  font-size: 19px;
-  font-weight: 900;
-  box-shadow: 0 6px 18px rgba(45,212,191,.2);
-}
+sceneItemActive: {
+background: "rgba(34,197,94,0.10)",
+border: "1px solid rgba(74,222,128,0.5)",
+color: "#86efac",
+},
 
-.scene-player-controls .scene-play-all-button {
-  display: flex;
-  gap: 7px;
-  width: auto;
-  padding: 0 15px;
-  border: 0;
-  background: linear-gradient(135deg,#2dd4bf,#34d399);
-  color: #062c28;
-  font-size: 12px;
-  font-weight: 900;
-}
+sceneItemNumber: {
+fontSize: 10,
+fontWeight: 900,
+},
 
-.scene-player-controls .scene-stop-button {
-  color: #fb7185;
-}
+sceneItemText: {
+flex: 1,
+minWidth: 0,
+fontSize: 11,
+fontWeight: 700,
+},
 
-.scene-control-divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(255,255,255,.12);
-}
+sceneItemDuration: {
+fontSize: 10,
+color: "#94a3b8",
+},
 
-.scene-player-total {
-  margin-top: 20px;
-  padding-top: 17px;
-  border-top: 1px solid rgba(255,255,255,.08);
-}
-
-.scene-player-total-heading,
-.scene-player-total-time {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.scene-player-total-heading {
-  color: #91a2ad;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.scene-player-total-heading strong {
-  color: #5eead4;
-  font-size: 13px;
-}
-
-.scene-player-progress.total {
-  height: 7px;
-}
-
-.scene-player-total-time {
-  margin-top: 7px;
-  color: #91a2ad;
-  font-size: 10px;
-}
-
-.scene-player-timeline-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin: 23px 0 12px;
-}
-
-.scene-player-timeline-heading h3 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.scene-player-timeline-heading span {
-  color: #91a2ad;
-  font-size: 10px;
-}
-
-.scene-player-timeline {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 3px 2px 12px;
-  scrollbar-width: thin;
-  scrollbar-color: #31535a transparent;
-}
-
-.scene-timeline-card {
-  display: flex;
-  flex: 0 0 155px;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 13px;
-  background: #121c22;
-  color: #f5f8fa;
-  text-align: left;
-  cursor: pointer;
-  transition: .2s ease;
-}
-
-.scene-timeline-card:hover {
-  border-color: rgba(45,212,191,.4);
-  transform: translateY(-2px);
-}
-
-.scene-timeline-card.active {
-  border-color: #2dd4bf;
-  background: rgba(45,212,191,.09);
-  box-shadow: 0 0 0 1px rgba(45,212,191,.1);
-}
-
-.scene-timeline-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.scene-timeline-number {
-  color: #5eead4;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.scene-timeline-active {
-  color: #34d399;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .7px;
-}
-
-.scene-timeline-card strong {
-  overflow: hidden;
-  width: 100%;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.scene-timeline-duration {
-  margin-top: 6px;
-  color: #91a2ad;
-  font-size: 10px;
-}
-
-.scene-timeline-mini-track {
-  width: 100%;
-  height: 4px;
-  overflow: hidden;
-  margin: 10px 0 7px;
-  border-radius: 20px;
-  background: #26383e;
-}
-
-.scene-timeline-mini-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg,#2dd4bf,#34d399);
-  transition: width .12s linear;
-}
-
-.scene-timeline-card small {
-  color: #71838e;
-  font-size: 9px;
-}
-
-.scene-player-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,.08);
-  color: #91a2ad;
-  font-size: 10px;
-  flex-wrap: wrap;
-}
-
-.scene-player-empty {
-  padding: 35px 15px;
-  text-align: center;
-}
-
-.scene-player-empty-icon {
-  margin-bottom: 10px;
-  font-size: 35px;
-}
-
-.scene-player-empty h3 {
-  margin: 0;
-  font-size: 17px;
-}
-
-.scene-player-empty p {
-  color: #91a2ad;
-  font-size: 12px;
-}
-
-@media (max-width: 600px) {
-  .scene-player {
-    padding: 14px;
-    border-radius: 16px;
-  }
-
-  .scene-player-header h2 {
-    font-size: 18px;
-  }
-
-  .scene-player-controls {
-    gap: 7px;
-  }
-
-  .scene-player-controls button {
-    min-width: 36px;
-    height: 38px;
-  }
-
-  .scene-player-controls .scene-play-button {
-    width: 45px;
-    height: 45px;
-  }
-
-  .scene-player-controls .scene-play-all-button {
-    min-width: 100%;
-    margin-top: 5px;
-  }
-
-  .scene-control-divider {
-    display: none;
-  }
-
-  .scene-timeline-card {
-    flex-basis: 140px;
-  }
-}
-`;
+empty: {
+padding: 30,
+borderRadius: 14,
+background: "#0b131a",
+display: "flex",
+flexDirection: "column",
+alignItems: "center",
+gap: 10,
+color: "#94a3b8",
+textAlign: "center",
+fontSize: 12,
+},
+};
