@@ -1,13 +1,12 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
-import {
-useCinematicCameraCommand,
-} from "../lib/cinematic-camera-command-store";
+import { useCinematicCameraCommand } from "../lib/cinematic-camera-command-store";
 
-export interface CinematicCameraCommandRigProps {
+interface CinematicCameraCommandRigProps {
 target?: [number, number, number];
+framingDistance?: number;
 enabled?: boolean;
 }
 
@@ -27,24 +26,51 @@ tracking: 4,
 custom: 5,
 };
 
+const FRAMING_MULTIPLIERS: Record<string, number> = {
+wide: 1,
+medium: 0.72,
+closeup: 0.38,
+"extreme-closeup": 0.22,
+"over-shoulder": 0.58,
+"two-shot": 0.85,
+"low-angle": 0.75,
+"high-angle": 0.85,
+"dolly-in": 0.42,
+"dolly-out": 1,
+orbit: 0.85,
+tracking: 0.75,
+custom: 0.75,
+};
+
 export default function CinematicCameraCommandRig({
 target = [0, 1, 0],
+framingDistance = 5,
 enabled = true,
 }: CinematicCameraCommandRigProps) {
-const command = useCinematicCameraCommand();
-
 const { camera } = useThree();
 
+const command = useCinematicCameraCommand();
+
 const elapsed = useRef(0);
-const currentFov = useRef<number | null>(null);
+const currentTarget = useRef(new THREE.Vector3(...target));
 
-const targetVector = useRef(
-new THREE.Vector3(...target)
-);
+const targetVector = new THREE.Vector3(...target);
 
-const desiredPosition = useRef(
-new THREE.Vector3()
+useEffect(() => {
+elapsed.current = 0;
+}, [
+command?.shot,
+command?.movementSpeed,
+command?.enabled,
+]);
+
+useEffect(() => {
+currentTarget.current.set(
+target[0],
+target[1],
+target[2]
 );
+}, [target[0], target[1], target[2]]);
 
 useFrame((_, delta) => {
 if (!enabled || !command || !command.enabled) {
@@ -54,143 +80,114 @@ return;
 elapsed.current += delta;
 
 const shot = command.shot;
-const distance = SHOT_DISTANCES[shot] ?? 5;
 
-const radius = Math.max(
-  0.5,
-  command.orbitRadius || distance
+const baseDistance =
+  SHOT_DISTANCES[shot] ?? 5;
+
+const framingMultiplier =
+  FRAMING_MULTIPLIERS[shot] ?? 0.75;
+
+const safeFramingDistance = Math.max(
+  2,
+  framingDistance || 5
 );
 
-const height = command.orbitHeight || 2;
-
-const speed = Math.max(
-  0.05,
-  command.movementSpeed || 1
+const adaptiveDistance = Math.max(
+  baseDistance,
+  safeFramingDistance * framingMultiplier,
+  command.orbitRadius || 0
 );
 
-const transition = Math.max(
-  0.1,
-  command.transitionSpeed || 1
+const time = elapsed.current;
+
+const movementSpeed = Math.max(
+  0,
+  command.movementSpeed || 0
 );
 
-const targetPosition = targetVector.current.set(
-  target[0],
-  target[1],
-  target[2]
+const orbitRadius = Math.max(
+  0.15,
+  adaptiveDistance * 0.16
 );
 
 let x = 0;
-let y = height;
-let z = distance;
+let y = command.orbitHeight || 0;
+let z = adaptiveDistance;
 
-switch (shot) {
-  case "wide":
-    x = 0;
-    y = 2.5;
-    z = Math.max(distance, 7);
-    break;
-
-  case "closeup":
-  case "extreme-closeup":
-    y = 1.7;
-    z = distance;
-    break;
-
-  case "over-shoulder":
-    x = 1.3;
-    y = 1.8;
-    z = distance;
-    break;
-
-  case "two-shot":
-    y = 2;
-    z = distance;
-    break;
-
-  case "low-angle":
-    y = 0.45;
-    z = distance;
-    break;
-
-  case "high-angle":
-    y = 5;
-    z = distance;
-    break;
-
-  case "dolly-in":
-    y = 1.7;
-    z = distance;
-    break;
-
-  case "dolly-out":
-    y = 2.5;
-    z = distance;
-    break;
-
-  case "orbit": {
-    const angle = elapsed.current * speed * 0.35;
-
-    x = Math.sin(angle) * radius;
-    z = Math.cos(angle) * radius;
-    y = height;
-    break;
-  }
-
-  case "tracking": {
-    const angle = elapsed.current * speed * 0.15;
-
-    x = Math.sin(angle) * 0.8;
-    z = distance;
-    y = height;
-    break;
-  }
-
-  default:
-    y = height;
-    z = distance;
+if (shot === "orbit") {
+  x = Math.sin(time * movementSpeed) * orbitRadius;
+  z = Math.cos(time * movementSpeed) * adaptiveDistance;
 }
 
-desiredPosition.current.set(
-  targetPosition.x + x,
-  targetPosition.y + y,
-  targetPosition.z + z
+if (shot === "tracking") {
+  x = Math.sin(time * movementSpeed) * orbitRadius;
+}
+
+if (shot === "low-angle") {
+  y -= 0.65;
+}
+
+if (shot === "high-angle") {
+  y += 1.4;
+}
+
+if (shot === "over-shoulder") {
+  x = -adaptiveDistance * 0.22;
+  y += 0.35;
+}
+
+if (shot === "dolly-in") {
+  z = THREE.MathUtils.lerp(
+    adaptiveDistance,
+    Math.max(1.5, adaptiveDistance * 0.65),
+    Math.min(1, time * movementSpeed * 0.15)
+  );
+}
+
+if (shot === "dolly-out") {
+  z = THREE.MathUtils.lerp(
+    Math.max(2, adaptiveDistance * 0.65),
+    adaptiveDistance,
+    Math.min(1, time * movementSpeed * 0.15)
+  );
+}
+
+const desiredPosition = new THREE.Vector3(
+  currentTarget.current.x + x,
+  currentTarget.current.y + y,
+  currentTarget.current.z + z
+);
+
+const transitionSpeed = Math.max(
+  0.1,
+  command.transitionSpeed || 2
 );
 
 const smoothing = 1 - Math.exp(
-  -transition * delta
+  -transitionSpeed * delta
 );
 
 camera.position.lerp(
-  desiredPosition.current,
+  desiredPosition,
   smoothing
 );
 
-if ("fov" in camera) {
-  const perspectiveCamera =
-    camera as THREE.PerspectiveCamera;
+const lookTarget = currentTarget.current.clone();
 
-  const nextFov = THREE.MathUtils.clamp(
-    command.fieldOfView || 50,
-    20,
-    100
-  );
+camera.lookAt(lookTarget);
 
-  if (currentFov.current === null) {
-    currentFov.current = perspectiveCamera.fov;
-  }
+if (camera instanceof THREE.PerspectiveCamera) {
+  const desiredFov = command.fieldOfView || 45;
 
-  currentFov.current = THREE.MathUtils.damp(
-    currentFov.current,
-    nextFov,
-    transition,
+  camera.fov = THREE.MathUtils.damp(
+    camera.fov,
+    desiredFov,
+    transitionSpeed,
     delta
   );
 
-  perspectiveCamera.fov = currentFov.current;
-  perspectiveCamera.updateProjectionMatrix();
+  camera.updateProjectionMatrix();
 }
-
-camera.lookAt(targetPosition);
 
 });
 
