@@ -13,7 +13,6 @@ ContactShadows,
 Html,
 OrbitControls,
 PerspectiveCamera,
-Stars,
 } from "@react-three/drei";
 
 import { Color } from "three";
@@ -25,6 +24,8 @@ type CinematicCameraSettings,
 } from "./CinematicCameraRig";
 
 import CinematicLighting from "./CinematicLighting";
+
+import CinematicEnvironment from "./CinematicEnvironment";
 
 import {
 calculateComposition,
@@ -107,6 +108,10 @@ warmLighting: true,
 },
 };
 
+/* ---------------------------------------
+CHARACTER MODEL ERROR BOUNDARY
+--------------------------------------- */
+
 class ModelErrorBoundary extends Component<
 { children: ReactNode },
 { hasError: boolean }
@@ -143,8 +148,11 @@ return this.props.children;
 }
 }
 
+/* ---------------------------------------
+BASE ENVIRONMENT
+--------------------------------------- */
+
 function Environment({
-environment,
 settings,
 }: {
 environment: EnvironmentId;
@@ -162,29 +170,7 @@ args={[new Color(settings.background)]}
     args={[settings.fog, 18, 55]}
   />
 
-  {environment === "space" && (
-    <Stars
-      radius={100}
-      depth={50}
-      count={3000}
-      factor={4}
-      saturation={0}
-      fade
-      speed={0.5}
-    />
-  )}
-
-  {environment === "city" && (
-    <Stars
-      radius={45}
-      depth={25}
-      count={350}
-      factor={2}
-      saturation={0.2}
-      fade
-      speed={0.15}
-    />
-  )}
+  {/* Ground surface */}
 
   <mesh
     rotation={[-Math.PI / 2, 0, 0]}
@@ -200,6 +186,8 @@ args={[new Color(settings.background)]}
     />
   </mesh>
 
+  {/* Character contact shadows */}
+
   <ContactShadows
     position={[0, 0, 0]}
     opacity={0.45}
@@ -212,6 +200,10 @@ args={[new Color(settings.background)]}
 
 );
 }
+
+/* ---------------------------------------
+CHARACTER COLLECTION
+--------------------------------------- */
 
 function CharacterCollection({
 placements,
@@ -266,6 +258,10 @@ targetHeight={model.targetHeight}
 );
 }
 
+/* ---------------------------------------
+MAIN CINEMATIC CHARACTER CANVAS
+--------------------------------------- */
+
 export default function CharacterCanvas({
 selectedIds,
 height = 560,
@@ -285,6 +281,8 @@ const cinematicEnabled =
 cameraSettings !== undefined &&
 cameraSettings.enabled !== false;
 
+/* Only use registered character models */
+
 const supportedIds = useMemo(
 () =>
 [...new Set(selectedIds)].filter(
@@ -292,6 +290,8 @@ const supportedIds = useMemo(
 ),
 [selectedIds]
 );
+
+/* Calculate character positions */
 
 const composition = useMemo(
 () =>
@@ -330,13 +330,17 @@ alpha: false,
 powerPreference: "high-performance",
 }}
 >
-<PerspectiveCamera
-makeDefault
-position={[0, 2.6, cameraDistance]}
-fov={cameraSettings?.fieldOfView ?? 38}
-near={0.1}
-far={100}
-/>
+{/* Main camera */}
+
+    <PerspectiveCamera
+      makeDefault
+      position={[0, 2.6, cameraDistance]}
+      fov={cameraSettings?.fieldOfView ?? 38}
+      near={0.1}
+      far={100}
+    />
+
+    {/* Cinematic camera movement */}
 
     {cinematicEnabled && cameraSettings && (
       <CinematicCameraRig
@@ -367,25 +371,36 @@ far={100}
     )}
 
     {/* Cinematic three-point lighting */}
+
     <CinematicLighting
       intensity={0.85}
       dramatic={true}
       warm={settings.warmLighting}
     />
 
-    {/* Environment and atmospheric treatment */}
+    {/* Base environment atmosphere and ground */}
+
     <Environment
       environment={environment}
       settings={settings}
     />
 
+    {/* Stage 13: Full cinematic environment sets */}
+
+    <CinematicEnvironment
+      environment={environment}
+    />
+
     {/* Live character staging */}
+
     <Suspense fallback={null}>
       <CharacterCollection
         placements={composition.placements}
         action={action}
       />
     </Suspense>
+
+    {/* Manual camera controls */}
 
     {!cinematicEnabled && (
       <OrbitControls
@@ -401,6 +416,8 @@ far={100}
       />
     )}
   </Canvas>
+
+  {/* Studio information bar */}
 
   {showControls && (
     <>
@@ -427,6 +444,8 @@ far={100}
           </span>
         )}
       </div>
+
+      {/* Manual zoom controls */}
 
       {!cinematicEnabled && (
         <div style={styles.controls}>
@@ -466,9 +485,13 @@ far={100}
     </>
   )}
 
+  {/* Empty character selection */}
+
   {supportedIds.length === 0 && (
     <div style={styles.empty}>
-      <div style={{ fontSize: 36 }}>🎬</div>
+      <div style={{ fontSize: 36 }}>
+        🎬
+      </div>
 
       <strong>Select a character</strong>
 
@@ -477,6 +500,8 @@ far={100}
       </span>
     </div>
   )}
+
+  {/* Missing model warning */}
 
   {selectedIds.length !== supportedIds.length && (
     <div style={styles.warning}>
@@ -487,6 +512,10 @@ far={100}
 
 );
 }
+
+/* ---------------------------------------
+STUDIO STYLES
+--------------------------------------- */
 
 const styles: Record<string, React.CSSProperties> = {
 container: {
