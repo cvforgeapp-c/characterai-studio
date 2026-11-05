@@ -17,18 +17,18 @@ PerspectiveCamera,
 
 import { Color } from "three";
 
-import GLBCharacter from "./GLBCharacter";
-
 import CinematicCameraRig, {
 type CinematicCameraSettings,
 } from "./CinematicCameraRig";
 
 import CinematicLighting from "./CinematicLighting";
-
 import CinematicEnvironment from "./CinematicEnvironment";
 
-import CinematicActingRig, {
-} from "./CinematicActingRig";
+import CinematicCharacterActor from "./CinematicCharacterActor";
+
+import {
+CinematicPerformanceProvider,
+} from "./CinematicPerformanceContext";
 
 import {
 DEFAULT_ACTING_SETTINGS,
@@ -179,8 +179,6 @@ args={[new Color(settings.background)]}
     args={[settings.fog, 18, 55]}
   />
 
-  {/* Ground surface */}
-
   <mesh
     rotation={[-Math.PI / 2, 0, 0]}
     position={[0, -0.04, 0]}
@@ -194,8 +192,6 @@ args={[new Color(settings.background)]}
       metalness={0.05}
     />
   </mesh>
-
-  {/* Character contact shadows */}
 
   <ContactShadows
     position={[0, 0, 0]}
@@ -231,14 +227,23 @@ const models = useMemo(
 placements
 .map((placement) => ({
 placement,
-model: CHARACTER_MODELS[placement.id],
+model:
+CHARACTER_MODELS[
+placement.id as keyof typeof CHARACTER_MODELS
+],
 }))
-.filter((item) => Boolean(item.model)),
+.filter(
+(
+item
+): item is typeof item & {
+model: NonNullable<typeof item.model>;
+} => Boolean(item.model)
+),
 [placements]
 );»
 
 return (
-<>
+<group name="cinematic-character-collection">
 {models.map(({ placement, model }) => (
 <group
 key={model.id}
@@ -256,24 +261,19 @@ Loading {model.name}...
 </Html>
 }
 >
-{/* Stage 19: Live cinematic acting controller */}
-
-          <CinematicActingRig
-            settings={actingSettings}
-            enabled
-          >
-            <GLBCharacter
-              modelUrl={model.modelUrl}
-              action={action}
-              targetHeight={model.targetHeight}
-            />
-          </CinematicActingRig>
-        </Suspense>
-      </ModelErrorBoundary>
-    </group>
-  ))}
-</>
-
+<CinematicCharacterActor
+characterId={model.id}
+modelUrl={model.modelUrl}
+action={action}
+targetHeight={model.targetHeight}
+actingSettings={actingSettings}
+actingEnabled
+/>
+</Suspense>
+</ModelErrorBoundary>
+</group>
+))}
+</group>
 );
 }
 
@@ -301,17 +301,22 @@ const cinematicEnabled =
 cameraSettings !== undefined &&
 cameraSettings.enabled !== false;
 
-/* Only use registered character models */
+/* Registered character models only */
 
 const supportedIds = useMemo(
 () =>
 [...new Set(selectedIds)].filter(
-(id) => Boolean(CHARACTER_MODELS[id])
+(id) =>
+Boolean(
+CHARACTER_MODELS[
+id as keyof typeof CHARACTER_MODELS
+]
+)
 ),
 [selectedIds]
 );
 
-/* Calculate character positions */
+/* Character composition */
 
 const composition = useMemo(
 () =>
@@ -341,6 +346,10 @@ style={{
 height,
 }}
 >
+<CinematicPerformanceProvider
+key={supportedIds.join("|")}
+characterIds={supportedIds}
+>
 <Canvas
 shadows
 dpr={[1, 1.5]}
@@ -350,95 +359,94 @@ alpha: false,
 powerPreference: "high-performance",
 }}
 >
-{/* Main camera */}
+{/* MAIN CAMERA */}
 
-    <PerspectiveCamera
-      makeDefault
-      position={[0, 2.6, cameraDistance]}
-      fov={cameraSettings?.fieldOfView ?? 38}
-      near={0.1}
-      far={100}
-    />
-
-    {/* Cinematic camera movement */}
-
-    {cinematicEnabled && cameraSettings && (
-      <CinematicCameraRig
-        shot={cameraSettings.shot}
-        target={cameraSettings.target}
-        characterPosition={cameraTarget}
-        secondaryCharacterPosition={
-          cameraSettings.secondaryCharacterPosition
-        }
-        transitionSpeed={
-          cameraSettings.transitionSpeed ?? 3
-        }
-        movementSpeed={
-          cameraSettings.movementSpeed ?? 0.35
-        }
-        fieldOfView={
-          cameraSettings.fieldOfView ?? 40
-        }
-        orbitRadius={
-          cameraSettings.orbitRadius ??
-          composition.cameraDistance
-        }
-        orbitHeight={
-          cameraSettings.orbitHeight ?? 2.3
-        }
-        enabled
-      />
-    )}
-
-    {/* Cinematic three-point lighting */}
-
-    <CinematicLighting
-      intensity={0.85}
-      dramatic={true}
-      warm={settings.warmLighting}
-    />
-
-    {/* Base environment atmosphere and ground */}
-
-    <Environment
-      environment={environment}
-      settings={settings}
-    />
-
-    {/* Cinematic environment sets */}
-
-    <CinematicEnvironment
-      environment={environment}
-    />
-
-    {/* Live character staging and acting */}
-
-    <Suspense fallback={null}>
-      <CharacterCollection
-        placements={composition.placements}
-        action={action}
-        actingSettings={actingSettings}
-      />
-    </Suspense>
-
-    {/* Manual camera controls */}
-
-    {!cinematicEnabled && (
-      <OrbitControls
+      <PerspectiveCamera
         makeDefault
-        enableDamping
-        dampingFactor={0.08}
-        enablePan
-        minDistance={3}
-        maxDistance={30}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI / 2.05}
-        target={composition.cameraTarget}
+        position={[0, 2.6, cameraDistance]}
+        fov={cameraSettings?.fieldOfView ?? 38}
+        near={0.1}
+        far={100}
       />
-    )}
-  </Canvas>
 
-  {/* Studio information bar */}
+      {/* CINEMATIC CAMERA MOVEMENT */}
+
+      {cinematicEnabled && cameraSettings && (
+        <CinematicCameraRig
+          shot={cameraSettings.shot}
+          target={cameraSettings.target}
+          characterPosition={cameraTarget}
+          secondaryCharacterPosition={
+            cameraSettings.secondaryCharacterPosition
+          }
+          transitionSpeed={
+            cameraSettings.transitionSpeed ?? 3
+          }
+          movementSpeed={
+            cameraSettings.movementSpeed ?? 0.35
+          }
+          fieldOfView={
+            cameraSettings.fieldOfView ?? 40
+          }
+          orbitRadius={
+            cameraSettings.orbitRadius ??
+            composition.cameraDistance
+          }
+          orbitHeight={
+            cameraSettings.orbitHeight ?? 2.3
+          }
+          enabled
+        />
+      )}
+
+      {/* CINEMATIC LIGHTING */}
+
+      <CinematicLighting
+        intensity={0.85}
+        dramatic
+        warm={settings.warmLighting}
+      />
+
+      {/* ENVIRONMENT */}
+
+      <Environment
+        environment={environment}
+        settings={settings}
+      />
+
+      <CinematicEnvironment
+        environment={environment}
+      />
+
+      {/* INDIVIDUAL CHARACTER PERFORMANCE */}
+
+      <Suspense fallback={null}>
+        <CharacterCollection
+          placements={composition.placements}
+          action={action}
+          actingSettings={actingSettings}
+        />
+      </Suspense>
+
+      {/* MANUAL CAMERA CONTROLS */}
+
+      {!cinematicEnabled && (
+        <OrbitControls
+          makeDefault
+          enableDamping
+          dampingFactor={0.08}
+          enablePan
+          minDistance={3}
+          maxDistance={30}
+          minPolarAngle={0.2}
+          maxPolarAngle={Math.PI / 2.05}
+          target={composition.cameraTarget}
+        />
+      )}
+    </Canvas>
+  </CinematicPerformanceProvider>
+
+  {/* STUDIO INFORMATION BAR */}
 
   {showControls && (
     <>
@@ -470,7 +478,7 @@ powerPreference: "high-performance",
         </span>
       </div>
 
-      {/* Manual zoom controls */}
+      {/* ZOOM CONTROLS */}
 
       {!cinematicEnabled && (
         <div style={styles.controls}>
@@ -510,7 +518,7 @@ powerPreference: "high-performance",
     </>
   )}
 
-  {/* Empty character selection */}
+  {/* EMPTY CHARACTER SELECTION */}
 
   {supportedIds.length === 0 && (
     <div style={styles.empty}>
@@ -526,7 +534,7 @@ powerPreference: "high-performance",
     </div>
   )}
 
-  {/* Missing model warning */}
+  {/* MISSING MODEL WARNING */}
 
   {selectedIds.length !== supportedIds.length && (
     <div style={styles.warning}>
