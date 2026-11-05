@@ -27,6 +27,14 @@ import CinematicLighting from "./CinematicLighting";
 
 import CinematicEnvironment from "./CinematicEnvironment";
 
+import CinematicActingRig, {
+} from "./CinematicActingRig";
+
+import {
+DEFAULT_ACTING_SETTINGS,
+type CinematicActingSettings,
+} from "./CinematicActingPanel";
+
 import {
 calculateComposition,
 type CompositionMode,
@@ -55,6 +63,7 @@ cameraSettings?: CinematicCameraSettings;
 compositionMode?: CompositionMode;
 characterSpacing?: number;
 characterDepth?: number;
+actingSettings?: CinematicActingSettings;
 }
 
 interface Settings {
@@ -208,12 +217,14 @@ CHARACTER COLLECTION
 function CharacterCollection({
 placements,
 action,
+actingSettings,
 }: {
 placements: ReturnType<
 typeof calculateComposition
 
 «["placements"];
 action: CharacterAction;
+actingSettings: CinematicActingSettings;
 }) {
 const models = useMemo(
 () =>
@@ -245,16 +256,24 @@ Loading {model.name}...
 </Html>
 }
 >
-<GLBCharacter
-modelUrl={model.modelUrl}
-action={action}
-targetHeight={model.targetHeight}
-/>
-</Suspense>
-</ModelErrorBoundary>
-</group>
-))}
+{/* Stage 19: Live cinematic acting controller */}
+
+          <CinematicActingRig
+            settings={actingSettings}
+            enabled
+          >
+            <GLBCharacter
+              modelUrl={model.modelUrl}
+              action={action}
+              targetHeight={model.targetHeight}
+            />
+          </CinematicActingRig>
+        </Suspense>
+      </ModelErrorBoundary>
+    </group>
+  ))}
 </>
+
 );
 }
 
@@ -272,6 +291,7 @@ cameraSettings,
 compositionMode = "auto",
 characterSpacing = 2.3,
 characterDepth = 1.5,
+actingSettings = DEFAULT_ACTING_SETTINGS,
 }: Props) {
 const [cameraDistance, setCameraDistance] = useState(9);
 
@@ -385,18 +405,19 @@ powerPreference: "high-performance",
       settings={settings}
     />
 
-    {/* Stage 13: Full cinematic environment sets */}
+    {/* Cinematic environment sets */}
 
     <CinematicEnvironment
       environment={environment}
     />
 
-    {/* Live character staging */}
+    {/* Live character staging and acting */}
 
     <Suspense fallback={null}>
       <CharacterCollection
         placements={composition.placements}
         action={action}
+        actingSettings={actingSettings}
       />
     </Suspense>
 
@@ -443,6 +464,10 @@ powerPreference: "high-performance",
             🎥 {cameraSettings?.shot.toUpperCase()}
           </span>
         )}
+
+        <span style={styles.actingBadge}>
+          🎭 {actingSettings.emotion.toUpperCase()}
+        </span>
       </div>
 
       {/* Manual zoom controls */}
@@ -580,6 +605,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(49,46,129,0.9)",
 color: "#c7d2fe",
+fontSize: 10,
+fontWeight: 800,
+},
+
+actingBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(88,28,135,0.9)",
+color: "#e9d5ff",
 fontSize: 10,
 fontWeight: 800,
 },
