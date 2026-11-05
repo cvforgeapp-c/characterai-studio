@@ -3,371 +3,538 @@ import math
 import os
 from mathutils import Vector
 
-OUTPUT = os.path.join(os.getcwd(), "public", "models")
+# =========================================================
+# CHARACTERAI STUDIO — RIGGED CHARACTER GENERATOR
+# Blender 4.x
+# Output: public/models/*.glb
+# =========================================================
+
+ROOT = os.path.abspath(os.path.join(
+    bpy.path.abspath("//"), ".."
+))
+OUTPUT = os.path.join(ROOT, "public", "models")
+
 os.makedirs(OUTPUT, exist_ok=True)
 
 CHARACTERS = {
-    "lion": ("#C98A45", "#E5B878", "#75401F", "animal"),
-    "monkey": ("#895333", "#C58A60", "#F0C69F", "animal"),
-    "goat": ("#E9E0D0", "#D5C8AD", "#51483C", "animal"),
-    "chicken": ("#F4EDE0", "#FFF5E5", "#D93D38", "animal"),
-    "dog": ("#B98250", "#D9A875", "#69432C", "animal"),
-    "cat": ("#A9A5A1", "#D4CFCA", "#665E63", "animal"),
-    "elephant": ("#858E9D", "#AEB7C3", "#646D7D", "animal"),
-    "rabbit": ("#EEE8DF", "#FFFAF4", "#D98C9C", "animal"),
-    "cow": ("#F2ECE5", "#FFFFFF", "#29252B", "animal"),
-    "bear": ("#79533A", "#A87A58", "#D7AA82", "animal"),
-    "tomato": ("#D52D32", "#F34A42", "#368C49", "food"),
-    "onion": ("#A77BC6", "#D0A4E1", "#659449", "food"),
-    "potato": ("#A77A4E", "#C69A6C", "#73502E", "food"),
-    "broccoli": ("#328B45", "#55AE5D", "#A4CB77", "food"),
-    "carrot": ("#ED842B", "#F8A33D", "#449C4D", "food"),
-    "banana": ("#EBCB3D", "#F8DE69", "#A57B20", "food"),
-    "orange": ("#E98528", "#F8A13C", "#4B913E", "food"),
+    "lion":       (1.0, 0.55, 0.12),
+    "monkey":     (0.38, 0.19, 0.08),
+    "goat":       (0.72, 0.68, 0.58),
+    "chicken":    (0.92, 0.88, 0.72),
+    "dog":        (0.65, 0.38, 0.18),
+    "cat":        (0.35, 0.35, 0.32),
+    "elephant":   (0.48, 0.49, 0.52),
+    "rabbit":     (0.75, 0.68, 0.58),
+    "cow":        (0.85, 0.82, 0.72),
+    "bear":       (0.35, 0.19, 0.10),
+    "tomato":     (0.85, 0.06, 0.04),
+    "onion":      (0.65, 0.35, 0.65),
+    "potato":     (0.55, 0.34, 0.17),
+    "broccoli":   (0.12, 0.42, 0.10),
+    "carrot":     (1.0, 0.30, 0.03),
+    "banana":     (1.0, 0.78, 0.04),
+    "orange":     (1.0, 0.34, 0.02),
 }
 
-def material(name, hex_color, roughness=0.65, metallic=0.0):
-    color = hex_color.lstrip("#")
-    rgb = tuple(int(color[i:i+2], 16) / 255 for i in (0, 2, 4))
+# ---------------------------------------------------------
+# CLEAN SCENE
+# ---------------------------------------------------------
 
+def clear_scene():
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+
+    for block in bpy.data.materials:
+        bpy.data.materials.remove(block)
+
+# ---------------------------------------------------------
+# MATERIALS
+# ---------------------------------------------------------
+
+def make_material(name, color, roughness=0.65):
     mat = bpy.data.materials.new(name)
-    mat.diffuse_color = (*rgb, 1)
+    mat.diffuse_color = (*color, 1)
     mat.use_nodes = True
 
-    shader = mat.node_tree.nodes.get("Principled BSDF")
-    shader.inputs["Base Color"].default_value = (*rgb, 1)
-    shader.inputs["Roughness"].default_value = roughness
-    shader.inputs["Metallic"].default_value = metallic
+    principled = mat.node_tree.nodes.get("Principled BSDF")
+    if principled:
+        principled.inputs["Base Color"].default_value = (*color, 1)
+        principled.inputs["Roughness"].default_value = roughness
 
     return mat
 
-def sphere(name, location, scale, mat, segments=32):
+# ---------------------------------------------------------
+# MESH HELPERS
+# ---------------------------------------------------------
+
+def add_sphere(name, location, scale, material, bone="spine"):
     bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=segments,
+        segments=32,
         ring_count=24,
         location=location
     )
+
     obj = bpy.context.object
     obj.name = name
     obj.scale = scale
-    obj.data.materials.append(mat)
+    bpy.ops.object.transform_apply(
+        location=False,
+        rotation=False,
+        scale=True
+    )
 
-    bpy.ops.object.shade_smooth()
+    obj.data.materials.append(material)
+    smooth(obj)
+
+    obj["character_bone"] = bone
     return obj
 
-def cone(name, location, radius, depth, mat, vertices=32):
+
+def add_cone(name, location, radius, depth, material, bone="head"):
     bpy.ops.mesh.primitive_cone_add(
-        vertices=vertices,
+        vertices=32,
         radius1=radius,
         radius2=0,
         depth=depth,
         location=location
     )
+
     obj = bpy.context.object
     obj.name = name
-    obj.data.materials.append(mat)
-    bpy.ops.object.shade_smooth()
+    obj.data.materials.append(material)
+    smooth(obj)
+
+    obj["character_bone"] = bone
     return obj
 
-def cylinder(name, location, radius, depth, mat):
+
+def add_cylinder(name, location, radius, depth, material, bone):
     bpy.ops.mesh.primitive_cylinder_add(
-        vertices=32,
+        vertices=24,
         radius=radius,
         depth=depth,
         location=location
     )
+
     obj = bpy.context.object
     obj.name = name
-    obj.data.materials.append(mat)
-    bpy.ops.object.shade_smooth()
+    obj.data.materials.append(material)
+    smooth(obj)
+
+    obj["character_bone"] = bone
     return obj
 
-def capsule(name, location, radius, depth, mat):
-    obj = sphere(name, location, (radius, radius, depth / 2 + radius))
-    obj.data.materials.append(mat)
-    return obj
 
-def create_character(identifier, colors):
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete(use_global=False)
+def smooth(obj):
+    if obj.type == "MESH":
+        for polygon in obj.data.polygons:
+            polygon.use_smooth = True
 
-    body_color, head_color, accent_color, category = colors
+# ---------------------------------------------------------
+# CHARACTER RIG
+# ---------------------------------------------------------
 
-    body = material("Character Body", body_color)
-    head = material("Character Face", head_color)
-    accent = material("Character Details", accent_color)
-    white = material("Eye Whites", "#FFFFFF", 0.28)
-    black = material("Pupils", "#17131A", 0.2)
-    mouth = material("Mouth", "#542C2D")
-    shine = material("Eye Highlights", "#FFFFFF", 0.12)
+def create_rig():
+    arm_data = bpy.data.armatures.new("CharacterSkeleton")
+    arm = bpy.data.objects.new("CharacterRig", arm_data)
+
+    bpy.context.collection.objects.link(arm)
+    bpy.context.view_layer.objects.active = arm
+    arm.select_set(True)
+
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    bones = {
+        "root": ((0, 0, 0), (0, 0, 0.55), None),
+        "spine": ((0, 0, 0.55), (0, 0, 1.35), "root"),
+        "head": ((0, 0, 1.35), (0, 0, 2.0), "spine"),
+        "arm.L": ((-0.35, 0, 1.25), (-0.72, 0, 0.90), "spine"),
+        "arm.R": ((0.35, 0, 1.25), (0.72, 0, 0.90), "spine"),
+        "leg.L": ((-0.20, 0, 0.55), (-0.20, 0, 0.08), "root"),
+        "leg.R": ((0.20, 0, 0.55), (0.20, 0, 0.08), "root"),
+    }
+
+    for name, (head, tail, parent) in bones.items():
+        bone = arm_data.edit_bones.new(name)
+        bone.head = head
+        bone.tail = tail
+
+        if parent:
+            bone.parent = arm_data.edit_bones[parent]
+            bone.use_connect = False
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    arm.show_in_front = True
+    arm.display_type = "WIRE"
+
+    return arm
+
+# ---------------------------------------------------------
+# ATTACH RIGID CHARACTER PARTS TO BONES
+# ---------------------------------------------------------
+
+def attach_parts(arm):
+    for obj in list(bpy.context.scene.objects):
+        if obj.type != "MESH":
+            continue
+
+        bone_name = obj.get("character_bone", "spine")
+
+        if bone_name not in arm.data.bones:
+            bone_name = "spine"
+
+        world_matrix = obj.matrix_world.copy()
+
+        obj.parent = arm
+        obj.parent_type = "BONE"
+        obj.parent_bone = bone_name
+        obj.matrix_world = world_matrix
+
+# ---------------------------------------------------------
+# ANIMATION CLIPS
+# ---------------------------------------------------------
+
+def animate_rig(arm):
+    animation_specs = {
+        "idle": {
+            1: 0.00, 12: 0.04, 24: 0.00
+        },
+        "talk": {
+            1: 0.00, 6: 0.10, 12: -0.08,
+            18: 0.12, 24: 0.00
+        },
+        "walk": {
+            1: -0.35, 7: 0.35, 13: -0.35,
+            19: 0.35, 25: -0.35
+        },
+        "wave": {
+            1: 0.00, 8: -0.90, 16: -0.55,
+            24: -0.90, 32: 0.00
+        },
+        "dance": {
+            1: -0.25, 8: 0.35, 16: -0.35,
+            24: 0.35, 32: -0.25
+        },
+        "jump": {
+            1: 0.00, 8: 0.00, 12: -0.35,
+            18: 0.00, 24: 0.00
+        }
+    }
+
+    for action_name, frames in animation_specs.items():
+        bpy.context.view_layer.objects.active = arm
+
+        bpy.ops.object.mode_set(mode="POSE")
+
+        for pose_bone in arm.pose.bones:
+            pose_bone.rotation_mode = "XYZ"
+            pose_bone.rotation_euler = (0, 0, 0)
+
+        for frame, amount in frames.items():
+            bpy.context.scene.frame_set(frame)
+
+            spine = arm.pose.bones["spine"]
+            head = arm.pose.bones["head"]
+            left_arm = arm.pose.bones["arm.L"]
+            right_arm = arm.pose.bones["arm.R"]
+            left_leg = arm.pose.bones["leg.L"]
+            right_leg = arm.pose.bones["leg.R"]
+
+            if action_name == "idle":
+                spine.rotation_euler.x = amount
+                head.rotation_euler.x = -amount * 0.5
+
+            elif action_name == "talk":
+                head.rotation_euler.x = amount
+                spine.rotation_euler.x = amount * 0.3
+
+            elif action_name == "walk":
+                left_leg.rotation_euler.x = amount
+                right_leg.rotation_euler.x = -amount
+                left_arm.rotation_euler.x = -amount
+                right_arm.rotation_euler.x = amount
+
+            elif action_name == "wave":
+                right_arm.rotation_euler.y = amount
+                right_arm.rotation_euler.x = -0.7
+
+            elif action_name == "dance":
+                spine.rotation_euler.y = amount
+                left_arm.rotation_euler.x = amount
+                right_arm.rotation_euler.x = -amount
+                head.rotation_euler.z = amount * 0.5
+
+            elif action_name == "jump":
+                spine.location.z = abs(amount)
+
+            for pose_bone in arm.pose.bones:
+                pose_bone.keyframe_insert(
+                    data_path="rotation_euler",
+                    frame=frame,
+                    group=pose_bone.name
+                )
+
+                pose_bone.keyframe_insert(
+                    data_path="location",
+                    frame=frame,
+                    group=pose_bone.name
+                )
+
+        action = arm.animation_data.action
+        if action:
+            action.name = action_name.upper()
+
+            track = arm.animation_data.nla_tracks.new()
+            track.name = action_name.upper()
+
+            strip = track.strips.new(
+                action_name.upper(),
+                1,
+                action
+            )
+
+            strip.action_frame_start = action.frame_range[0]
+            strip.action_frame_end = action.frame_range[1]
+
+        arm.animation_data.action = None
+
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+    bpy.context.scene.frame_set(1)
+
+# ---------------------------------------------------------
+# CHARACTER BODY
+# ---------------------------------------------------------
+
+def build_character(name, color):
+    body_mat = make_material(name + "_Body", color)
+    dark_mat = make_material(name + "_Dark", (0.10, 0.07, 0.05))
+    eye_mat = make_material(name + "_Eyes", (0.015, 0.012, 0.01))
+    white_mat = make_material(name + "_White", (0.95, 0.95, 0.90))
+    accent_mat = make_material(name + "_Accent", (0.95, 0.35, 0.05))
 
     # Main body
-    if identifier == "carrot":
-        cone("Carrot Body", (0, 0, 1.0), 0.48, 1.7, body)
-    elif identifier == "banana":
-        sphere("Banana Body", (0, 0, 1.0), (0.38, 0.32, 0.82), body)
-    elif identifier == "broccoli":
-        cylinder("Broccoli Stem", (0, 0, 0.65), 0.22, 1.0, head)
-        for x, z, size in [
-            (-0.35, 1.35, 0.48),
-            (0.0, 1.55, 0.52),
-            (0.35, 1.35, 0.48),
-            (0.0, 1.15, 0.48)
-        ]:
-            sphere("Broccoli Crown", (x, 0, z), (size, size * 0.85, size), body)
+    add_sphere(
+        "Torso",
+        (0, 0, 0.95),
+        (0.48, 0.32, 0.62),
+        body_mat,
+        "spine"
+    )
 
-    elif identifier == "tomato":
-        sphere("Tomato Body", (0, 0, 1.0), (0.73, 0.61, 0.67), body)
-    elif identifier == "onion":
-        sphere("Onion Body", (0, 0, 1.0), (0.62, 0.56, 0.8), body)
-    elif identifier == "potato":
-        sphere("Potato Body", (0, 0, 1.0), (0.72, 0.53, 0.56), body)
-    elif identifier == "orange":
-        sphere("Orange Body", (0, 0, 1.0), (0.68, 0.58, 0.68), body)
-    else:
-        sphere("Torso", (0, 0, 0.95), (0.48, 0.37, 0.69), body)
+    # Head
+    add_sphere(
+        "Head",
+        (0, -0.02, 1.75),
+        (0.43, 0.38, 0.42),
+        body_mat,
+        "head"
+    )
 
-    # Animal head and anatomy
-    if category == "animal":
-        head_z = 1.85
-
-        if identifier == "elephant":
-            head_z = 2.0
-
-        if identifier == "chicken":
-            head_z = 1.65
-
-        sphere("Head", (0, 0, head_z), (0.49, 0.42, 0.51), head)
-
-        # Ears
-        if identifier not in ("chicken",):
-            for side in (-1, 1):
-                if identifier == "rabbit":
-                    sphere(
-                        "Long Rabbit Ear",
-                        (side * 0.22, 0, 2.48),
-                        (0.14, 0.13, 0.48),
-                        head
-                    )
-                    sphere(
-                        "Rabbit Ear Interior",
-                        (side * 0.22, -0.115, 2.48),
-                        (0.075, 0.035, 0.34),
-                        accent
-                    )
-
-                elif identifier == "elephant":
-                    sphere(
-                        "Elephant Ear",
-                        (side * 0.53, 0, 1.95),
-                        (0.35, 0.13, 0.43),
-                        head
-                    )
-
-                elif identifier == "lion":
-                    sphere(
-                        "Lion Ear",
-                        (side * 0.43, 0, 2.17),
-                        (0.17, 0.15, 0.19),
-                        accent
-                    )
-
-                else:
-                    sphere(
-                        "Ear",
-                        (side * 0.43, 0, 2.12),
-                        (0.19, 0.15, 0.22),
-                        accent
-                    )
-
-        # Lion mane
-        if identifier == "lion":
-            sphere(
-                "Lion Mane",
-                (0, 0.10, 1.87),
-                (0.69, 0.55, 0.70),
-                accent
-            )
-            sphere(
-                "Lion Face",
-                (0, -0.36, 1.91),
-                (0.43, 0.25, 0.44),
-                head
-            )
-
-            for angle in range(0, 360, 30):
-                rad = math.radians(angle)
-                sphere(
-                    "Mane Lock",
-                    (0.61 * math.sin(rad), 0.04,
-                     1.87 + 0.61 * math.cos(rad)),
-                    (0.16, 0.25, 0.19),
-                    accent
-                )
-
-        # Elephant trunk
-        if identifier == "elephant":
-            sphere(
-                "Trunk Upper",
-                (0, -0.42, 1.76),
-                (0.19, 0.23, 0.39),
-                head
-            )
-            sphere(
-                "Trunk Tip",
-                (0, -0.48, 1.45),
-                (0.16, 0.19, 0.22),
-                head
-            )
-
-        # Goat horns
-        if identifier == "goat":
-            for side in (-1, 1):
-                cone(
-                    "Goat Horn",
-                    (side * 0.29, 0, 2.35),
-                    0.12,
-                    0.48,
-                    accent
-                )
-
-        # Chicken comb and beak
-        if identifier == "chicken":
-            sphere("Chicken Comb", (0, 0, 2.17), (0.24, 0.16, 0.22), accent)
-            cone("Chicken Beak", (0, -0.48, 1.67), 0.15, 0.28, accent)
-
-        # Dog and monkey muzzle
-        if identifier in ("dog", "monkey", "bear", "cow"):
-            sphere(
-                "Muzzle",
-                (0, -0.37, 1.72),
-                (0.29, 0.20, 0.23),
-                accent
-            )
-
-        # Eyes
-        for side in (-1, 1):
-            sphere(
-                "Eye Socket",
-                (side * 0.19, -0.38, head_z + 0.08),
-                (0.125, 0.08, 0.15),
-                accent
-            )
-            sphere(
-                "Eye White",
-                (side * 0.19, -0.445, head_z + 0.08),
-                (0.09, 0.055, 0.105),
-                white
-            )
-            sphere(
-                "Pupil",
-                (side * 0.19, -0.492, head_z + 0.08),
-                (0.047, 0.035, 0.065),
-                black
-            )
-            sphere(
-                "Eye Shine",
-                (side * 0.17, -0.525, head_z + 0.12),
-                (0.022, 0.018, 0.026),
-                shine
-            )
-
-        sphere(
-            "Nose",
-            (0, -0.48, head_z - 0.13),
-            (0.09, 0.06, 0.065),
-            accent
+    # Eyes
+    for side in (-1, 1):
+        add_sphere(
+            "Eye",
+            (side * 0.16, -0.355, 1.82),
+            (0.075, 0.045, 0.09),
+            white_mat,
+            "head"
         )
 
-    else:
-        # Food character face
-        for side in (-1, 1):
-            sphere(
-                "Eye White",
-                (side * 0.19, -0.52, 1.15),
-                (0.105, 0.055, 0.13),
-                white
-            )
-            sphere(
-                "Pupil",
-                (side * 0.19, -0.57, 1.15),
-                (0.05, 0.03, 0.075),
-                black
-            )
-            sphere(
-                "Eye Shine",
-                (side * 0.17, -0.60, 1.19),
-                (0.02, 0.015, 0.025),
-                shine
-            )
+        add_sphere(
+            "Pupil",
+            (side * 0.16, -0.397, 1.82),
+            (0.035, 0.025, 0.05),
+            eye_mat,
+            "head"
+        )
 
-        # Green leafy top
-        if identifier in ("tomato", "onion", "orange"):
-            for angle in range(0, 360, 90):
-                rad = math.radians(angle)
-                sphere(
-                    "Leaf",
-                    (0.16 * math.sin(rad), 0, 1.65 + 0.08 * math.cos(rad)),
-                    (0.11, 0.06, 0.22),
-                    accent
-                )
-
-        if identifier == "banana":
-            cone("Banana Stem", (0, 0, 1.85), 0.11, 0.25, accent)
-
-    # Arms and hands
+    # Arms
     for side in (-1, 1):
-        sphere(
+        arm_name = "arm.L" if side < 0 else "arm.R"
+
+        add_cylinder(
             "Upper Arm",
-            (side * 0.54, 0, 1.12),
-            (0.15, 0.17, 0.38),
-            body
+            (side * 0.55, 0, 1.10),
+            0.12,
+            0.55,
+            body_mat,
+            arm_name
         )
-        sphere(
+
+        add_sphere(
             "Hand",
-            (side * 0.65, -0.02, 0.78),
-            (0.17, 0.15, 0.16),
-            accent
+            (side * 0.55, -0.02, 0.82),
+            (0.13, 0.12, 0.13),
+            body_mat,
+            arm_name
         )
 
-    # Legs and feet
+    # Legs
     for side in (-1, 1):
-        sphere(
+        leg_name = "leg.L" if side < 0 else "leg.R"
+
+        add_cylinder(
             "Leg",
-            (side * 0.22, 0, 0.31),
-            (0.16, 0.18, 0.34),
-            body
+            (side * 0.20, 0, 0.30),
+            0.14,
+            0.48,
+            dark_mat,
+            leg_name
         )
-        sphere(
+
+        add_sphere(
             "Foot",
-            (side * 0.22, -0.10, 0.10),
-            (0.22, 0.30, 0.13),
-            accent
+            (side * 0.20, -0.08, 0.08),
+            (0.18, 0.27, 0.10),
+            dark_mat,
+            leg_name
         )
 
-    # Ground shadow catcher
-    floor = material("Ground", "#202735")
-    sphere("Character Base", (0, 0, -0.12), (0.82, 0.55, 0.06), floor)
+    # Species details
+    if name in ("lion", "bear"):
+        for i in range(10):
+            angle = i * math.tau / 10
+            add_sphere(
+                "Mane Detail",
+                (
+                    math.sin(angle) * 0.42,
+                    0,
+                    1.75 + math.cos(angle) * 0.35
+                ),
+                (0.16, 0.13, 0.18),
+                accent_mat if name == "lion" else dark_mat,
+                "head"
+            )
 
-    # Origin and scale
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+    if name in ("goat", "cow"):
+        for side in (-1, 1):
+            add_cone(
+                "Horn",
+                (side * 0.27, 0, 2.20),
+                0.09,
+                0.42,
+                dark_mat,
+                "head"
+            )
 
-    # Export GLB
-    filename = os.path.join(OUTPUT, identifier + ".glb")
+    if name == "elephant":
+        add_cylinder(
+            "Trunk",
+            (0, -0.40, 1.47),
+            0.12,
+            0.55,
+            body_mat,
+            "head"
+        )
+
+    if name in ("rabbit", "cat", "dog"):
+        for side in (-1, 1):
+            add_cone(
+                "Ear",
+                (side * 0.25, 0, 2.16),
+                0.13,
+                0.45,
+                body_mat,
+                "head"
+            )
+
+    if name == "chicken":
+        add_sphere(
+            "Comb",
+            (0, 0, 2.20),
+            (0.12, 0.10, 0.17),
+            accent_mat,
+            "head"
+        )
+
+        add_cone(
+            "Beak",
+            (0, -0.42, 1.70),
+            0.13,
+            0.25,
+            accent_mat,
+            "head"
+        )
+
+    if name in ("tomato", "onion", "potato", "broccoli",
+                "carrot", "banana", "orange"):
+        add_sphere(
+            "Food Face",
+            (0, -0.39, 1.78),
+            (0.025, 0.025, 0.025),
+            eye_mat,
+            "head"
+        )
+
+    if name == "carrot":
+        add_cone(
+            "Carrot Tip",
+            (0, 0, 0.25),
+            0.18,
+            0.50,
+            accent_mat,
+            "spine"
+        )
+
+    if name == "banana":
+        add_cone(
+            "Banana Stem",
+            (0, 0, 2.20),
+            0.10,
+            0.25,
+            dark_mat,
+            "head"
+        )
+
+    if name == "broccoli":
+        for x, z in [(-0.25, 1.90), (0, 2.05), (0.25, 1.90)]:
+            add_sphere(
+                "Broccoli Crown",
+                (x, 0, z),
+                (0.27, 0.25, 0.28),
+                body_mat,
+                "head"
+            )
+
+# ---------------------------------------------------------
+# EXPORT
+# ---------------------------------------------------------
+
+def export_character(name):
+    filepath = os.path.join(OUTPUT, name + ".glb")
 
     bpy.ops.object.select_all(action="SELECT")
 
     bpy.ops.export_scene.gltf(
-        filepath=filename,
+        filepath=filepath,
         export_format="GLB",
         use_selection=True,
+        export_animations=True,
+        export_nla_strips=True,
+        export_force_sampling=True,
         export_apply=True
     )
 
-    print("EXPORTED:", filename)
+    print("EXPORTED:", filepath)
 
-for character_id, colors in CHARACTERS.items():
-    create_character(character_id, colors)
 
-print("ALL 17 CHARACTER FILES GENERATED")
+# ---------------------------------------------------------
+# MAIN
+# ---------------------------------------------------------
+
+for character_name, character_color in CHARACTERS.items():
+    print("BUILDING:", character_name)
+
+    clear_scene()
+
+    build_character(character_name, character_color)
+
+    rig = create_rig()
+    attach_parts(rig)
+    animate_rig(rig)
+
+    export_character(character_name)
+
+print("ALL 17 CHARACTERS GENERATED.")
