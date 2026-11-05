@@ -1,4 +1,8 @@
-import type { CinematicCameraCommand } from "./cinematic-camera-director";
+import { useSyncExternalStore } from "react";
+
+import type {
+CinematicCameraCommand,
+} from "./cinematic-camera-director";
 
 type CameraCommandListener = (
 command: CinematicCameraCommand | null
@@ -8,14 +12,17 @@ let currentCommand: CinematicCameraCommand | null = null;
 
 const listeners = new Set<CameraCommandListener>();
 
+function notifyListeners(): void {
+listeners.forEach((listener) => {
+listener(currentCommand);
+});
+}
+
 export function publishCinematicCameraCommand(
 command: CinematicCameraCommand
 ): void {
 currentCommand = command;
-
-listeners.forEach((listener) => {
-listener(currentCommand);
-});
+notifyListeners();
 }
 
 export function getCinematicCameraCommand():
@@ -28,8 +35,6 @@ listener: CameraCommandListener
 ): () => void {
 listeners.add(listener);
 
-listener(currentCommand);
-
 return () => {
 listeners.delete(listener);
 };
@@ -37,8 +42,14 @@ listeners.delete(listener);
 
 export function clearCinematicCameraCommand(): void {
 currentCommand = null;
+notifyListeners();
+}
 
-listeners.forEach((listener) => {
-listener(null);
-});
+export function useCinematicCameraCommand():
+CinematicCameraCommand | null {
+return useSyncExternalStore(
+subscribeToCinematicCameraCommand,
+getCinematicCameraCommand,
+getCinematicCameraCommand
+);
 }
