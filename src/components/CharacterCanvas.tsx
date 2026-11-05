@@ -357,7 +357,7 @@ characterDepth,
 );
 
 /* ---------------------------------------
-STAGE 50: CHARACTER-AWARE FRAMING
+STAGE 50 + 52: CHARACTER-AWARE FRAMING
 --------------------------------------- */
 
 const characterCameraFraming = useMemo(
@@ -377,7 +377,8 @@ const characterCameraDistance = useMemo(
 getCharacterCameraDistance(
 characterCameraFraming.groupWidth,
 characterCameraFraming.groupDepth,
-characterCameraFraming.characterCount
+characterCameraFraming.characterCount,
+characterCameraFraming.groupHeight
 ),
 [characterCameraFraming]
 );
@@ -390,7 +391,7 @@ cameraSettings?.target ??
 characterCameraFraming.target;
 
 /* ---------------------------------------
-STAGE 51: ADAPTIVE CAMERA FRAMING
+STAGE 51 + 52: ADAPTIVE CAMERA FRAMING
 --------------------------------------- */
 
 const adaptiveFramingDistance = useMemo(
@@ -431,7 +432,7 @@ powerPreference: "high-performance",
       far={100}
     />
 
-    {/* STAGE 49 + 50 + 51: DIRECTOR CAMERA */}
+    {/* STAGE 49 + 50 + 51 + 52: DIRECTOR CAMERA */}
 
     {directorCameraEnabled && (
       <CinematicCameraCommandRig
