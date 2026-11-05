@@ -1,477 +1,496 @@
+import { Component, Suspense, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Stars } from "@react-three/drei";
-import { useMemo } from "react";
+import {
+ContactShadows,
+Html,
+OrbitControls,
+PerspectiveCamera,
+Stars,
+} from "@react-three/drei";
 
 import {
-  characters
-} from "../lib/character-catalog";
+Color,
+Fog,
+type Group,
+} from "three";
 
-import ProceduralCharacter from "./ProceduralCharacter";
+import GLBCharacter from "./GLBCharacter";
 
-import type {
-  CharacterTransform
-} from "./ProceduralCharacter";
-
-import type {
-  CharacterAction
-} from "../lib/character-motion";
-
-import type {
-  CharacterAppearance
-} from "./CharacterStage";
+import type { CharacterAction } from "../lib/character-motion";
 
 export type EnvironmentId =
-  | "studio"
-  | "park"
-  | "kitchen"
-  | "city"
-  | "space"
-  | "beach";
-
-/* ENVIRONMENT COMPONENTS */
-
-function Tree({
-  position,
-  scale = 1
-}: {
-  position: [number, number, number];
-  scale?: number;
-}) {
-  return (
-    <group position={position} scale={scale}>
-      <mesh position={[0, 0.65, 0]} castShadow>
-        <cylinderGeometry args={[0.12, 0.18, 1.3, 8]} />
-        <meshStandardMaterial color="#70452c" />
-      </mesh>
-
-      <mesh position={[0, 1.55, 0]} castShadow>
-        <coneGeometry args={[0.8, 1.8, 9]} />
-        <meshStandardMaterial color="#25834f" />
-      </mesh>
-
-      <mesh position={[0, 2.15, 0]} castShadow>
-        <sphereGeometry args={[0.45, 12, 12]} />
-        <meshStandardMaterial color="#39a65d" />
-      </mesh>
-    </group>
-  );
-}
-
-function Cloud({
-  position,
-  scale = 1
-}: {
-  position: [number, number, number];
-  scale?: number;
-}) {
-  return (
-    <group position={position} scale={scale}>
-      <mesh>
-        <sphereGeometry args={[0.45, 16, 16]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
-
-      <mesh position={[0.4, 0.05, 0]}>
-        <sphereGeometry args={[0.35, 16, 16]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
-
-      <mesh position={[-0.35, 0.05, 0]}>
-        <sphereGeometry args={[0.32, 16, 16]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
-    </group>
-  );
-}
-
-function Mountain({
-  position,
-  color,
-  scale = 1
-}: {
-  position: [number, number, number];
-  color: string;
-  scale?: number;
-}) {
-  return (
-    <mesh position={position} scale={scale} castShadow>
-      <coneGeometry args={[2.2, 3.5, 5]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
-  );
-}
-
-function Building({
-  position,
-  color,
-  height
-}: {
-  position: [number, number, number];
-  color: string;
-  height: number;
-}) {
-  return (
-    <group position={position}>
-      <mesh position={[0, height / 2, 0]} castShadow>
-        <boxGeometry args={[1.1, height, 1]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-
-      {Array.from({ length: 3 }).map((_, index) => (
-        <mesh
-          key={index}
-          position={[0, 0.5 + index * 0.7, 0.51]}
-        >
-          <planeGeometry args={[0.35, 0.35]} />
-          <meshStandardMaterial
-            color="#f6d879"
-            emissive="#f6d879"
-            emissiveIntensity={0.25}
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/* SIX ENVIRONMENTS */
-
-function Environment({
-  type
-}: {
-  type: EnvironmentId;
-}) {
-  const scenery = useMemo(() => {
-    switch (type) {
-      case "park":
-        return {
-          sky: "#8bc9e8",
-          ground: "#387d49",
-          fog: "#b8d9e8"
-        };
-
-      case "kitchen":
-        return {
-          sky: "#c9a98d",
-          ground: "#785b48",
-          fog: "#c9a98d"
-        };
-
-      case "city":
-        return {
-          sky: "#8ca4c4",
-          ground: "#535b6a",
-          fog: "#a8b7cc"
-        };
-
-      case "space":
-        return {
-          sky: "#080b24",
-          ground: "#171b3d",
-          fog: "#080b24"
-        };
-
-      case "beach":
-        return {
-          sky: "#78c9e9",
-          ground: "#e2c68a",
-          fog: "#b4dce8"
-        };
-
-      default:
-        return {
-          sky: "#282442",
-          ground: "#292b42",
-          fog: "#282442"
-        };
-    }
-  }, [type]);
-
-  return (
-    <>
-      <color attach="background" args={[scenery.sky]} />
-
-      <fog attach="fog" args={[scenery.fog, 12, 28]} />
-
-      <ambientLight intensity={1.15} />
-
-      <directionalLight
-        position={[5, 8, 5]}
-        intensity={2.1}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-
-      <hemisphereLight
-        args={["#d9eaff", "#554466", 0.7]}
-      />
-
-      {type === "park" && (
-        <>
-          <Tree position={[-4, -0.2, -2]} scale={1.2} />
-          <Tree position={[4, -0.2, -3]} scale={1.1} />
-          <Tree position={[-5, -0.2, 2]} />
-          <Tree position={[5, -0.2, 2]} />
-
-          <Cloud position={[-3, 4, -5]} />
-          <Cloud position={[3, 4.5, -5]} scale={1.2} />
-
-          <Mountain
-            position={[-5, 0, -8]}
-            color="#6d967d"
-            scale={1.6}
-          />
-
-          <Mountain
-            position={[5, 0, -9]}
-            color="#759c86"
-            scale={1.8}
-          />
-        </>
-      )}
-
-      {type === "kitchen" && (
-        <>
-          <mesh position={[0, 1.8, -4]}>
-            <boxGeometry args={[11, 4, 0.3]} />
-            <meshStandardMaterial color="#b99170" />
-          </mesh>
-
-          <mesh position={[0, 0.5, -2.2]}>
-            <boxGeometry args={[7, 0.15, 1.5]} />
-            <meshStandardMaterial color="#a8784e" />
-          </mesh>
-
-          <mesh position={[-3.5, 1.4, -2.1]}>
-            <boxGeometry args={[0.8, 2.5, 0.8]} />
-            <meshStandardMaterial color="#ded5c4" />
-          </mesh>
-
-          <mesh position={[3.5, 1.4, -2.1]}>
-            <boxGeometry args={[0.8, 2.5, 0.8]} />
-            <meshStandardMaterial color="#ded5c4" />
-          </mesh>
-        </>
-      )}
-
-      {type === "city" && (
-        <>
-          <Building position={[-5, 0, -4]} color="#637a99" height={4} />
-          <Building position={[-3.5, 0, -5]} color="#8a789e" height={5} />
-          <Building position={[4, 0, -5]} color="#657f9d" height={4.5} />
-          <Building position={[5.5, 0, -3]} color="#a17f82" height={3.5} />
-        </>
-      )}
-
-      {type === "space" && (
-        <>
-          <Stars
-            radius={80}
-            depth={40}
-            count={1500}
-            factor={4}
-            saturation={0}
-            fade
-            speed={0.5}
-          />
-
-          <mesh position={[-4, 3, -8]}>
-            <sphereGeometry args={[0.7, 24, 24]} />
-            <meshStandardMaterial
-              color="#d7a8ff"
-              emissive="#8d55d9"
-              emissiveIntensity={0.7}
-            />
-          </mesh>
-
-          <mesh position={[4, -1, -7]}>
-            <sphereGeometry args={[1.1, 24, 24]} />
-            <meshStandardMaterial
-              color="#536bd4"
-              roughness={0.8}
-            />
-          </mesh>
-
-          <pointLight
-            position={[-4, 3, -5]}
-            color="#b78aff"
-            intensity={3}
-          />
-        </>
-      )}
-
-      {type === "beach" && (
-        <>
-          <mesh
-            position={[0, 0.03, -5]}
-            rotation={[-Math.PI / 2, 0, 0]}
-          >
-            <planeGeometry args={[20, 8]} />
-            <meshStandardMaterial color="#48a9d5" />
-          </mesh>
-
-          <Cloud position={[-4, 4, -5]} />
-          <Cloud position={[4, 4.5, -5]} />
-
-          <mesh position={[4, 0.3, -3]}>
-            <cylinderGeometry args={[0.08, 0.08, 1.2, 8]} />
-            <meshStandardMaterial color="#7b4b2a" />
-          </mesh>
-
-          <mesh position={[4, 1, -3]}>
-            <coneGeometry args={[0.75, 0.9, 8]} />
-            <meshStandardMaterial color="#268b53" />
-          </mesh>
-        </>
-      )}
-
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.08, 0]}
-        receiveShadow
-      >
-        <circleGeometry args={[18, 64]} />
-        <meshStandardMaterial
-          color={scenery.ground}
-          roughness={0.9}
-        />
-      </mesh>
-
-      {type === "studio" && (
-        <>
-          <spotLight
-            position={[-4, 6, 3]}
-            angle={0.6}
-            penumbra={0.8}
-            intensity={2}
-            color="#a78bfa"
-          />
-
-          <spotLight
-            position={[4, 6, 3]}
-            angle={0.6}
-            penumbra={0.8}
-            intensity={2}
-            color="#67e8f9"
-          />
-        </>
-      )}
-    </>
-  );
-}
-
-/* CHARACTER CANVAS */
+| "studio"
+| "park"
+| "kitchen"
+| "city"
+| "space"
+| "beach";
 
 interface CharacterCanvasProps {
-  selectedIds: string[];
-  environment?: EnvironmentId;
-  action?: CharacterAction;
-  appearances?: Record<string, CharacterAppearance>;
-  height?: number;
+selectedIds: string[];
+height?: number;
+showControls?: boolean;
+environment?: EnvironmentId;
+action?: CharacterAction;
+appearances?: Record<string, unknown>;
 }
 
-const DEFAULT_TRANSFORM: CharacterTransform = {
-  x: 0,
-  y: 0,
-  z: 0,
-  scale: 1,
-  rotation: 0
+interface CharacterErrorBoundaryProps {
+children: ReactNode;
+characterName: string;
+}
+
+interface CharacterErrorBoundaryState {
+hasError: boolean;
+}
+
+class CharacterErrorBoundary extends Component<
+CharacterErrorBoundaryProps,
+CharacterErrorBoundaryState
+
+«{
+state: CharacterErrorBoundaryState = {
+hasError: false,
+};»
+
+static getDerivedStateFromError(): CharacterErrorBoundaryState {
+return { hasError: true };
+}
+
+render() {
+if (this.state.hasError) {
+return (
+<Html center>
+<div className="character-model-error">
+<strong>{this.props.characterName}</strong>
+<span>3D model unavailable</span>
+</div>
+</Html>
+);
+}
+
+return this.props.children;
+
+}
+}
+
+const ENVIRONMENTS: Record<
+EnvironmentId,
+{
+background: string;
+floor: string;
+fog: string;
+intensity: number;
+}
+
+«= {
+studio: {
+background: "#101820",
+floor: "#18252d",
+fog: "#101820",
+intensity: 1.5,
+},
+park: {
+background: "#789b91",
+floor: "#526f53",
+fog: "#789b91",
+intensity: 1.2,
+},
+kitchen: {
+background: "#c5b9a6",
+floor: "#75695c",
+fog: "#c5b9a6",
+intensity: 1.3,
+},
+city: {
+background: "#536477",
+floor: "#343d4b",
+fog: "#536477",
+intensity: 1.4,
+},
+space: {
+background: "#050817",
+floor: "#10152c",
+fog: "#050817",
+intensity: 0.9,
+},
+beach: {
+background: "#8bb9c4",
+floor: "#d0b88c",
+fog: "#8bb9c4",
+intensity: 1.4,
+},
+};»
+
+const MODEL_PATHS: Record<string, string> = {
+lion: "/models/lion.glb",
+monkey: "/models/monkey.glb",
 };
 
-export default function CharacterCanvas({
-  selectedIds,
-  environment = "studio",
-  action = "idle",
-  appearances = {},
-  height = 380
-}: CharacterCanvasProps) {
+function StageLighting({
+environment,
+}: {
+environment: EnvironmentId;
+}) {
+const settings = ENVIRONMENTS[environment];
 
-  // Follow the exact selection order and IDs.
-  const selectedCharacters = useMemo(
-    () =>
-      selectedIds
-        .map((id) =>
-          characters.find((character) => character.id === id)
-        )
-        .filter(
-          (character): character is (typeof characters)[number] =>
-            character !== undefined
-        ),
-    [selectedIds]
-  );
+return (
+<>
+<ambientLight intensity={settings.intensity * 0.55} />
 
-  return (
-    <div
-      className="character-stage"
-      style={{
-        width: "100%",
-        height,
-        minHeight: 0,
-        overflow: "hidden",
-        borderRadius: "inherit"
-      }}
-    >
-      <Canvas
-        camera={{
-          position: [0, 2.8, 8],
-          fov: 38
-        }}
-        shadows
-        dpr={[1, 1.5]}
-        gl={{
-          antialias: true,
-          alpha: false,
-          powerPreference: "low-power"
-        }}
-      >
-        <Environment type={environment} />
+  <directionalLight
+    position={[5, 8, 5]}
+    intensity={2.2}
+    castShadow
+    shadow-mapSize-width={2048}
+    shadow-mapSize-height={2048}
+  />
 
-        <group position={[0, -0.4, 0]}>
-          {selectedCharacters.map((character, index) => {
-            const appearance = appearances[character.id];
+  <directionalLight
+    position={[-5, 4, -4]}
+    intensity={1.3}
+    color="#8db9ff"
+  />
 
-            return (
-              <ProceduralCharacter
-                key={character.id}
-                character={character}
-                index={index}
-                total={selectedCharacters.length}
-                action={action}
-                transform={{ ...DEFAULT_TRANSFORM }}
-                style={appearance?.style ?? "pixar"}
-                skinTone={appearance?.skinTone}
-                clothingColor={appearance?.clothingColor}
-                hairColor={appearance?.hairColor}
-              />
-            );
-          })}
-        </group>
+  <spotLight
+    position={[0, 7, -4]}
+    angle={0.7}
+    penumbra={0.8}
+    intensity={3}
+    color="#fff0d5"
+    castShadow
+  />
 
-        <OrbitControls
-          enablePan={false}
-          enableZoom
-          minDistance={5}
-          maxDistance={13}
-          maxPolarAngle={Math.PI / 2}
-          target={[0, 1, 0]}
-        />
-      </Canvas>
+  <pointLight
+    position={[0, 2, 4]}
+    intensity={0.6}
+    color="#ffffff"
+  />
+</>
 
-      {selectedCharacters.length === 0 && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "grid",
-            placeItems: "center",
-            color: "white",
-            pointerEvents: "none"
-          }}
-        >
-          Select characters to begin.
-        </div>
-      )}
-    </div>
-  );
+);
 }
+
+function StageEnvironment({
+environment,
+}: {
+environment: EnvironmentId;
+}) {
+const settings = ENVIRONMENTS[environment];
+
+return (
+<>
+<color attach="background" args={[settings.background]} />
+
+  <fog
+    attach="fog"
+    args={[new Color(settings.fog), 12, 35]}
+  />
+
+  <mesh
+    rotation={[-Math.PI / 2, 0, 0]}
+    position={[0, -0.04, 0]}
+    receiveShadow
+  >
+    <planeGeometry args={[100, 100]} />
+    <meshStandardMaterial
+      color={settings.floor}
+      roughness={0.85}
+      metalness={0.05}
+    />
+  </mesh>
+
+  {environment === "space" && (
+    <Stars
+      radius={80}
+      depth={50}
+      count={1800}
+      factor={4}
+      saturation={0}
+      fade
+      speed={0.5}
+    />
+  )}
+
+  <ContactShadows
+    position={[0, 0, 0]}
+    opacity={0.45}
+    scale={15}
+    blur={2.5}
+    far={8}
+    resolution={512}
+  />
+</>
+
+);
+}
+
+function CinematicCharacters({
+selectedIds,
+action,
+}: {
+selectedIds: string[];
+action: CharacterAction;
+}) {
+const positions = useMemo(() => {
+const spacing = 2.2;
+
+return selectedIds.map((id, index) => {
+  const total = selectedIds.length;
+
+  return {
+    id,
+    position: [
+      (index - (total - 1) / 2) * spacing,
+      0,
+      0,
+    ] as [number, number, number],
+  };
+});
+
+}, [selectedIds]);
+
+return (
+<group>
+{positions.map(({ id, position }) => {
+const modelUrl = MODEL_PATHS[id];
+
+    if (!modelUrl) {
+      return null;
+    }
+
+    return (
+      <group
+        key={id}
+        position={position}
+      >
+        <CharacterErrorBoundary
+          characterName={id}
+        >
+          <Suspense
+            fallback={
+              <Html center>
+                <div className="character-model-loading">
+                  Loading {id}...
+                </div>
+              </Html>
+            }
+          >
+            <GLBCharacter
+              modelUrl={modelUrl}
+              action={action}
+              targetHeight={2.5}
+            />
+          </Suspense>
+        </CharacterErrorBoundary>
+      </group>
+    );
+  })}
+</group>
+
+);
+}
+
+export default function CharacterCanvas({
+selectedIds,
+height = 520,
+showControls = true,
+environment = "studio",
+action = "idle",
+}: CharacterCanvasProps) {
+const [cameraDistance, setCameraDistance] = useState(8);
+
+const availableCharacters = selectedIds.filter(
+(id) => MODEL_PATHS[id]
+);
+
+return (
+<div
+className="cinematic-character-stage"
+style={{
+width: "100%",
+height,
+position: "relative",
+overflow: "hidden",
+borderRadius: 18,
+background: "#101820",
+}}
+>
+<Canvas
+shadows
+dpr={[1, 1.75]}
+gl={{
+antialias: true,
+alpha: false,
+powerPreference: "high-performance",
+}}
+>
+<PerspectiveCamera
+makeDefault
+position={[0, 2.8, cameraDistance]}
+fov={35}
+/>
+
+    <StageLighting environment={environment} />
+
+    <StageEnvironment environment={environment} />
+
+    <CinematicCharacters
+      selectedIds={availableCharacters}
+      action={action}
+    />
+
+    <OrbitControls
+      makeDefault
+      enableDamping
+      dampingFactor={0.06}
+      minDistance={3}
+      maxDistance={18}
+      maxPolarAngle={Math.PI / 2 + 0.05}
+      target={[0, 1.1, 0]}
+    />
+  </Canvas>
+
+  <div className="cinematic-stage-top">
+    <span className="cinematic-live-indicator" />
+    <span>CHARACTER STAGE</span>
+    <span className="cinematic-environment-name">
+      {environment.toUpperCase()}
+    </span>
+  </div>
+
+  {showControls && (
+    <div className="cinematic-stage-controls">
+      <button
+        type="button"
+        onClick={() =>
+          setCameraDistance((value) =>
+            Math.max(4, value - 1)
+          )
+        }
+      >
+        +
+      </button>
+
+      <button
+        type="button"
+        onClick={() =>
+          setCameraDistance((value) =>
+            Math.min(15, value + 1)
+          )
+        }
+      >
+        −
+      </button>
+    </div>
+  )}
+
+  {availableCharacters.length === 0 && (
+    <div className="cinematic-stage-empty">
+      <strong>Character models required</strong>
+      <span>
+        Add a supported GLB model to begin your scene.
+      </span>
+    </div>
+  )}
+
+  <style>{`
+    .cinematic-stage-top {
+      position: absolute;
+      top: 15px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: white;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+      pointer-events: none;
+      text-shadow: 0 2px 8px #000;
+    }
+
+    .cinematic-live-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4be0a0;
+      box-shadow: 0 0 12px #4be0a0;
+    }
+
+    .cinematic-environment-name {
+      margin-left: auto;
+      opacity: 0.75;
+    }
+
+    .cinematic-stage-controls {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .cinematic-stage-controls button {
+      width: 38px;
+      height: 38px;
+      border: 1px solid #ffffff40;
+      border-radius: 12px;
+      background: #101820bb;
+      color: white;
+      font-size: 21px;
+      cursor: pointer;
+    }
+
+    .cinematic-stage-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: white;
+      background: #10182055;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .cinematic-stage-empty strong {
+      font-size: 16px;
+    }
+
+    .cinematic-stage-empty span {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .character-model-loading,
+    .character-model-error {
+      padding: 12px 16px;
+      border: 1px solid #ffffff30;
+      border-radius: 12px;
+      background: #101820e8;
+      color: white;
+      font-size: 12px;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .character-model-error {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .character-model-error span {
+      opacity: 0.65;
+    }
+  `}</style>
+</div>
+
+);
+              }
