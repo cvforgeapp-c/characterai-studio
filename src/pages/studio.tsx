@@ -43,6 +43,8 @@ import CinematicStudioPerformanceProvider from "../components/CinematicStudioPer
 
 import CinematicPerformanceConsole from "../components/CinematicPerformanceConsole";
 
+import CinematicSceneTimeline from "../components/CinematicSceneTimeline";
+
 import type {
 DialoguePlaybackLine,
 } from "../components/CinematicDialoguePlayback";
@@ -179,6 +181,18 @@ const [stageCanvas, setStageCanvas] =
 useState<HTMLCanvasElement | null>(null);
 
 /* ---------------------------------------
+ACTIVE SCENE
+--------------------------------------- */
+
+const activeScene = useMemo(
+() =>
+scenes.find(
+(scene) => scene.id === activeSceneId
+) ?? scenes[0],
+[scenes, activeSceneId]
+);
+
+/* ---------------------------------------
 DETECT LIVE 3D CANVAS
 --------------------------------------- */
 
@@ -252,6 +266,51 @@ if (selectedIds.length === 1) return;
 if (selectedIds.length >= 4) return;
 
 setSelectedIds((current) => [...current, id]);
+
+};
+
+/* ---------------------------------------
+SELECT SCENE
+--------------------------------------- */
+
+const handleSceneSelect = (sceneId: string) => {
+const sceneExists = scenes.some(
+(scene) => scene.id === sceneId
+);
+
+if (!sceneExists) return;
+
+setActiveSceneId(sceneId);
+
+};
+
+/* ---------------------------------------
+SYNCHRONIZE DIALOGUE WITH SCENE
+--------------------------------------- */
+
+const handleDialogueLineChange = (
+line: DialoguePlaybackLine | null
+) => {
+if (!line) return;
+
+const lineIndex = dialogueLines.findIndex(
+  (item) => item.id === line.id
+);
+
+if (lineIndex < 0) return;
+
+const matchingScene = scenes[lineIndex];
+
+if (matchingScene) {
+  setActiveSceneId(matchingScene.id);
+}
+
+console.log(
+  "Active dialogue:",
+  line.characterName,
+  "| Scene:",
+  matchingScene?.title
+);
 
 };
 
@@ -349,7 +408,6 @@ try {
   /* OPEN TIMELINE */
 
   setActiveTab("export");
-
 } catch (error) {
   console.error(
     "Script generation failed:",
@@ -360,7 +418,7 @@ try {
 };
 
 /* ---------------------------------------
-STAGE 37: CHARACTER-LINKED SPEECH
+SYNCHRONIZED CHARACTER SPEECH
 --------------------------------------- */
 
 const handleSpeakDialogue = (
@@ -368,16 +426,11 @@ line: DialoguePlaybackLine
 ): Promise<void> => {
 return speakSynchronized(line.text, {
 characterId: line.characterId,
-
-  language,
-
-  rate: 1,
-
-  pitch: 1.1,
-
-  volume: 1,
+language,
+rate: 1,
+pitch: 1.1,
+volume: 1,
 });
-
 };
 
 /* ---------------------------------------
@@ -411,13 +464,9 @@ void speakSynchronized(
   "Village drama hits different.",
   {
     characterId: String(testCharacterId),
-
     language,
-
     rate: 1,
-
     pitch: 1.1,
-
     volume: 1,
   }
 );
@@ -822,30 +871,52 @@ gap: 16,
               🎞️ Production Timeline
             </h2>
 
+            {/* SCENE PLAYER */}
+
             <ScenePlayer
               scenes={scenes}
               language={language}
-              onSceneChange={(id: string) =>
-                setActiveSceneId(id)
-              }
+              onSceneChange={handleSceneSelect}
               onActionChange={(action: string) =>
                 console.log("Action:", action)
               }
             />
+
+            {/* ACTIVE SCENE INDICATOR */}
+
+            <div style={styles.activeSceneIndicator}>
+              <div>
+                <span style={styles.activeSceneLabel}>
+                  🎬 CURRENT SCENE
+                </span>
+
+                <strong style={styles.activeSceneTitle}>
+                  {activeScene?.title ?? "No active scene"}
+                </strong>
+              </div>
+
+              <span style={styles.activeSceneDuration}>
+                {activeScene?.duration ?? 0}s
+              </span>
+            </div>
+
+            {/* CINEMATIC SCENE TIMELINE */}
+
+            <div style={styles.timelineSection}>
+              <CinematicSceneTimeline
+                scenes={scenes}
+                activeSceneId={activeSceneId}
+                onSceneSelect={handleSceneSelect}
+                playing={isDialoguePlaying}
+              />
+            </div>
 
             {/* DIALOGUE PERFORMANCE CONSOLE */}
 
             <div style={styles.performanceSection}>
               <CinematicPerformanceConsole
                 lines={dialogueLines}
-                onLineChange={(line) => {
-                  if (line) {
-                    console.log(
-                      "Active dialogue:",
-                      line.characterName
-                    );
-                  }
-                }}
+                onLineChange={handleDialogueLineChange}
                 onPlaybackChange={(playing) => {
                   setIsDialoguePlaying(playing);
                 }}
@@ -1243,6 +1314,45 @@ color: "#8899a6",
 fontWeight: 700,
 fontSize: 11,
 cursor: "pointer",
+},
+
+activeSceneIndicator: {
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+gap: 12,
+padding: 13,
+marginTop: 12,
+marginBottom: 12,
+borderRadius: 10,
+background: "rgba(34,197,94,0.08)",
+border: "1px solid rgba(34,197,94,0.2)",
+},
+
+activeSceneLabel: {
+display: "block",
+color: "#4ade80",
+fontSize: 9,
+fontWeight: 900,
+letterSpacing: 1,
+marginBottom: 5,
+},
+
+activeSceneTitle: {
+display: "block",
+color: "#f0fdf4",
+fontSize: 12,
+},
+
+activeSceneDuration: {
+color: "#86efac",
+fontSize: 11,
+fontWeight: 800,
+},
+
+timelineSection: {
+marginTop: 14,
+marginBottom: 18,
 },
 
 performanceSection: {
