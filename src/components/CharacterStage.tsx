@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 
 import CharacterCanvas, {
 type EnvironmentId,
 } from "./CharacterCanvas";
+
+import CinematicCameraPanel from "./CinematicCameraPanel";
 
 import type { CharacterAction } from "../lib/character-motion";
 
@@ -29,6 +31,16 @@ appearances?: Record<string, CharacterAppearance>;
 cameraSettings?: CinematicCameraSettings;
 }
 
+const DEFAULT_CAMERA: CinematicCameraSettings = {
+shot: "medium",
+transitionSpeed: 3,
+movementSpeed: 0.35,
+fieldOfView: 40,
+orbitRadius: 5.5,
+orbitHeight: 2.3,
+enabled: true,
+};
+
 export default function CharacterStage({
 selectedIds,
 height = 560,
@@ -38,15 +50,22 @@ action = "idle",
 appearances = {},
 cameraSettings,
 }: CharacterStageProps) {
+const [localCamera, setLocalCamera] =
+useState<CinematicCameraSettings>(DEFAULT_CAMERA);
+
+const activeCamera = cameraSettings ?? localCamera;
+
 return (
 <section
 className="character-stage"
 style={{
 width: "100%",
 minWidth: 0,
-position: "relative",
+display: "flex",
+flexDirection: "column",
+gap: 14,
 }}
-data-camera-mode={cameraSettings?.shot ?? "manual"}
+data-camera-mode={activeCamera.shot}
 >
 <CharacterCanvas
 selectedIds={selectedIds}
@@ -55,8 +74,14 @@ showControls={showControls}
 environment={environment}
 action={action}
 appearances={appearances}
-cameraSettings={cameraSettings}
+cameraSettings={activeCamera}
 />
+
+  <CinematicCameraPanel
+    value={activeCamera}
+    onChange={setLocalCamera}
+  />
 </section>
+
 );
 }
