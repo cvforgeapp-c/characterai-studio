@@ -1,91 +1,81 @@
 import { Suspense } from "react";
-import { Loader } from "@react-three/drei";
 
 import CharacterCanvas from "./CharacterCanvas";
+
 import type { CharacterAction } from "../lib/character-motion";
+
 import type { CharacterStyle } from "./ProceduralCharacter";
 
 export type CharacterAppearance = {
-style: CharacterStyle;
-skinTone: string;
-clothingColor: string;
-hairColor: string;
+  style: CharacterStyle;
+  skinTone: string;
+  clothingColor: string;
+  hairColor: string;
 };
 
 interface CharacterStageProps {
-selectedIds: string[];
-height?: number;
-showControls?: boolean;
-environment?:
-| "studio"
-| "park"
-| "kitchen"
-| "city"
-| "space"
-| "beach";
-action?: CharacterAction;
-appearances?: Record<string, CharacterAppearance>;
+  selectedIds: string[];
+  height?: number;
+  showControls?: boolean;
+  environment?:
+    | "studio"
+    | "park"
+    | "kitchen"
+    | "city"
+    | "space"
+    | "beach";
+  action?: CharacterAction;
+  appearances?: Record<string, CharacterAppearance>;
 }
 
 function LoadingScreen() {
-return (
-<div className="character-loading">
-<div className="loading-spinner" />
-<p>Preparing your 3D characters...</p>
-</div>
-);
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: 200,
+        display: "grid",
+        placeItems: "center",
+        color: "#36d6ba",
+        background: "#101a22",
+        fontSize: 13
+      }}
+    >
+      Preparing cinematic 3D scene...
+    </div>
+  );
 }
 
 export default function CharacterStage({
-selectedIds,
-height = 380,
-showControls = true,
-environment = "studio",
-action = "idle",
-appearances = {}
+  selectedIds,
+  height = 380,
+  environment = "studio",
+  action = "idle",
+  appearances = {}
 }: CharacterStageProps) {
-return (
-<section
-className="character-preview-panel"
-style={{
-width: "100%",
-minHeight: height
-}}
->
-<div className="character-stage-header">
-<div>
-<span className="section-eyebrow">
-3D CHARACTER STUDIO
-</span>
 
-      <h3>Character Preview</h3>
+  return (
+    <div
+      className="character-preview-panel"
+      style={{
+        width: "100%",
+        height,
+        minHeight: 0,
+        overflow: "hidden",
+        position: "relative",
+        borderRadius: "inherit"
+      }}
+    >
+      <Suspense fallback={<LoadingScreen />}>
+        <CharacterCanvas
+          selectedIds={selectedIds}
+          environment={environment}
+          action={action}
+          appearances={appearances}
+          height={height}
+        />
+      </Suspense>
     </div>
-
-    {showControls && (
-      <span className="live-indicator">
-        <span className="live-dot" />
-        LIVE PREVIEW
-      </span>
-    )}
-  </div>
-
-  <Suspense fallback={<LoadingScreen />}>
-    <CharacterCanvas
-      selectedIds={selectedIds}
-      environment={environment}
-      action={action}
-      appearances={appearances}
-    />
-  </Suspense>
-
-  {selectedIds.length === 0 && (
-    <div className="character-empty-message">
-      Select a character to see its 3D preview.
-    </div>
-  )}
-
-  <Loader />
-</section>
-
-);
+  );
 }
