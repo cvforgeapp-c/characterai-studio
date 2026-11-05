@@ -12,12 +12,6 @@ type CinematicActingSettings,
 } from "./CinematicActingPanel";
 
 import {
-createPerformanceCues,
-getActivePerformanceCue,
-type PerformanceCue,
-} from "../lib/cinematic-performance-engine";
-
-import {
 detectDialoguePerformance,
 } from "../lib/cinematic-dialogue-utils";
 
@@ -31,22 +25,45 @@ duration?: number;
 
 interface Props {
 lines: DialoguePlaybackLine[];
+
 onActingChange: (
 characterId: string,
 settings: CinematicActingSettings
 ) => void;
-onLineChange?: (
-line: DialoguePlaybackLine | null
-) => void;
-onPlaybackChange?: (
-playing: boolean,
-currentTime: number
-) => void;
-onSpeak?: (
-line: DialoguePlaybackLine
-) => void;
+
+onLineChange?: (line: DialoguePlaybackLine | null) => void;
+
+onPlaybackChange?: (playing: boolean) => void;
+
+onSpeak?: (line: DialoguePlaybackLine) => void;
+
 onStopSpeaking?: () => void;
 }
+
+interface TimedLine {
+line: DialoguePlaybackLine;
+start: number;
+end: number;
+}
+
+const getLineDuration = (line: DialoguePlaybackLine) => {
+if (line.duration && line.duration > 0) {
+return line.duration;
+}
+
+const words = line.text.trim().split(/\s+/).filter(Boolean).length;
+
+return Math.max(2, words / 2.5);
+};
+
+const formatTime = (seconds: number) => {
+const safe = Math.max(0, Math.floor(seconds));
+
+const minutes = Math.floor(safe / 60);
+const remaining = safe % 60;
+
+return "${minutes}:${String(remaining).padStart(2, "0")}";
+};
 
 export default function CinematicDialoguePlayback({
 lines,
@@ -58,335 +75,675 @@ onStopSpeaking,
 }: Props) {
 const [playing, setPlaying] = useState(false);
 const [currentTime, setCurrentTime] = useState(0);
+const [activeLineId, setActiveLineId] = useState<string | null>(null);
 
 const frameRef = useRef<number | null>(null);
-const lastFrameRef = useRef<number>(0);
-const activeCueRef = useRef<string | null>(null);
-const playbackRef = useRef(false);
+const previousFrameRef = useRef<number | null>(null);
+const currentTimeRef = useRef(0);
+const activeLineRef = useRef<string | null>(null);
+const playingRef = useRef(false);
 
-const cues = useMemo<PerformanceCue[]>(
-() => {
-const generated = createPerformanceCues(
-lines.map((line) => ({
-...line,
-duration: line.duration ?? Math.max(
-2,
-line.text.trim().split(/\s+/).length / 2.5
-),
-})),
-3
-);
-
-  return generated.map((cue) => ({
-    ...cue,
-    settings: {
-      ...DEFAULT_ACTING_SETTINGS,
-      ...detectDialoguePerformance(cue.dialogue),
-      isSpeaking: true,
-    },
-  }));
-},
-[lines]
-
-);
-
-const totalDuration = useMemo(
-() =>
-cues.reduce(
-(maximum, cue) =>
-Math.max(
-maximum,
-cue.startTime + cue.duration
-),
-0
-),
-[cues]
-);
-
-const stopAllCharacters = useCallback(() => {
-const characterIds = [
-...new Set(lines.map((line) => line.characterId)),
-];
-
-characterIds.forEach((characterId) => {
-  onActingChange(characterId, {
-    ...DEFAULT_ACTING_SETTINGS,
-    isSpeaking: false,
-  });
+const callbacksRef = useRef({
+onActingChange,
+onLineChange,
+onPlaybackChange,
+onSpeak,
+onStopSpeaking,
 });
 
-onStopSpeaking?.();
-activeCueRef.current = null;
-onLineChange?.(null);
+useEffect(() => {
+callbacksRef.current = {
+onActingChange,
+onLineChange,
+onPlaybackChange,
+onSpeak,
+onStopSpeaking,
+};
+}, [
+onActingChange,
+onLineChange,
+onPlaybackChange,
+onSpeak,
+onStopSpeaking,
+]);
 
-}, [lines, onActingChange, onStopSpeaking, onLineChange]);
+const timeline = useMemo<TimedLine[]>(() => {
+let cursor = 0;
 
-const updatePlayback = useCallback(
-(time: number) => {
-const cue = getActivePerformanceCue(cues, time);
+return lines.map((line) => {
+  const duration = getLineDuration(line);
 
-  if (!cue) {
-    if (activeCueRef.current !== null) {
-      stopAllCharacters();
+  const item = {
+    line,
+    start: cursor,
+    end: cursor + duration,
+  };
+
+  cursor += duration;
+
+  return item;
+});
+
+}, [lines]);
+
+const totalDuration = useMemo(
+() => timeline.length > 0
+? timeline[timeline.length - 1].end
+: 0,
+[timeline]
+);
+
+const activeTimedLine = useMemo(() => {
+return timeline.find(
+(item) =>
+currentTime >= item.start &&
+currentTime < item.end
+) ?? null;
+}, [timeline, currentTime]);
+
+const stopCurrentVoice = useCallback(() => {
+callbacksRef.current.onStopSpeaking?.();
+}, []);
+
+const stopAllCharacters = useCallback(() => {
+stopCurrentVoice();
+
+lines.forEach((line) => {
+  callbacksRef.current.onActingChange(
+    line.characterId,
+    {
+      ...DEFAULT_ACTING_SETTINGS,
+      isSpeaking: false,
     }
-    return;
+  );
+});
+
+activeLineRef.current = null;
+setActiveLineId(null);
+callbacksRef.current.onLineChange?.(null);
+
+}, [lines, stopCurrentVoice]);
+
+const activateLine = useCallback(
+(line: DialoguePlaybackLine) => {
+const previousId = activeLineRef.current;
+
+  if (previousId === line.id) return;
+
+  // Stop the previous speaker before activating the next.
+  stopCurrentVoice();
+
+  if (previousId) {
+    const previousLine = lines.find(
+      (item) => item.id === previousId
+    );
+
+    if (previousLine) {
+      callbacksRef.current.onActingChange(
+        previousLine.characterId,
+        {
+          ...DEFAULT_ACTING_SETTINGS,
+          isSpeaking: false,
+        }
+      );
+    }
   }
 
-  if (activeCueRef.current === cue.id) return;
+  const detected = detectDialoguePerformance(line.text);
 
-  activeCueRef.current = cue.id;
-
-  stopAllCharacters();
-
-  onActingChange(cue.characterId, {
-    ...cue.settings,
+  const settings: CinematicActingSettings = {
+    ...DEFAULT_ACTING_SETTINGS,
+    ...detected,
     isSpeaking: true,
-  });
+  };
 
-  const line = lines.find(
-    (item) => item.id === cue.id
+  callbacksRef.current.onActingChange(
+    line.characterId,
+    settings
   );
 
-  if (line) {
-    onLineChange?.(line);
-    onSpeak?.(line);
-  }
+  activeLineRef.current = line.id;
+
+  setActiveLineId(line.id);
+
+  callbacksRef.current.onLineChange?.(line);
+
+  callbacksRef.current.onSpeak?.(line);
 },
-[
-  cues,
-  lines,
-  onActingChange,
-  onLineChange,
-  onSpeak,
-  stopAllCharacters,
-]
+[lines, stopCurrentVoice]
 
 );
 
-const tick = useCallback(
-(timestamp: number) => {
-if (!playbackRef.current) return;
+const seek = useCallback(
+(time: number) => {
+const nextTime = Math.max(
+0,
+Math.min(totalDuration, time)
+);
 
-  if (!lastFrameRef.current) {
-    lastFrameRef.current = timestamp;
-  }
+  currentTimeRef.current = nextTime;
+  setCurrentTime(nextTime);
 
-  const delta = Math.min(
-    (timestamp - lastFrameRef.current) / 1000,
-    0.1
+  const item = timeline.find(
+    (entry) =>
+      nextTime >= entry.start &&
+      nextTime < entry.end
   );
 
-  lastFrameRef.current = timestamp;
-
-  setCurrentTime((previous) => {
-    const next = Math.min(
-      previous + delta,
-      totalDuration
-    );
-
-    updatePlayback(next);
-
-    if (next >= totalDuration) {
-      playbackRef.current = false;
-      setPlaying(false);
-      stopAllCharacters();
-      onPlaybackChange?.(false, next);
-    }
-
-    return next;
-  });
-
-  if (playbackRef.current) {
-    frameRef.current = requestAnimationFrame(tick);
+  if (playingRef.current && item) {
+    activateLine(item.line);
+  } else {
+    stopAllCharacters();
   }
 },
 [
   totalDuration,
-  updatePlayback,
+  timeline,
+  activateLine,
   stopAllCharacters,
-  onPlaybackChange,
 ]
 
 );
 
-const play = () => {
-if (!lines.length || totalDuration <= 0) return;
+const pause = useCallback(() => {
+playingRef.current = false;
 
-if (currentTime >= totalDuration) {
-  setCurrentTime(0);
-}
-
-playbackRef.current = true;
-setPlaying(true);
-lastFrameRef.current = 0;
-
-onPlaybackChange?.(true, currentTime);
-
-frameRef.current = requestAnimationFrame(tick);
-
-};
-
-const pause = () => {
-playbackRef.current = false;
 setPlaying(false);
+
+callbacksRef.current.onPlaybackChange?.(false);
 
 if (frameRef.current !== null) {
   cancelAnimationFrame(frameRef.current);
   frameRef.current = null;
 }
 
+previousFrameRef.current = null;
+
 stopAllCharacters();
-onPlaybackChange?.(false, currentTime);
 
-};
+}, [stopAllCharacters]);
 
-const restart = () => {
-pause();
-setCurrentTime(0);
-updatePlayback(0);
-};
+const finishPlayback = useCallback(() => {
+playingRef.current = false;
 
-const seek = (time: number) => {
-const next = Math.max(
-0,
-Math.min(time, totalDuration)
+setPlaying(false);
+
+currentTimeRef.current = totalDuration;
+setCurrentTime(totalDuration);
+
+callbacksRef.current.onPlaybackChange?.(false);
+
+if (frameRef.current !== null) {
+  cancelAnimationFrame(frameRef.current);
+  frameRef.current = null;
+}
+
+previousFrameRef.current = null;
+
+stopAllCharacters();
+
+}, [totalDuration, stopAllCharacters]);
+
+const tick = useCallback(
+(timestamp: number) => {
+if (!playingRef.current) return;
+
+  if (previousFrameRef.current === null) {
+    previousFrameRef.current = timestamp;
+  }
+
+  const delta =
+    (timestamp - previousFrameRef.current) / 1000;
+
+  previousFrameRef.current = timestamp;
+
+  const nextTime = currentTimeRef.current + delta;
+
+  if (nextTime >= totalDuration) {
+    finishPlayback();
+    return;
+  }
+
+  currentTimeRef.current = nextTime;
+
+  setCurrentTime(nextTime);
+
+  const item = timeline.find(
+    (entry) =>
+      nextTime >= entry.start &&
+      nextTime < entry.end
+  );
+
+  if (item) {
+    activateLine(item.line);
+  }
+
+  frameRef.current = requestAnimationFrame(tick);
+},
+[
+  timeline,
+  totalDuration,
+  activateLine,
+  finishPlayback,
+]
+
 );
 
-setCurrentTime(next);
-activeCueRef.current = null;
-updatePlayback(next);
+const play = useCallback(() => {
+if (timeline.length === 0 || totalDuration <= 0) {
+return;
+}
 
+if (currentTimeRef.current >= totalDuration) {
+  currentTimeRef.current = 0;
+  setCurrentTime(0);
+  activeLineRef.current = null;
+}
+
+playingRef.current = true;
+
+setPlaying(true);
+
+callbacksRef.current.onPlaybackChange?.(true);
+
+const initialItem = timeline.find(
+  (item) =>
+    currentTimeRef.current >= item.start &&
+    currentTimeRef.current < item.end
+);
+
+if (initialItem) {
+  activateLine(initialItem.line);
+}
+
+previousFrameRef.current = null;
+
+frameRef.current = requestAnimationFrame(tick);
+
+}, [timeline, totalDuration, activateLine, tick]);
+
+const restart = useCallback(() => {
+pause();
+
+currentTimeRef.current = 0;
+setCurrentTime(0);
+
+activeLineRef.current = null;
+setActiveLineId(null);
+
+if (timeline.length > 0) {
+  callbacksRef.current.onLineChange?.(null);
+}
+
+}, [pause, timeline.length]);
+
+const togglePlayback = () => {
+if (playing) {
+pause();
+} else {
+play();
+}
 };
 
 useEffect(() => {
 return () => {
-playbackRef.current = false;
+playingRef.current = false;
 
   if (frameRef.current !== null) {
     cancelAnimationFrame(frameRef.current);
   }
+
+  callbacksRef.current.onStopSpeaking?.();
+
+  lines.forEach((line) => {
+    callbacksRef.current.onActingChange(
+      line.characterId,
+      {
+        ...DEFAULT_ACTING_SETTINGS,
+        isSpeaking: false,
+      }
+    );
+  });
 };
 
-}, []);
+}, [lines]);
 
-useEffect(() => {
-if (currentTime > totalDuration) {
-setCurrentTime(0);
-}
-}, [totalDuration, currentTime]);
-
-const activeCue = getActivePerformanceCue(
-cues,
-currentTime
-);
+const progress =
+totalDuration > 0
+? (currentTime / totalDuration) * 100
+: 0;
 
 return (
-<section className="space-y-4 rounded-2xl border border-white/10 bg-[#10141f] p-4 text-white">
-<div className="flex items-center justify-between">
+<section
+style={{
+width: "100%",
+padding: 20,
+borderRadius: 18,
+background: "#10131c",
+border: "1px solid #292f40",
+color: "#ffffff",
+boxSizing: "border-box",
+}}
+>
+<div
+style={{
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+gap: 12,
+marginBottom: 18,
+flexWrap: "wrap",
+}}
+>
 <div>
-<h3 className="text-sm font-bold">
+<h2
+style={{
+margin: 0,
+fontSize: 19,
+fontWeight: 800,
+}}
+>
 Cinematic Dialogue Playback
-</h3>
-<p className="mt-1 text-xs text-gray-400">
-Synchronized character performance timeline.
-</p>
-</div>
+</h2>
 
-    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs text-emerald-300">
-      {playing ? "PLAYING" : "READY"}
+      <p
+        style={{
+          margin: "5px 0 0",
+          color: "#929bad",
+          fontSize: 12,
+        }}
+      >
+        Character performance timeline
+      </p>
+    </div>
+
+    <span
+      style={{
+        padding: "7px 12px",
+        borderRadius: 20,
+        background: playing
+          ? "#123d31"
+          : "#292f40",
+        color: playing
+          ? "#62e6ad"
+          : "#aeb8ca",
+        fontSize: 11,
+        fontWeight: 800,
+      }}
+    >
+      {playing ? "● PLAYING" : "● PAUSED"}
     </span>
   </div>
 
-  <div className="rounded-xl bg-black/30 p-3">
-    <div className="flex items-center justify-between text-xs text-gray-400">
-      <span>
-        {activeCue?.characterName ?? "No active speaker"}
-      </span>
-
-      <span>
-        {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
-      </span>
-    </div>
-
-    <p className="mt-3 min-h-12 text-sm leading-relaxed text-gray-200">
-      {activeCue?.dialogue ?? "Ready to play dialogue."}
-    </p>
-  </div>
-
-  <input
-    type="range"
-    min={0}
-    max={Math.max(totalDuration, 0.1)}
-    step={0.05}
-    value={currentTime}
-    onChange={(event) =>
-      seek(Number(event.target.value))
-    }
-    className="w-full accent-purple-500"
-  />
-
-  <div className="flex gap-2">
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      marginBottom: 12,
+    }}
+  >
     <button
-      type="button"
       onClick={restart}
-      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
+      disabled={lines.length === 0}
+      style={buttonStyle}
     >
       ↺
     </button>
 
-    {!playing ? (
-      <button
-        type="button"
-        onClick={play}
-        disabled={!lines.length}
-        className="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-bold disabled:opacity-40"
-      >
-        ▶ Play Scene
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={pause}
-        className="flex-1 rounded-xl bg-amber-600 px-4 py-3 text-sm font-bold"
-      >
-        Ⅱ Pause
-      </button>
-    )}
+    <button
+      onClick={togglePlayback}
+      disabled={lines.length === 0}
+      style={{
+        ...buttonStyle,
+        width: 52,
+        height: 44,
+        background: "#7c5cff",
+        color: "#ffffff",
+        fontSize: 18,
+      }}
+    >
+      {playing ? "Ⅱ" : "▶"}
+    </button>
+
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+      }}
+    >
+      <input
+        type="range"
+        min={0}
+        max={Math.max(totalDuration, 0.01)}
+        step={0.05}
+        value={Math.min(currentTime, totalDuration)}
+        onChange={(event) =>
+          seek(Number(event.target.value))
+        }
+        style={{
+          width: "100%",
+          accentColor: "#8c70ff",
+          cursor: "pointer",
+        }}
+      />
+    </div>
+
+    <span
+      style={{
+        color: "#aab3c5",
+        fontSize: 11,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {formatTime(currentTime)} / {formatTime(totalDuration)}
+    </span>
   </div>
 
-  <div className="space-y-2">
-    {cues.map((cue) => {
-      const active = activeCue?.id === cue.id;
-
-      return (
-        <button
-          key={cue.id}
-          type="button"
-          onClick={() => seek(cue.startTime)}
-          className={`w-full rounded-lg border p-3 text-left ${
-            active
-              ? "border-purple-400 bg-purple-500/15"
-              : "border-white/10 bg-white/5"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-300">
-              {cue.characterName}
-            </span>
-
-            <span className="text-[10px] text-gray-500">
-              {cue.startTime.toFixed(1)}s
-            </span>
-          </div>
-
-          <p className="mt-1 text-xs text-gray-300">
-            {cue.dialogue}
-          </p>
-        </button>
-      );
-    })}
+  <div
+    style={{
+      height: 5,
+      borderRadius: 10,
+      background: "#292f40",
+      overflow: "hidden",
+      marginBottom: 20,
+    }}
+  >
+    <div
+      style={{
+        height: "100%",
+        width: `${progress}%`,
+        background: "#8c70ff",
+        transition: "width 80ms linear",
+      }}
+    />
   </div>
+
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    }}
+  >
+    <strong style={{ fontSize: 13 }}>
+      Dialogue Timeline
+    </strong>
+
+    <span
+      style={{
+        fontSize: 11,
+        color: "#929bad",
+      }}
+    >
+      {lines.length} dialogue lines
+    </span>
+  </div>
+
+  {timeline.length === 0 ? (
+    <div
+      style={{
+        padding: 24,
+        textAlign: "center",
+        borderRadius: 12,
+        background: "#191e2b",
+        color: "#929bad",
+        fontSize: 13,
+      }}
+    >
+      Generate dialogue to start cinematic playback.
+    </div>
+  ) : (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        maxHeight: 330,
+        overflowY: "auto",
+      }}
+    >
+      {timeline.map((item, index) => {
+        const active =
+          activeLineId === item.line.id;
+
+        return (
+          <button
+            key={item.line.id}
+            onClick={() => {
+              seek(item.start);
+
+              if (!playing) {
+                activateLine(item.line);
+              }
+            }}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: 13,
+              borderRadius: 12,
+              border: active
+                ? "1px solid #927aff"
+                : "1px solid #292f40",
+              background: active
+                ? "#292044"
+                : "#191e2b",
+              color: "#ffffff",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+                marginBottom: 6,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: active
+                    ? "#b9a8ff"
+                    : "#aeb8ca",
+                }}
+              >
+                {index + 1}. {item.line.characterName}
+              </span>
+
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "#929bad",
+                }}
+              >
+                {formatTime(item.start)} –{" "}
+                {formatTime(item.end)}
+              </span>
+            </div>
+
+            <div
+              style={{
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: active
+                  ? "#ffffff"
+                  : "#c1c9d8",
+              }}
+            >
+              {item.line.text}
+            </div>
+
+            {active && (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 10,
+                  color: "#a995ff",
+                  fontWeight: 800,
+                }}
+              >
+                ● ACTIVE PERFORMANCE
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  )}
+
+  {activeTimedLine && (
+    <div
+      style={{
+        marginTop: 15,
+        padding: 12,
+        borderRadius: 12,
+        background: "#191e2b",
+        border: "1px solid #343047",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          color: "#a995ff",
+          fontWeight: 800,
+          marginBottom: 5,
+        }}
+      >
+        CURRENT SPEAKER
+      </div>
+
+      <strong style={{ fontSize: 14 }}>
+        {activeTimedLine.line.characterName}
+      </strong>
+
+      <p
+        style={{
+          margin: "6px 0 0",
+          color: "#c1c9d8",
+          fontSize: 12,
+          lineHeight: 1.5,
+        }}
+      >
+        {activeTimedLine.line.text}
+      </p>
+    </div>
+  )}
 </section>
 
 );
 }
+
+const buttonStyle: React.CSSProperties = {
+width: 42,
+height: 42,
+border: "1px solid #343b4e",
+borderRadius: 10,
+background: "#202638",
+color: "#ffffff",
+fontSize: 16,
+fontWeight: 800,
+cursor: "pointer",
+};
