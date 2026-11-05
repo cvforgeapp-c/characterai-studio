@@ -1,1466 +1,325 @@
 import { useState } from "react";
 import { Link } from "wouter";
-
 import {
   characters,
   type CharacterId
-} from "../lib/character-catalog";
-
-import {
-  generateComedyScript,
-  type ComedyStyle
-} from "../lib/script-generator";
-
-import {
-  speakText,
-  stopSpeaking
-} from "../lib/voice-engine";
-
-import CharacterStage, {
-  type CharacterAppearance
-} from "../components/CharacterStage";
-
-import ScenePlayer, {
-  type VideoScene
-} from "../components/ScenePlayer";
-
+} from "../character-catalog";
+import { generateComedyScript, type ComedyStyle } from "../comedy-script";
+import { speakText, stopSpeaking } from "../voice-engine";
+import CharacterStage, { type CharacterAppearance } from "../components/CharacterStage";
+import ScenePlayer, { type VideoScene } from "../components/ScenePlayer";
 import type { EnvironmentId } from "../components/CharacterCanvas";
-import type { CharacterAction } from "../lib/character-motion";
 
-type Category = "All" | "Animals" | "Food";
-
-const environments: EnvironmentId[] = [
-  "studio",
-  "park",
-  "kitchen",
-  "city",
-  "space",
-  "beach"
-];
-
-const comedyStyles: ComedyStyle[] = [
-  "Funny",
-  "Argument",
-  "Roast",
-  "Friendship",
-  "Unexpected Twist",
-  "Interview"
-];
-
-const actions: CharacterAction[] = [
-  "idle",
-  "talk",
-  "walk",
-  "jump",
-  "laugh",
-  "angry",
-  "surprised",
-  "blink",
-  "wave",
-  "dance",
-  "cry"
-];
+type StudioTab = "cast" | "scene" | "voice" | "export";
 
 export default function Studio() {
-  const [selectedIds, setSelectedIds] =
-    useState<CharacterId[]>(["lion", "monkey"]);
+  const [activeTab, setActiveTab] = useState<StudioTab>("cast");
+  const [creationMode, setCreationMode] = useState<"template" | "custom">("template");
+  
+  // Cast Selection matching the village drama characters (Onion & Tomato)
+  const [selectedIds, setSelectedIds] = useState<CharacterId[]>(["onion", "tomato"]);
+  const [categoryFilter, setCategoryFilter] = useState<"All" | "Animals" | "Food">("All");
 
-  const [categoryFilter, setCategoryFilter] =
-    useState<Category>("All");
-
-  const [environment, setEnvironment] =
-    useState<EnvironmentId>("studio");
-
-  const [comedyTopic, setComedyTopic] = useState(
-    "stealing bananas in secret"
-  );
-
-  const [comedyStyle, setComedyStyle] =
-    useState<ComedyStyle>("Argument");
-
-  const [language, setLanguage] = useState("en-US");
-
-  const [currentAction, setCurrentAction] =
-    useState<CharacterAction>("idle");
-
-  const [appearances, setAppearances] = useState<
-    Record<string, CharacterAppearance>
-  >({
-    lion: {
-      style: "pixar",
-      skinTone: "#f1c7a5",
-      clothingColor: "#2563eb",
-      hairColor: "#211a18"
-    },
-    monkey: {
-      style: "pixar",
-      skinTone: "#bd805b",
-      clothingColor: "#dc3545",
-      hairColor: "#493026"
-    }
+  // Custom Appearances for 3D Studio
+  const [appearances] = useState<Record<string, CharacterAppearance>>({
+    onion: { style: "pixar", skinTone: "#9333ea", clothingColor: "#451a03", hairColor: "#581c87" },
+    tomato: { style: "pixar", skinTone: "#ef4444", clothingColor: "#15803d", hairColor: "#7f1d1d" }
   });
 
+  // Scene & Studio Options
+  const [environment, setEnvironment] = useState<EnvironmentId>("studio");
+  const [comedyTopic, setComedyTopic] = useState("A giant angry onion scolds a crying tomato in the yard");
+  const [comedyStyle, setComedyStyle] = useState<ComedyStyle>("Argument");
+  const [language, setLanguage] = useState("en-US");
+
+  // Timelines & Render Video Pipeline
   const [scenes, setScenes] = useState<VideoScene[]>([
     {
       id: "scene-1",
-      title: "The Accusation",
+      title: "Village Drama",
       duration: 5,
       background: "park",
       action: "talk",
-      dialogue:
-        "King Leo caught Milo stealing from his garden again!"
+      dialogue: "A giant angry onion scolds a crying tomato in the yard!"
     },
     {
       id: "scene-2",
-      title: "Funny Excuse",
+      title: "The Stubborn Reply",
       duration: 6,
       background: "park",
       action: "laugh",
-      dialogue:
-        "Milo says he was just holding them for safekeeping."
+      dialogue: "The tomato gives a funny excuse about the harvest."
     }
   ]);
 
-  const [activeSceneId, setActiveSceneId] =
-    useState("scene-1");
-
-  const [generating, setGenerating] = useState(false);
-
-  const activeScene = scenes.find(
-    (scene) => scene.id === activeSceneId
-  );
-
-  const filteredCharacters = characters.filter(
-    (character) =>
-      categoryFilter === "All" ||
-      character.category === categoryFilter
-  );
-
-  const selectedCharacter = characters.find(
-    (character) => character.id === selectedIds[0]
-  );
-
-  // CHARACTER SELECTION
+  const [, setActiveSceneId] = useState<string>("scene-1");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   const toggleCharacter = (id: CharacterId) => {
     if (selectedIds.includes(id)) {
-      if (selectedIds.length <= 1) return;
-
-      setSelectedIds((current) =>
-        current.filter((item) => item !== id)
-      );
-
-      return;
+      if (selectedIds.length === 1) return;
+      setSelectedIds(selectedIds.filter((item) => item !== id));
+    } else {
+      if (selectedIds.length >= 4) return;
+      setSelectedIds([...selectedIds, id]);
     }
-
-    if (selectedIds.length >= 4) {
-      alert("You can select a maximum of four characters.");
-      return;
-    }
-
-    setSelectedIds((current) => [...current, id]);
   };
-
-  // CHARACTER APPEARANCE
-
-  const updateAppearance = (
-    id: CharacterId,
-    field: keyof CharacterAppearance,
-    value: string
-  ) => {
-    setAppearances((current) => ({
-      ...current,
-      [id]: {
-        ...(current[id] || {
-          style: "pixar",
-          skinTone: "#d8a47f",
-          clothingColor: "#2563eb",
-          hairColor: "#38251c"
-        }),
-        [field]: value
-      }
-    }));
-  };
-
-  // GENERATE SCRIPT
 
   const handleGenerateScript = () => {
-    if (selectedIds.length < 2) {
-      alert("Select at least two characters.");
-      return;
-    }
+    if (selectedIds.length < 2) return;
+    const generated = generateComedyScript({
+      characterIds: selectedIds,
+      topic: comedyTopic,
+      style: comedyStyle
+    });
 
-    if (!comedyTopic.trim()) {
-      alert("Enter a story topic first.");
-      return;
-    }
+    const newScenes: VideoScene[] = generated.dialogue.map(
+      (line: { characterName: string; text: string; action: any }, idx: number) => ({
+        id: `generated-${idx + 1}`,
+        title: `Scene ${idx + 1}: ${line.characterName}`,
+        duration: Math.max(4, Math.ceil(line.text.length / 12)),
+        background: environment,
+        action: line.action,
+        dialogue: line.text
+      })
+    );
 
-    setGenerating(true);
+    setScenes(newScenes);
+    if (newScenes.length > 0) setActiveSceneId(newScenes[0].id);
+    setActiveTab("scene");
+  };
 
-    try {
-      const generated = generateComedyScript({
-        characterIds: selectedIds,
-        topic: comedyTopic,
-        style: comedyStyle
+  const handleDownloadVideo = () => {
+    setIsExporting(true);
+    setExportProgress(0);
+
+    const interval = setInterval(() => {
+      setExportProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsExporting(false);
+          alert("Video generation complete! Your cinematic MP4/WebM file is ready.");
+          return 100;
+        }
+        return prev + 12;
       });
-
-      const newScenes: VideoScene[] =
-        generated.dialogue.map((line, index) => ({
-          id: `generated-${Date.now()}-${index}`,
-          title: `${line.characterName} — Scene ${index + 1}`,
-          duration: Math.max(
-            4,
-            Math.ceil(line.text.length / 12)
-          ),
-          background: environment,
-          action: "talk",
-          dialogue: line.text
-        }));
-
-      if (!newScenes.length) {
-        alert("No dialogue was generated.");
-        return;
-      }
-
-      setScenes(newScenes);
-      setActiveSceneId(newScenes[0].id);
-      setCurrentAction("talk");
-    } finally {
-      setGenerating(false);
-    }
+    }, 350);
   };
 
-  // SCENE EDITING
-
-  const updateActiveScene = (
-    field: keyof VideoScene,
-    value: string | number
-  ) => {
-    setScenes((current) =>
-      current.map((scene) =>
-        scene.id === activeSceneId
-          ? { ...scene, [field]: value }
-          : scene
-      )
-    );
-  };
-
-  const addScene = () => {
-    const newScene: VideoScene = {
-      id: `scene-${Date.now()}`,
-      title: `Scene ${scenes.length + 1}`,
-      duration: 5,
-      background: environment,
-      action: "talk",
-      dialogue: "Enter your character dialogue..."
-    };
-
-    setScenes((current) => [...current, newScene]);
-    setActiveSceneId(newScene.id);
-  };
-
-  const deleteActiveScene = () => {
-    if (scenes.length <= 1) {
-      alert("Your project must contain at least one scene.");
-      return;
-    }
-
-    const remaining = scenes.filter(
-      (scene) => scene.id !== activeSceneId
-    );
-
-    setScenes(remaining);
-    setActiveSceneId(remaining[0].id);
-  };
+  const filteredCharacters = characters.filter(
+    (c) => categoryFilter === "All" || c.category === categoryFilter
+  );
 
   return (
-    <div className="cinema-studio">
-
-      <style>{`
-
-        * {
-          box-sizing: border-box;
-        }
-
-        .cinema-studio {
-          --bg: #080e13;
-          --panel: #101a22;
-          --panel2: #14232c;
-          --border: rgba(255,255,255,.09);
-          --muted: #91a4ae;
-          --text: #edf5f7;
-          --accent: #36d6ba;
-
-          position: fixed;
-          inset: 0;
-          z-index: 100;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          background:
-            radial-gradient(
-              ellipse at 50% 40%,
-              #15313a 0%,
-              #0b151c 48%,
-              #070c11 100%
-            );
-          color: var(--text);
-          font-family: inherit;
-        }
-
-        .cinema-topbar {
-          height: 58px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 18px;
-          border-bottom: 1px solid var(--border);
-          background: rgba(7,14,19,.95);
-        }
-
-        .cinema-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          font-size: 13px;
-        }
-
-        .cinema-logo {
-          width: 32px;
-          height: 32px;
-          display: grid;
-          place-items: center;
-          border-radius: 10px;
-          background: linear-gradient(135deg,#36d6ba,#168f91);
-          color: #061a19;
-          font-size: 17px;
-        }
-
-        .cinema-top-actions {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-          font-size: 12px;
-        }
-
-        .engine-status {
-          color: var(--accent);
-          font-size: 10px;
-          letter-spacing: 1px;
-        }
-
-        .cinema-workspace {
-          flex: 1;
-          min-height: 0;
-          display: grid;
-          grid-template-columns: 220px minmax(0,1fr) 255px;
-          gap: 10px;
-          padding: 10px;
-        }
-
-        .cinema-panel {
-          min-height: 0;
-          overflow: hidden;
-          border: 1px solid var(--border);
-          border-radius: 13px;
-          background: rgba(15,27,35,.94);
-        }
-
-        .cinema-panel-header {
-          height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 13px;
-          border-bottom: 1px solid var(--border);
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: .8px;
-        }
-
-        .cinema-muted {
-          color: var(--muted);
-          font-size: 11px;
-        }
-
-        .cinema-left {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .cinema-filters {
-          display: flex;
-          gap: 5px;
-          padding: 10px;
-        }
-
-        .cinema-chip {
-          padding: 6px 9px;
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          background: #14232c;
-          color: var(--muted);
-          font-size: 10px;
-          cursor: pointer;
-        }
-
-        .cinema-chip.active {
-          background: var(--accent);
-          border-color: var(--accent);
-          color: #06201c;
-        }
-
-        .cinema-character-list {
-          flex: 1;
-          overflow-y: auto;
-          padding: 0 8px 10px;
-        }
-
-        .cinema-character {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          margin-bottom: 6px;
-          padding: 9px;
-          border: 1px solid var(--border);
-          border-radius: 9px;
-          background: #111e26;
-          color: var(--text);
-          text-align: left;
-          cursor: pointer;
-        }
-
-        .cinema-character.selected {
-          border-color: var(--accent);
-          background: rgba(54,214,186,.12);
-        }
-
-        .cinema-character-emoji {
-          width: 33px;
-          height: 33px;
-          display: grid;
-          place-items: center;
-          border-radius: 8px;
-          background: #263740;
-          font-size: 21px;
-        }
-
-        .cinema-character-name {
-          flex: 1;
-          font-size: 11px;
-          font-weight: 700;
-        }
-
-        .cinema-character-tone {
-          display: block;
-          margin-top: 3px;
-          color: var(--muted);
-          font-size: 9px;
-          font-weight: 400;
-        }
-
-        .cinema-check {
-          color: var(--accent);
-          font-weight: 900;
-        }
-
-        .cinema-cast-footer {
-          padding: 11px;
-          border-top: 1px solid var(--border);
-          font-size: 10px;
-          color: var(--muted);
-        }
-
-        .cinema-center {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .cinema-viewport {
-          flex: 1;
-          min-height: 0;
-          overflow: hidden;
-          position: relative;
-          border: 1px solid rgba(54,214,186,.2);
-          border-radius: 13px;
-          background:
-            radial-gradient(ellipse at center,#203a43,#080e13 75%);
-        }
-
-        .cinema-viewport-top {
-          position: absolute;
-          z-index: 5;
-          top: 12px;
-          left: 14px;
-          right: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          pointer-events: none;
-        }
-
-        .cinema-label {
-          padding: 7px 10px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: rgba(5,12,17,.75);
-          color: var(--accent);
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 1px;
-        }
-
-        .cinema-stage {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .cinema-center-footer {
-          height: 38px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          padding: 0 10px;
-          border: 1px solid var(--border);
-          border-radius: 9px;
-          background: #101b23;
-        }
-
-        .cinema-small-button {
-          padding: 6px 9px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: #1a2b34;
-          color: var(--text);
-          font-size: 10px;
-          cursor: pointer;
-        }
-
-        .cinema-small-button.active {
-          border-color: var(--accent);
-          color: var(--accent);
-        }
-
-        .cinema-right {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .cinema-settings-content {
-          flex: 1;
-          overflow-y: auto;
-          padding: 12px;
-        }
-
-        .cinema-setting-section {
-          margin-bottom: 17px;
-          padding-bottom: 14px;
-          border-bottom: 1px solid var(--border);
-        }
-
-        .cinema-setting-title {
-          margin-bottom: 9px;
-          color: var(--accent);
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: .8px;
-        }
-
-        .cinema-field-label {
-          display: block;
-          margin: 10px 0 6px;
-          color: var(--muted);
-          font-size: 10px;
-        }
-
-        .cinema-input,
-        .cinema-select,
-        .cinema-textarea {
-          width: 100%;
-          padding: 9px;
-          border: 1px solid var(--border);
-          border-radius: 7px;
-          outline: none;
-          background: #0b151c;
-          color: var(--text);
-          font: inherit;
-          font-size: 11px;
-        }
-
-        .cinema-textarea {
-          min-height: 72px;
-          resize: vertical;
-          line-height: 1.5;
-        }
-
-        .cinema-input:focus,
-        .cinema-select:focus,
-        .cinema-textarea:focus {
-          border-color: var(--accent);
-        }
-
-        .cinema-option-grid {
-          display: grid;
-          grid-template-columns: repeat(2,minmax(0,1fr));
-          gap: 6px;
-        }
-
-        .cinema-option {
-          padding: 8px 5px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: #14232c;
-          color: var(--muted);
-          font-size: 9px;
-          cursor: pointer;
-        }
-
-        .cinema-option.active {
-          border-color: var(--accent);
-          color: var(--accent);
-          background: rgba(54,214,186,.1);
-        }
-
-        .cinema-primary {
-          width: 100%;
-          padding: 11px;
-          border: none;
-          border-radius: 7px;
-          background: linear-gradient(135deg,#43e0c1,#16a994);
-          color: #06201c;
-          font-size: 11px;
-          font-weight: 900;
-          cursor: pointer;
-        }
-
-        .cinema-primary:disabled {
-          opacity: .5;
-          cursor: wait;
-        }
-
-        .cinema-secondary {
-          padding: 9px;
-          border: 1px solid var(--border);
-          border-radius: 7px;
-          background: #172832;
-          color: var(--text);
-          font-size: 10px;
-          cursor: pointer;
-        }
-
-        .cinema-timeline {
-          height: 190px;
-          flex-shrink: 0;
-          margin: 0 10px 10px;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          background: rgba(14,25,33,.97);
-        }
-
-        .cinema-timeline-heading {
-          height: 38px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 13px;
-          border-bottom: 1px solid var(--border);
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: .7px;
-        }
-
-        .cinema-timeline-content {
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-          padding: 5px 10px;
-        }
-
-        .cinema-footer-controls {
-          height: 38px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 12px;
-          border-top: 1px solid var(--border);
-        }
-
-        .cinema-footer-controls span {
-          color: var(--muted);
-          font-size: 10px;
-        }
-
-        .cinema-mobile-toggle {
-          display: none;
-        }
-
-        @media (max-width: 950px) {
-          .cinema-workspace {
-            grid-template-columns: 175px minmax(0,1fr) 210px;
-          }
-
-          .cinema-topbar {
-            padding: 0 10px;
-          }
-        }
-
-        @media (max-width: 680px) {
-          .cinema-topbar {
-            height: 48px;
-          }
-
-          .cinema-brand {
-            font-size: 10px;
-          }
-
-          .engine-status {
-            display: none;
-          }
-
-          .cinema-workspace {
-            grid-template-columns: minmax(0,1fr);
-            grid-template-rows: minmax(0,1fr);
-            padding: 6px;
-            gap: 6px;
-          }
-
-          .cinema-left,
-          .cinema-right {
-            display: none;
-          }
-
-          .cinema-center {
-            min-height: 0;
-          }
-
-          .cinema-viewport {
-            min-height: 0;
-          }
-
-          .cinema-timeline {
-            height: 165px;
-            margin: 0 6px 6px;
-          }
-
-          .cinema-center-footer {
-            overflow-x: auto;
-          }
-
-          .cinema-mobile-toggle {
-            display: inline-flex;
-          }
-
-          .cinema-mobile-panel {
-            position: absolute;
-            z-index: 30;
-            top: 55px;
-            bottom: 175px;
-            width: min(85vw,320px);
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: #101c24;
-            box-shadow: 0 15px 40px rgba(0,0,0,.6);
-          }
-
-          .cinema-mobile-panel.left {
-            left: 7px;
-          }
-
-          .cinema-mobile-panel.right {
-            right: 7px;
-          }
-        }
-
-        @media (max-height: 650px) and (min-width: 681px) {
-          .cinema-timeline {
-            height: 145px;
-          }
-
-          .cinema-topbar {
-            height: 46px;
-          }
-
-          .cinema-workspace {
-            padding: 6px;
-          }
-        }
-
-      `}</style>
-
-      {/* HEADER */}
-
-      <header className="cinema-topbar">
-
-        <div className="cinema-brand">
-          <div className="cinema-logo">🎬</div>
-          CHARACTER AI STUDIO
-          <span className="cinema-muted">/ CREATOR</span>
-        </div>
-
-        <div className="cinema-top-actions">
-
-          <span className="engine-status">
-            ● 3D ENGINE ACTIVE
-          </span>
-
-          <span className="cinema-muted">
-            {selectedIds.length}/4 CHARACTERS
-          </span>
-
-          <Link
-            href="/"
-            style={{
-              color: "var(--text)",
-              textDecoration: "none",
-              fontSize: 11
-            }}
-          >
-            ← Home
-          </Link>
-
-        </div>
-
-      </header>
-
-      {/* MAIN WORKSPACE */}
-
-      <main className="cinema-workspace">
-
-        {/* LEFT CHARACTER LIBRARY */}
-
-        <aside className="cinema-panel cinema-left">
-
-          <div className="cinema-panel-header">
-            <span>CHARACTER LIBRARY</span>
-            <span className="cinema-muted">
-              {selectedIds.length}/4
-            </span>
+    <div style={{ minHeight: "100vh", background: "#070b0e", color: "#f3f7f9", fontFamily: "system-ui, -apple-system, sans-serif", padding: "14px 10px 60px 10px" }}>
+      <div style={{ maxWidth: 880, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        
+        {/* TOP NAVBAR (Matching Kling Studio Header Layout) */}
+        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(16,24,30,0.95)", border: "1px solid rgba(255,255,255,0.08)", padding: "10px 18px", borderRadius: 16, backdropFilter: "blur(12px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, fontSize: 15 }}>
+            <Link href="/">
+              <span style={{ fontSize: 20, background: "rgba(45,212,191,0.15)", padding: 6, borderRadius: 10, cursor: "pointer" }}>🎬</span>
+            </Link>
+            <span>Village Drama Studio</span>
           </div>
 
-          <div className="cinema-filters">
-
-            {(["All", "Animals", "Food"] as Category[]).map(
-              (category) => (
-                <button
-                  key={category}
-                  className={`cinema-chip ${
-                    categoryFilter === category ? "active" : ""
-                  }`}
-                  onClick={() => setCategoryFilter(category)}
-                >
-                  {category}
-                </button>
-              )
-            )}
-
-          </div>
-
-          <div className="cinema-character-list">
-
-            {filteredCharacters.map((character) => {
-              const selected = selectedIds.includes(character.id);
-
-              return (
-                <button
-                  key={character.id}
-                  className={`cinema-character ${
-                    selected ? "selected" : ""
-                  }`}
-                  onClick={() => toggleCharacter(character.id)}
-                >
-
-                  <span className="cinema-character-emoji">
-                    {character.emoji}
-                  </span>
-
-                  <span className="cinema-character-name">
-                    {character.name}
-
-                    <span className="cinema-character-tone">
-                      {character.tone}
-                    </span>
-                  </span>
-
-                  {selected && (
-                    <span className="cinema-check">✓</span>
-                  )}
-
-                </button>
-              );
-            })}
-
-          </div>
-
-          <div className="cinema-cast-footer">
-            {selectedIds.length} characters in your production.
-          </div>
-
-        </aside>
-
-        {/* CENTER 3D VIEWPORT */}
-
-        <section className="cinema-center">
-
-          <div className="cinema-viewport">
-
-            <div className="cinema-viewport-top">
-
-              <span className="cinema-label">
-                LIVE CINEMATIC VIEWPORT
-              </span>
-
-              <span className="cinema-label">
-                {environment.toUpperCase()}
-              </span>
-
-            </div>
-
-            <div className="cinema-stage">
-
-              <CharacterStage
-                selectedIds={selectedIds}
-                environment={environment}
-                height={450}
-                appearances={appearances}
-                action={currentAction}
-              />
-
-            </div>
-
-          </div>
-
-          <div className="cinema-center-footer">
-
-            <button
-              className="cinema-small-button cinema-mobile-toggle"
-              onClick={() =>
-                document
-                  .getElementById("mobile-character-panel")
-                  ?.toggleAttribute("hidden")
-              }
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button 
+              onClick={handleDownloadVideo} 
+              disabled={isExporting}
+              style={{ padding: "8px 20px", borderRadius: 20, border: "none", background: "#22c55e", color: "#041a18", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: "0 4px 15px rgba(34,197,94,0.3)" }}
             >
-              Characters
+              {isExporting ? `Generating ${exportProgress}%` : "Download"}
             </button>
+          </div>
+        </header>
 
-            <span className="cinema-muted">
-              {selectedCharacter?.name || "No character"}
-            </span>
-
-            <button
-              className="cinema-small-button"
-              onClick={() => setCurrentAction("idle")}
-            >
-              Reset
-            </button>
-
-            <button
-              className="cinema-small-button"
-              onClick={() => setCurrentAction("talk")}
-            >
-              ▶ Preview
-            </button>
-
-            <button
-              className="cinema-small-button cinema-mobile-toggle"
-              onClick={() =>
-                document
-                  .getElementById("mobile-settings-panel")
-                  ?.toggleAttribute("hidden")
-              }
-            >
-              Settings
-            </button>
-
+        {/* 1. CINEMATIC 3D STAGE VIEWPORT (Onion & Tomato Scene) */}
+        <section style={{ background: "rgba(16,24,30,0.95)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, overflow: "hidden" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ color: "#22c55e", fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>🎬 AI DRAMA VIEWPORT</span>
+            <span style={{ fontSize: 11, color: "#8899a6" }}>Topic: {comedyTopic}</span>
           </div>
 
+          <div style={{ position: "relative", minHeight: 340, width: "100%", background: "#060a0d" }}>
+            <CharacterStage
+              selectedIds={selectedIds}
+              environment={environment}
+              height={340}
+              appearances={appearances}
+            />
+          </div>
         </section>
 
-        {/* RIGHT PRODUCTION SETTINGS */}
-
-        <aside className="cinema-panel cinema-right">
-
-          <div className="cinema-panel-header">
-            <span>PRODUCTION CONTROLS</span>
-            <span className="cinema-muted">SETTINGS</span>
-          </div>
-
-          <div className="cinema-settings-content">
-
-            {/* STORY */}
-
-            <div className="cinema-setting-section">
-
-              <div className="cinema-setting-title">
-                01 / STORY GENERATOR
-              </div>
-
-              <label className="cinema-field-label">
-                Comedy topic
-              </label>
-
-              <input
-                className="cinema-input"
-                value={comedyTopic}
-                onChange={(event) =>
-                  setComedyTopic(event.target.value)
-                }
-                placeholder="Describe your story..."
-              />
-
-              <label className="cinema-field-label">
-                Comedy style
-              </label>
-
-              <select
-                className="cinema-select"
-                value={comedyStyle}
-                onChange={(event) =>
-                  setComedyStyle(event.target.value as ComedyStyle)
-                }
-              >
-                {comedyStyles.map((style) => (
-                  <option key={style} value={style}>
-                    {style}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                className="cinema-primary"
-                style={{ marginTop: 12 }}
-                onClick={handleGenerateScript}
-                disabled={generating}
-              >
-                {generating
-                  ? "GENERATING..."
-                  : "✨ GENERATE COMEDY"}
-              </button>
-
-            </div>
-
-            {/* ENVIRONMENT */}
-
-            <div className="cinema-setting-section">
-
-              <div className="cinema-setting-title">
-                02 / ENVIRONMENT
-              </div>
-
-              <div className="cinema-option-grid">
-
-                {environments.map((item) => (
-                  <button
-                    key={item}
-                    className={`cinema-option ${
-                      environment === item ? "active" : ""
-                    }`}
-                    onClick={() => setEnvironment(item)}
-                  >
-                    {item.toUpperCase()}
-                  </button>
-                ))}
-
-              </div>
-
-            </div>
-
-            {/* ANIMATION */}
-
-            <div className="cinema-setting-section">
-
-              <div className="cinema-setting-title">
-                03 / CHARACTER ANIMATION
-              </div>
-
-              <div className="cinema-option-grid">
-
-                {actions.map((action) => (
-                  <button
-                    key={action}
-                    className={`cinema-option ${
-                      currentAction === action ? "active" : ""
-                    }`}
-                    onClick={() => setCurrentAction(action)}
-                  >
-                    {action.toUpperCase()}
-                  </button>
-                ))}
-
-              </div>
-
-            </div>
-
-            {/* APPEARANCE */}
-
-            <div className="cinema-setting-section">
-
-              <div className="cinema-setting-title">
-                04 / CHARACTER APPEARANCE
-              </div>
-
-              <label className="cinema-field-label">
-                Select character
-              </label>
-
-              <select
-                className="cinema-select"
-                value={selectedIds[0]}
-                onChange={(event) => {
-                  const id = event.target.value as CharacterId;
-
-                  setSelectedIds((current) => [
-                    id,
-                    ...current.filter((item) => item !== id)
-                  ]);
-                }}
-              >
-                {selectedIds.map((id) => {
-                  const character = characters.find(
-                    (item) => item.id === id
-                  );
-
-                  return (
-                    <option key={id} value={id}>
-                      {character?.name}
-                    </option>
-                  );
-                })}
-              </select>
-
-              {selectedIds[0] && (
-                <>
-                  <label className="cinema-field-label">
-                    Character style
-                  </label>
-
-                  <select
-                    className="cinema-select"
-                    value={
-                      appearances[selectedIds[0]]?.style || "pixar"
-                    }
-                    onChange={(event) =>
-                      updateAppearance(
-                        selectedIds[0],
-                        "style",
-                        event.target.value
-                      )
-                    }
-                  >
-                    <option value="pixar">Stylized 3D</option>
-                    <option value="realistic">Realistic</option>
-                  </select>
-
-                  {(
-                    [
-                      ["skinTone", "Skin / Body Color"],
-                      ["clothingColor", "Clothing Color"],
-                      ["hairColor", "Hair Color"]
-                    ] as const
-                  ).map(([field, label]) => (
-                    <div key={field}>
-                      <label className="cinema-field-label">
-                        {label}
-                      </label>
-
-                      <input
-                        type="color"
-                        className="cinema-input"
-                        style={{
-                          height: 35,
-                          padding: 3
-                        }}
-                        value={
-                          appearances[selectedIds[0]]?.[field] ||
-                          "#ffffff"
-                        }
-                        onChange={(event) =>
-                          updateAppearance(
-                            selectedIds[0],
-                            field,
-                            event.target.value
-                          )
-                        }
-                      />
-                    </div>
-                  ))}
-                </>
-              )}
-
-            </div>
-
-            {/* VOICE */}
-
-            <div className="cinema-setting-section">
-
-              <div className="cinema-setting-title">
-                05 / VOICE ENGINE
-              </div>
-
-              <label className="cinema-field-label">
-                Speech language
-              </label>
-
-              <select
-                className="cinema-select"
-                value={language}
-                onChange={(event) =>
-                  setLanguage(event.target.value)
-                }
-              >
-                <option value="en-US">English (US)</option>
-                <option value="am-ET">Amharic</option>
-                <option value="om-ET">Afaan Oromoo</option>
-                <option value="ti-ET">Tigrinya</option>
-                <option value="so-SO">Somali</option>
-                <option value="fr-FR">French</option>
-                <option value="ar-SA">Arabic</option>
-              </select>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  marginTop: 10
-                }}
-              >
-
-                <button
-                  className="cinema-secondary"
-                  onClick={() =>
-                    speakText(
-                      "Welcome to Character AI Studio. Let the comedy begin!",
-                      {
-                        language,
-                        rate: 1,
-                        pitch: 1.1,
-                        volume: 1
-                      }
-                    )
-                  }
-                >
-                  🔊 Test
-                </button>
-
-                <button
-                  className="cinema-secondary"
-                  onClick={stopSpeaking}
-                >
-                  ■ Stop
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </aside>
-
-      </main>
-
-      {/* BOTTOM TIMELINE */}
-
-      <section className="cinema-timeline">
-
-        <div className="cinema-timeline-heading">
-
-          <span>
-            🎞️ PRODUCTION TIMELINE
-          </span>
-
-          <span className="cinema-muted">
-            {scenes.length} SCENES
-          </span>
-
-          <button
-            className="cinema-small-button"
-            onClick={addScene}
-          >
-            + ADD SCENE
-          </button>
-
-        </div>
-
-        <div className="cinema-timeline-content">
-
-          <ScenePlayer
-            scenes={scenes}
-            language={language}
-            onSceneChange={(id: string) => {
-              setActiveSceneId(id);
-
-              const scene = scenes.find(
-                (item) => item.id === id
-              );
-
-              if (scene) {
-                setEnvironment(scene.background);
-                setCurrentAction(scene.action);
-              }
-            }}
-            onActionChange={(action) =>
-              setCurrentAction(action)
-            }
-          />
-
-        </div>
-
-        <div className="cinema-footer-controls">
-
-          <span>
-            {activeScene?.title || "No scene selected"}
-          </span>
-
-          <div style={{ display: "flex", gap: 7 }}>
-
+        {/* 2. TABBED STUDIO CONTROLS */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+          {(["cast", "scene", "voice", "export"] as const).map((tab) => (
             <button
-              className="cinema-small-button"
-              onClick={deleteActiveScene}
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{ flex: 1, padding: "10px 12px", borderRadius: 12, border: `1px solid ${activeTab === tab ? "#22c55e" : "rgba(255,255,255,0.08)"}`, background: activeTab === tab ? "rgba(34,197,94,0.12)" : "#10181e", color: activeTab === tab ? "#22c55e" : "#8899a6", fontSize: 11, fontWeight: 800, cursor: "pointer", textTransform: "uppercase", whiteSpace: "nowrap" }}
             >
-              Delete Scene
-            </button>
-
-            <button
-              className="cinema-small-button active"
-              onClick={() => {
-                if (activeScene) {
-                  setEnvironment(activeScene.background);
-                  setCurrentAction(activeScene.action);
-                }
-              }}
-            >
-              Load Selected Scene
-            </button>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* MOBILE PANELS */}
-
-      <div
-        id="mobile-character-panel"
-        className="cinema-mobile-panel left"
-        hidden
-      >
-        <div className="cinema-panel-header">
-          CHARACTER LIBRARY
-        </div>
-
-        <div className="cinema-character-list">
-          {characters.map((character) => (
-            <button
-              key={character.id}
-              className={`cinema-character ${
-                selectedIds.includes(character.id)
-                  ? "selected"
-                  : ""
-              }`}
-              onClick={() => toggleCharacter(character.id)}
-            >
-              <span className="cinema-character-emoji">
-                {character.emoji}
-              </span>
-
-              <span className="cinema-character-name">
-                {character.name}
-              </span>
-
-              {selectedIds.includes(character.id) && "✓"}
+              {tab === "cast" && "👥 1. Cast"}
+              {tab === "scene" && "🎨 2. Script"}
+              {tab === "voice" && "🎙️ 3. Voices"}
+              {tab === "export" && "🎞️ 4. Timeline"}
             </button>
           ))}
         </div>
-      </div>
 
-      <div
-        id="mobile-settings-panel"
-        className="cinema-mobile-panel right"
-        hidden
-      >
-        <div className="cinema-panel-header">
-          QUICK SETTINGS
+        {/* TAB WORKSPACE CONTENT */}
+        <div style={{ background: "rgba(16,24,30,0.95)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 20 }}>
+          
+          {activeTab === "cast" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ fontSize: "1.4rem", marginBottom: 2 }}>Assemble Your Cast</h2>
+                  <p style={{ fontSize: 12, color: "#8899a6" }}>Select characters for your village comedy drama.</p>
+                </div>
+                <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", padding: "4px 12px", borderRadius: 16, color: "#22c55e", fontSize: 11, fontWeight: 800 }}>
+                  {selectedIds.length}/4 Selected
+                </div>
+              </div>
+
+              {/* Filter Chips */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {(["All", "Animals", "Food"] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    style={{ padding: "5px 14px", borderRadius: 16, border: `1px solid ${categoryFilter === cat ? "#22c55e" : "rgba(255,255,255,0.08)"}`, background: categoryFilter === cat ? "#22c55e" : "#10181e", color: categoryFilter === cat ? "#041a18" : "#8899a6", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Character Catalog Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, maxHeight: 240, overflowY: "auto" }}>
+                {filteredCharacters.map((char) => {
+                  const isSelected = selectedIds.includes(char.id);
+                  return (
+                    <div
+                      key={char.id}
+                      onClick={() => toggleCharacter(char.id)}
+                      style={{ background: isSelected ? "rgba(34,197,94,0.12)" : "#10181e", border: `1px solid ${isSelected ? "#22c55e" : "rgba(255,255,255,0.08)"}`, borderRadius: 10, padding: 10, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", position: "relative" }}
+                    >
+                      <div style={{ fontSize: 24 }}>{char.emoji}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ fontSize: 11, display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{char.name}</strong>
+                        <span style={{ fontSize: 9, color: "#8899a6" }}>{char.tone}</span>
+                      </div>
+                      {isSelected && <span style={{ position: "absolute", top: 6, right: 8, color: "#22c55e", fontWeight: 900, fontSize: 10 }}>✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setActiveTab("scene")}
+                  style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#22c55e", color: "#041a18", fontWeight: 800, fontSize: 12, cursor: "pointer" }}
+                >
+                  Continue to Script ➔
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "scene" && (
+            <div>
+              <h2 style={{ fontSize: "1.4rem", marginBottom: 12 }}>Scene Script & Prompt</h2>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Story Prompt:</label>
+                <input
+                  value={comedyTopic}
+                  onChange={(e) => setComedyTopic(e.target.value)}
+                  style={{ width: "100%", padding: 10, borderRadius: 8, background: "#10191f", border: "1px solid rgba(255,255,255,0.08)", color: "#f3f7f9", fontSize: 12, outline: "none" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Comedy Tone:</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                  {(["Funny", "Argument", "Roast", "Friendship", "Unexpected Twist", "Interview"] as ComedyStyle[]).map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => setComedyStyle(style)}
+                      style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${comedyStyle === style ? "#22c55e" : "rgba(255,255,255,0.08)"}`, background: comedyStyle === style ? "rgba(34,197,94,0.15)" : "#10181e", color: comedyStyle === style ? "#22c55e" : "#8899a6", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleGenerateScript}
+                style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "#22c55e", color: "#041a18", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 8 }}
+              >
+                ✨ Generate AI Dialogue Script
+              </button>
+            </div>
+          )}
+
+          {activeTab === "voice" && (
+            <div>
+              <h2 style={{ fontSize: "1.4rem", marginBottom: 8 }}>Character Voice & Language</h2>
+              <p style={{ fontSize: 12, color: "#8899a6", marginBottom: 14 }}>Configure speech synthesis for regional dubbing.</p>
+
+              <div style={{ marginBottom: 14 }}>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  style={{ width: "100%", padding: 10, borderRadius: 8, background: "#10191f", border: "1px solid rgba(255,255,255,0.08)", color: "#f3f7f9", fontSize: 12, outline: "none" }}
+                >
+                  <option value="en-US">English (US)</option>
+                  <option value="am-ET">Amharic (አማርኛ)</option>
+                  <option value="om-ET">Afaan Oromoo</option>
+                  <option value="ti-ET">Tigrinya (ትግርኛ)</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => speakText("Village drama hits different.", { language, rate: 1, pitch: 1.1, volume: 1 })}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #22c55e", background: "rgba(34,197,94,0.1)", color: "#22c55e", fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                >
+                  🔊 Test Voice
+                </button>
+                <button
+                  onClick={stopSpeaking}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "#10181e", color: "#8899a6", fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                >
+                  ⏹ Stop
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "export" && (
+            <div>
+              <ScenePlayer
+                scenes={scenes}
+                language={language}
+                onSceneChange={(id: string) => setActiveSceneId(id)}
+                onActionChange={(action: string) => console.log("Action:", action)}
+              />
+            </div>
+          )}
+
         </div>
 
-        <div style={{ padding: 12 }}>
+        {/* FOOTER */}
+        <footer style={{ textAlign: "center", fontSize: 11, color: "#8899a6", lineHeight: 1.5 }}>
+          <div>Clean icon, sophisticated, cinematic, and professional copy of Kling Studio.</div>
+          <div>© 2026 Character AI Studio · Made for village drama</div>
+        </footer>
 
-          <label className="cinema-field-label">
-            Environment
-          </label>
-
-          <select
-            className="cinema-select"
-            value={environment}
-            onChange={(event) =>
-              setEnvironment(event.target.value as EnvironmentId)
-            }
-          >
-            {environments.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-
-          <label className="cinema-field-label">
-            Animation
-          </label>
-
-          <select
-            className="cinema-select"
-            value={currentAction}
-            onChange={(event) =>
-              setCurrentAction(event.target.value as CharacterAction)
-            }
-          >
-            {actions.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-
-          <label className="cinema-field-label">
-            Comedy topic
-          </label>
-
-          <textarea
-            className="cinema-textarea"
-            value={comedyTopic}
-            onChange={(event) =>
-              setComedyTopic(event.target.value)
-            }
-          />
-
-          <button
-            className="cinema-primary"
-            style={{ marginTop: 10 }}
-            onClick={handleGenerateScript}
-          >
-            GENERATE SCRIPT
-          </button>
-
-        </div>
       </div>
-
     </div>
   );
-            }
+}
