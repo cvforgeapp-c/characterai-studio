@@ -1,10 +1,9 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
-  characters,
-  type CharacterDefinition
+  characters
 } from "../lib/character-catalog";
 
 import ProceduralCharacter from "./ProceduralCharacter";
@@ -13,9 +12,13 @@ import type {
   CharacterTransform
 } from "./ProceduralCharacter";
 
-import type { CharacterAction } from "../lib/character-motion";
+import type {
+  CharacterAction
+} from "../lib/character-motion";
 
-import type { CharacterAppearance } from "./CharacterStage";
+import type {
+  CharacterAppearance
+} from "./CharacterStage";
 
 export type EnvironmentId =
   | "studio"
@@ -25,9 +28,7 @@ export type EnvironmentId =
   | "space"
   | "beach";
 
-/* -------------------------------------------------
-   ENVIRONMENT COMPONENTS
-------------------------------------------------- */
+/* ENVIRONMENT COMPONENTS */
 
 function Tree({
   position,
@@ -93,11 +94,7 @@ function Mountain({
   scale?: number;
 }) {
   return (
-    <mesh
-      position={position}
-      scale={scale}
-      castShadow
-    >
+    <mesh position={position} scale={scale} castShadow>
       <coneGeometry args={[2.2, 3.5, 5]} />
       <meshStandardMaterial color={color} />
     </mesh>
@@ -137,9 +134,7 @@ function Building({
   );
 }
 
-/* -------------------------------------------------
-   SIX 3D ENVIRONMENTS
-------------------------------------------------- */
+/* SIX ENVIRONMENTS */
 
 function Environment({
   type
@@ -196,10 +191,7 @@ function Environment({
     <>
       <color attach="background" args={[scenery.sky]} />
 
-      <fog
-        attach="fog"
-        args={[scenery.fog, 12, 28]}
-      />
+      <fog attach="fog" args={[scenery.fog, 12, 28]} />
 
       <ambientLight intensity={1.15} />
 
@@ -369,9 +361,15 @@ function Environment({
   );
 }
 
-/* -------------------------------------------------
-   CHARACTER POSITIONING CONTROLS
-------------------------------------------------- */
+/* CHARACTER CANVAS */
+
+interface CharacterCanvasProps {
+  selectedIds: string[];
+  environment?: EnvironmentId;
+  action?: CharacterAction;
+  appearances?: Record<string, CharacterAppearance>;
+  height?: number;
+}
 
 const DEFAULT_TRANSFORM: CharacterTransform = {
   x: 0,
@@ -381,314 +379,99 @@ const DEFAULT_TRANSFORM: CharacterTransform = {
   rotation: 0
 };
 
-function createDefaultTransform(): CharacterTransform {
-  return { ...DEFAULT_TRANSFORM };
-}
-
-function CharacterPositionControls({
-  character,
-  transform,
-  onChange,
-  onReset
-}: {
-  character: CharacterDefinition;
-  transform: CharacterTransform;
-  onChange: (value: CharacterTransform) => void;
-  onReset: () => void;
-}) {
-  function update(
-    key: keyof CharacterTransform,
-    value: number
-  ) {
-    onChange({
-      ...transform,
-      [key]: value
-    });
-  }
-
-  return (
-    <div
-      style={{
-        padding: 14,
-        marginTop: 12,
-        borderRadius: 12,
-        background: "rgba(255,255,255,0.06)"
-      }}
-    >
-      <strong>{character.name} — Position & Size</strong>
-
-      <label className="field-label">
-        Horizontal position: {transform.x.toFixed(1)}
-      </label>
-
-      <input
-        type="range"
-        min="-4"
-        max="4"
-        step="0.1"
-        value={transform.x}
-        onChange={(event) =>
-          update("x", Number(event.target.value))
-        }
-        style={{ width: "100%" }}
-      />
-
-      <label className="field-label">
-        Height: {transform.y.toFixed(1)}
-      </label>
-
-      <input
-        type="range"
-        min="-1"
-        max="3"
-        step="0.1"
-        value={transform.y}
-        onChange={(event) =>
-          update("y", Number(event.target.value))
-        }
-        style={{ width: "100%" }}
-      />
-
-      <label className="field-label">
-        Depth: {transform.z.toFixed(1)}
-      </label>
-
-      <input
-        type="range"
-        min="-4"
-        max="4"
-        step="0.1"
-        value={transform.z}
-        onChange={(event) =>
-          update("z", Number(event.target.value))
-        }
-        style={{ width: "100%" }}
-      />
-
-      <label className="field-label">
-        Character size: {transform.scale.toFixed(1)}x
-      </label>
-
-      <input
-        type="range"
-        min="0.5"
-        max="2"
-        step="0.1"
-        value={transform.scale}
-        onChange={(event) =>
-          update("scale", Number(event.target.value))
-        }
-        style={{ width: "100%" }}
-      />
-
-      <label className="field-label">
-        Rotation: {Math.round((transform.rotation * 180) / Math.PI)}°
-      </label>
-
-      <input
-        type="range"
-        min={-Math.PI}
-        max={Math.PI}
-        step="0.05"
-        value={transform.rotation}
-        onChange={(event) =>
-          update("rotation", Number(event.target.value))
-        }
-        style={{ width: "100%" }}
-      />
-
-      <button
-        type="button"
-        className="secondary-button"
-        onClick={onReset}
-        style={{ marginTop: 12 }}
-      >
-        Reset Character
-      </button>
-    </div>
-  );
-}
-
-/* -------------------------------------------------
-   MAIN CHARACTER CANVAS
-------------------------------------------------- */
-
-interface CharacterCanvasProps {
-  selectedIds: string[];
-  environment?: EnvironmentId;
-  action?: CharacterAction;
-  appearances?: Record<string, CharacterAppearance>;
-}
-
 export default function CharacterCanvas({
   selectedIds,
   environment = "studio",
   action = "idle",
-  appearances = {}
+  appearances = {},
+  height = 380
 }: CharacterCanvasProps) {
-  const selectedCharacters = characters.filter(
-    (character) => selectedIds.includes(character.id)
+
+  // Follow the exact selection order and IDs.
+  const selectedCharacters = useMemo(
+    () =>
+      selectedIds
+        .map((id) =>
+          characters.find((character) => character.id === id)
+        )
+        .filter(
+          (character): character is (typeof characters)[number] =>
+            character !== undefined
+        ),
+    [selectedIds]
   );
-
-  // Corrected TypeScript state declaration.
-  const [transforms, setTransforms] = useState<
-    Record<string, CharacterTransform>
-  >({});
-
-  const [editingCharacter, setEditingCharacter] = useState<string>(
-    selectedIds[0] ?? ""
-  );
-
-  function getTransform(id: string): CharacterTransform {
-    return transforms[id] ?? createDefaultTransform();
-  }
-
-  function updateTransform(
-    id: string,
-    value: CharacterTransform
-  ) {
-    setTransforms((previous) => ({
-      ...previous,
-      [id]: value
-    }));
-  }
-
-  function resetTransform(id: string) {
-    setTransforms((previous) => ({
-      ...previous,
-      [id]: createDefaultTransform()
-    }));
-  }
-
-  const activeCharacter =
-    selectedCharacters.find(
-      (character) => character.id === editingCharacter
-    ) ?? selectedCharacters[0];
 
   return (
-    <div style={{ width: "100%" }}>
-      <div
-        className="character-stage"
-        style={{
-          width: "100%",
-          height: "380px",
-          overflow: "hidden",
-          borderRadius: "14px"
+    <div
+      className="character-stage"
+      style={{
+        width: "100%",
+        height,
+        minHeight: 0,
+        overflow: "hidden",
+        borderRadius: "inherit"
+      }}
+    >
+      <Canvas
+        camera={{
+          position: [0, 2.8, 8],
+          fov: 38
+        }}
+        shadows
+        dpr={[1, 1.5]}
+        gl={{
+          antialias: true,
+          alpha: false,
+          powerPreference: "low-power"
         }}
       >
-        <Canvas
-          camera={{
-            position: [0, 2.8, 8],
-            fov: 38
-          }}
-          shadows
-          dpr={[1, 1.5]}
-          gl={{
-            antialias: true,
-            alpha: false,
-            powerPreference: "low-power"
+        <Environment type={environment} />
+
+        <group position={[0, -0.4, 0]}>
+          {selectedCharacters.map((character, index) => {
+            const appearance = appearances[character.id];
+
+            return (
+              <ProceduralCharacter
+                key={character.id}
+                character={character}
+                index={index}
+                total={selectedCharacters.length}
+                action={action}
+                transform={{ ...DEFAULT_TRANSFORM }}
+                style={appearance?.style ?? "pixar"}
+                skinTone={appearance?.skinTone}
+                clothingColor={appearance?.clothingColor}
+                hairColor={appearance?.hairColor}
+              />
+            );
+          })}
+        </group>
+
+        <OrbitControls
+          enablePan={false}
+          enableZoom
+          minDistance={5}
+          maxDistance={13}
+          maxPolarAngle={Math.PI / 2}
+          target={[0, 1, 0]}
+        />
+      </Canvas>
+
+      {selectedCharacters.length === 0 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            color: "white",
+            pointerEvents: "none"
           }}
         >
-          <Environment type={environment} />
-
-          <group position={[0, -0.4, 0]}>
-            {selectedCharacters.map((character, index) => {
-              const appearance = appearances[character.id];
-
-              return (
-                <ProceduralCharacter
-                  key={character.id}
-                  character={character}
-                  index={index}
-                  total={selectedCharacters.length}
-                  action={action}
-                  transform={getTransform(character.id)}
-                  style={appearance?.style ?? "pixar"}
-                  skinTone={appearance?.skinTone}
-                  clothingColor={appearance?.clothingColor}
-                  hairColor={appearance?.hairColor}
-                />
-              );
-            })}
-          </group>
-
-          <OrbitControls
-            enablePan={false}
-            enableZoom
-            minDistance={5}
-            maxDistance={13}
-            maxPolarAngle={Math.PI / 2}
-            target={[0, 1, 0]}
-          />
-        </Canvas>
-      </div>
-
-      {selectedCharacters.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <span className="section-eyebrow">
-            CHARACTER ARRANGEMENT
-          </span>
-
-          <h3>Position Your Characters</h3>
-
-          <div
-            className="mode-grid"
-            style={{ marginTop: 12 }}
-          >
-            {selectedCharacters.map((character) => (
-              <button
-                key={character.id}
-                type="button"
-                className={`mode-card ${
-                  activeCharacter?.id === character.id
-                    ? "selected"
-                    : ""
-                }`}
-                onClick={() =>
-                  setEditingCharacter(character.id)
-                }
-                aria-pressed={
-                  activeCharacter?.id === character.id
-                }
-              >
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 28,
-                    marginBottom: 6
-                  }}
-                >
-                  {character.emoji}
-                </span>
-
-                <strong>{character.name}</strong>
-              </button>
-            ))}
-          </div>
-
-          {activeCharacter && (
-            <CharacterPositionControls
-              character={activeCharacter}
-              transform={getTransform(activeCharacter.id)}
-              onChange={(value) =>
-                updateTransform(activeCharacter.id, value)
-              }
-              onReset={() =>
-                resetTransform(activeCharacter.id)
-              }
-            />
-          )}
-
-          <button
-            type="button"
-            className="secondary-button"
-            style={{ marginTop: 12 }}
-            onClick={() => setTransforms({})}
-          >
-            Reset All Characters
-          </button>
+          Select characters to begin.
         </div>
       )}
     </div>
   );
-  }
+}
