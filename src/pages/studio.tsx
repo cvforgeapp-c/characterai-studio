@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import {
+useEffect,
+useMemo,
+useRef,
+useState,
+} from "react";
+
 import { Link } from "wouter";
 
 import {
@@ -32,7 +38,53 @@ EnvironmentId,
 
 import VideoExportPanel from "../components/VideoExportPanel";
 
+import CinematicStudioPerformanceProvider from "../components/CinematicStudioPerformanceProvider";
+
+import CinematicPerformanceConsole from "../components/CinematicPerformanceConsole";
+
+import type {
+DialoguePlaybackLine,
+} from "../components/CinematicDialoguePlayback";
+
 type StudioTab = "cast" | "scene" | "voice" | "export";
+
+const INITIAL_SCENES: VideoScene[] = [
+{
+id: "scene-1",
+title: "Village Drama",
+duration: 5,
+background: "park",
+action: "talk",
+dialogue:
+"A giant angry onion scolds a crying tomato in the yard!",
+},
+{
+id: "scene-2",
+title: "The Stubborn Reply",
+duration: 6,
+background: "park",
+action: "laugh",
+dialogue:
+"The tomato gives a funny excuse about the harvest.",
+},
+];
+
+const INITIAL_DIALOGUE: DialoguePlaybackLine[] = [
+{
+id: "dialogue-1",
+characterId: "onion",
+characterName: "Onion",
+text: "A giant angry onion scolds a crying tomato in the yard!",
+duration: 5,
+},
+{
+id: "dialogue-2",
+characterId: "tomato",
+characterName: "Tomato",
+text: "The tomato gives a funny excuse about the harvest.",
+duration: 6,
+},
+];
 
 export default function Studio() {
 const [activeTab, setActiveTab] =
@@ -77,31 +129,17 @@ useState<ComedyStyle>("Argument");
 const [language, setLanguage] =
 useState("en-US");
 
-const [scenes, setScenes] = useState<VideoScene[]>([
-{
-id: "scene-1",
-title: "Village Drama",
-duration: 5,
-background: "park",
-action: "talk",
-dialogue:
-"A giant angry onion scolds a crying tomato in the yard!",
-},
+const [scenes, setScenes] =
+useState<VideoScene[]>(INITIAL_SCENES);
 
-{
-  id: "scene-2",
-  title: "The Stubborn Reply",
-  duration: 6,
-  background: "park",
-  action: "laugh",
-  dialogue:
-    "The tomato gives a funny excuse about the harvest.",
-},
-
-]);
+const [dialogueLines, setDialogueLines] =
+useState<DialoguePlaybackLine[]>(INITIAL_DIALOGUE);
 
 const [activeSceneId, setActiveSceneId] =
-useState<string>("scene-1");
+useState("scene-1");
+
+const [isDialoguePlaying, setIsDialoguePlaying] =
+useState(false);
 
 const stageContainerRef =
 useRef<HTMLDivElement>(null);
@@ -110,7 +148,7 @@ const [stageCanvas, setStageCanvas] =
 useState<HTMLCanvasElement | null>(null);
 
 /* ---------------------------------------
-DETECT THE LIVE 3D CANVAS
+DETECT LIVE 3D CANVAS
 --------------------------------------- */
 
 useEffect(() => {
@@ -165,61 +203,139 @@ setSelectedIds((current) => [...current, id]);
 };
 
 /* ---------------------------------------
+FILTER CHARACTER LIBRARY
+--------------------------------------- */
+
+const filteredCharacters = useMemo(() => {
+return characters.filter(
+(character) =>
+categoryFilter === "All" ||
+character.category === categoryFilter
+);
+}, [categoryFilter]);
+
+/* ---------------------------------------
 GENERATE COMEDY SCRIPT
 --------------------------------------- */
 
 const handleGenerateScript = () => {
 if (selectedIds.length < 2) return;
 
-const generated = generateComedyScript({
-  characterIds: selectedIds,
-  topic: comedyTopic,
-  style: comedyStyle,
-});
+try {
+  const generated = generateComedyScript({
+    characterIds: selectedIds,
+    topic: comedyTopic,
+    style: comedyStyle,
+  });
 
-const newScenes: VideoScene[] =
-  generated.dialogue.map(
-    (
-      line: {
-        characterName: string;
-        text: string;
-        action: any;
-      },
-      idx: number
-    ) => ({
-      id: `generated-${idx + 1}`,
-      title: `Scene ${idx + 1}: ${line.characterName}`,
-      duration: Math.max(
-        4,
-        Math.ceil(line.text.length / 12)
-      ),
-      background: environment,
-      action: line.action,
-      dialogue: line.text,
-    })
-  );
+  const newScenes: VideoScene[] =
+    generated.dialogue.map(
+      (
+        line: {
+          characterName: string;
+          text: string;
+          action: any;
+        },
+        index: number
+      ) => ({
+        id: `generated-${Date.now()}-${index}`,
+        title: `Scene ${index + 1}: ${line.characterName}`,
+        duration: Math.max(
+          4,
+          Math.ceil(line.text.length / 12)
+        ),
+        background: environment,
+        action: line.action,
+        dialogue: line.text,
+      })
+    );
 
-setScenes(newScenes);
+  const newDialogue: DialoguePlaybackLine[] =
+    generated.dialogue.map(
+      (
+        line: {
+          characterName: string;
+          text: string;
+          action: any;
+        },
+        index: number
+      ) => {
+        const matchingCharacter = characters.find(
+          (character) =>
+            character.name.toLowerCase() ===
+            line.characterName.toLowerCase()
+        );
 
-if (newScenes.length > 0) {
+        const characterId =
+          matchingCharacter?.id ??
+          selectedIds[index % selectedIds.length];
+
+        return {
+          id: `performance-${Date.now()}-${index}`,
+          characterId: String(characterId),
+          characterName: line.characterName,
+          text: line.text,
+          duration: Math.max(
+            3,
+            Math.ceil(line.text.trim().split(/\s+/).length / 2.5)
+          ),
+        };
+      }
+    );
+
+  if (newScenes.length === 0) return;
+
+  stopSpeaking();
+
+  setScenes(newScenes);
+  setDialogueLines(newDialogue);
+
   setActiveSceneId(newScenes[0].id);
-}
 
-setActiveTab("export");
+  setActiveTab("export");
+} catch (error) {
+  console.error("Script generation failed:", error);
+}
 
 };
 
 /* ---------------------------------------
-FILTER CHARACTER LIBRARY
+PLAY DIALOGUE
 --------------------------------------- */
 
-const filteredCharacters = characters.filter(
-(character) =>
-categoryFilter === "All" ||
-character.category === categoryFilter
-);
+const handleSpeakDialogue = (
+line: DialoguePlaybackLine
+) => {
+speakText(line.text, {
+language,
+rate: 1,
+pitch: 1.1,
+volume: 1,
+});
+};
+
+const handleStopDialogue = () => {
+stopSpeaking();
+};
+
+/* ---------------------------------------
+UPDATE ENVIRONMENT
+--------------------------------------- */
+
+const handleEnvironmentChange = (
+value: string
+) => {
+setEnvironment(value as EnvironmentId);
+};
+
+/* ---------------------------------------
+RENDER
+--------------------------------------- */
 
 return (
+<CinematicStudioPerformanceProvider
+characterIds={selectedIds.map(String)}
+>
 <div
 style={{
 minHeight: "100vh",
@@ -241,403 +357,450 @@ gap: 16,
 >
 {/* TOP NAVIGATION */}
 
-    <header style={styles.header}>
-      <div style={styles.brand}>
-        <Link href="/">
-          <span style={styles.logo}>
-            🎬
-          </span>
-        </Link>
+      <header style={styles.header}>
+        <div style={styles.brand}>
+          <Link href="/">
+            <span style={styles.logo}>
+              🎬
+            </span>
+          </Link>
 
-        <span>Village Drama Studio</span>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setActiveTab("export")}
-        style={styles.exportButton}
-      >
-        🎬 Export Video
-      </button>
-    </header>
-
-    {/* 3D CHARACTER VIEWPORT */}
-
-    <section style={styles.viewportSection}>
-      <div style={styles.viewportHeader}>
-        <span style={styles.viewportLabel}>
-          🎬 AI CINEMATIC VIEWPORT
-        </span>
-
-        <span style={styles.topicLabel}>
-          Topic: {comedyTopic}
-        </span>
-      </div>
-
-      <div
-        ref={stageContainerRef}
-        data-studio-stage
-        style={styles.stageContainer}
-      >
-        <CharacterStage
-          selectedIds={selectedIds}
-          environment={environment}
-          height={420}
-          showControls
-          appearances={appearances}
-        />
-      </div>
-    </section>
-
-    {/* STUDIO TABS */}
-
-    <div style={styles.tabs}>
-      {(
-        ["cast", "scene", "voice", "export"] as const
-      ).map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          onClick={() => setActiveTab(tab)}
-          style={{
-            ...styles.tab,
-            ...(activeTab === tab
-              ? styles.activeTab
-              : {}),
-          }}
-        >
-          {tab === "cast" && "👥 1. Cast"}
-          {tab === "scene" && "🎨 2. Script"}
-          {tab === "voice" && "🎙️ 3. Voices"}
-          {tab === "export" && "🎞️ 4. Timeline"}
-        </button>
-      ))}
-    </div>
-
-    {/* WORKSPACE */}
-
-    <div style={styles.workspace}>
-      {/* CAST TAB */}
-
-      {activeTab === "cast" && (
-        <div>
-          <div style={styles.sectionHeading}>
-            <div>
-              <h2 style={styles.heading}>
-                Assemble Your Cast
-              </h2>
-
-              <p style={styles.muted}>
-                Select characters for your village comedy drama.
-              </p>
-            </div>
-
-            <div style={styles.selectedCount}>
-              {selectedIds.length}/4 Selected
-            </div>
-          </div>
-
-          <div style={styles.categoryButtons}>
-            {(
-              ["All", "Animals", "Food"] as const
-            ).map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() =>
-                  setCategoryFilter(category)
-                }
-                style={{
-                  ...styles.categoryButton,
-                  ...(categoryFilter === category
-                    ? styles.categoryActive
-                    : {}),
-                }}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-
-          <div style={styles.characterGrid}>
-            {filteredCharacters.map((character) => {
-              const isSelected =
-                selectedIds.includes(character.id);
-
-              return (
-                <button
-                  key={character.id}
-                  type="button"
-                  onClick={() =>
-                    toggleCharacter(character.id)
-                  }
-                  style={{
-                    ...styles.characterCard,
-                    ...(isSelected
-                      ? styles.characterSelected
-                      : {}),
-                  }}
-                >
-                  <span style={styles.characterEmoji}>
-                    {character.emoji}
-                  </span>
-
-                  <span style={styles.characterInfo}>
-                    <strong>
-                      {character.name}
-                    </strong>
-
-                    <small>
-                      {character.tone}
-                    </small>
-                  </span>
-
-                  {isSelected && (
-                    <span style={styles.checkmark}>
-                      ✓
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={styles.rightAction}>
-            <button
-              type="button"
-              onClick={() => setActiveTab("scene")}
-              style={styles.primaryButton}
-            >
-              Continue to Script ➔
-            </button>
-          </div>
+          <span>Village Drama Studio</span>
         </div>
-      )}
 
-      {/* SCRIPT TAB */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("export")}
+          style={styles.exportButton}
+        >
+          🎬 Export Video
+        </button>
+      </header>
 
-      {activeTab === "scene" && (
-        <div>
-          <h2 style={styles.heading}>
-            Scene Script & Prompt
-          </h2>
+      {/* 3D CHARACTER VIEWPORT */}
 
-          <div style={styles.field}>
-            <label style={styles.label}>
-              Story Prompt
-            </label>
+      <section style={styles.viewportSection}>
+        <div style={styles.viewportHeader}>
+          <span style={styles.viewportLabel}>
+            🎬 AI CINEMATIC VIEWPORT
+          </span>
 
-            <input
-              value={comedyTopic}
-              onChange={(event) =>
-                setComedyTopic(event.target.value)
-              }
-              style={styles.input}
-            />
-          </div>
+          <span style={styles.topicLabel}>
+            Topic: {comedyTopic}
+          </span>
+        </div>
 
-          <div style={styles.field}>
-            <label style={styles.label}>
-              Comedy Tone
-            </label>
+        <div
+          ref={stageContainerRef}
+          data-studio-stage
+          style={styles.stageContainer}
+        >
+          <CharacterStage
+            selectedIds={selectedIds}
+            environment={environment}
+            height={420}
+            showControls
+            appearances={appearances}
+          />
+        </div>
+      </section>
 
-            <div style={styles.comedyGrid}>
+      {/* STUDIO TABS */}
+
+      <div style={styles.tabs}>
+        {(
+          ["cast", "scene", "voice", "export"] as const
+        ).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            style={{
+              ...styles.tab,
+              ...(activeTab === tab
+                ? styles.activeTab
+                : {}),
+            }}
+          >
+            {tab === "cast" && "👥 1. Cast"}
+            {tab === "scene" && "🎨 2. Script"}
+            {tab === "voice" && "🎙️ 3. Voices"}
+            {tab === "export" && "🎞️ 4. Timeline"}
+          </button>
+        ))}
+      </div>
+
+      {/* WORKSPACE */}
+
+      <div style={styles.workspace}>
+
+        {/* CAST TAB */}
+
+        {activeTab === "cast" && (
+          <div>
+            <div style={styles.sectionHeading}>
+              <div>
+                <h2 style={styles.heading}>
+                  Assemble Your Cast
+                </h2>
+
+                <p style={styles.muted}>
+                  Select characters for your village comedy drama.
+                </p>
+              </div>
+
+              <div style={styles.selectedCount}>
+                {selectedIds.length}/4 Selected
+              </div>
+            </div>
+
+            <div style={styles.categoryButtons}>
               {(
-                [
-                  "Funny",
-                  "Argument",
-                  "Roast",
-                  "Friendship",
-                  "Unexpected Twist",
-                  "Interview",
-                ] as ComedyStyle[]
-              ).map((style) => (
+                ["All", "Animals", "Food"] as const
+              ).map((category) => (
                 <button
-                  key={style}
+                  key={category}
                   type="button"
                   onClick={() =>
-                    setComedyStyle(style)
+                    setCategoryFilter(category)
                   }
                   style={{
-                    ...styles.comedyButton,
-                    ...(comedyStyle === style
-                      ? styles.comedyActive
+                    ...styles.categoryButton,
+                    ...(categoryFilter === category
+                      ? styles.categoryActive
                       : {}),
                   }}
                 >
-                  {style}
+                  {category}
                 </button>
               ))}
             </div>
+
+            <div style={styles.characterGrid}>
+              {filteredCharacters.map((character) => {
+                const isSelected =
+                  selectedIds.includes(character.id);
+
+                return (
+                  <button
+                    key={character.id}
+                    type="button"
+                    onClick={() =>
+                      toggleCharacter(character.id)
+                    }
+                    style={{
+                      ...styles.characterCard,
+                      ...(isSelected
+                        ? styles.characterSelected
+                        : {}),
+                    }}
+                  >
+                    <span style={styles.characterEmoji}>
+                      {character.emoji}
+                    </span>
+
+                    <span style={styles.characterInfo}>
+                      <strong>
+                        {character.name}
+                      </strong>
+
+                      <small>
+                        {character.tone}
+                      </small>
+                    </span>
+
+                    {isSelected && (
+                      <span style={styles.checkmark}>
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={styles.rightAction}>
+              <button
+                type="button"
+                onClick={() => setActiveTab("scene")}
+                style={styles.primaryButton}
+              >
+                Continue to Script ➔
+              </button>
+            </div>
           </div>
+        )}
 
-          <div style={styles.field}>
-            <label style={styles.label}>
-              Scene Environment
-            </label>
+        {/* SCRIPT TAB */}
 
-            <select
-              value={environment}
-              onChange={(event) =>
-                setEnvironment(
-                  event.target.value as EnvironmentId
-                )
-              }
-              style={styles.input}
-            >
-              <option value="studio">Studio</option>
-              <option value="park">Village / Park</option>
-              <option value="kitchen">Kitchen</option>
-              <option value="city">City</option>
-              <option value="space">Space</option>
-              <option value="beach">Beach</option>
-            </select>
-          </div>
+        {activeTab === "scene" && (
+          <div>
+            <h2 style={styles.heading}>
+              Scene Script & Prompt
+            </h2>
 
-          <button
-            type="button"
-            onClick={handleGenerateScript}
-            disabled={selectedIds.length < 2}
-            style={{
-              ...styles.generateButton,
-              opacity:
-                selectedIds.length < 2 ? 0.5 : 1,
-            }}
-          >
-            ✨ Generate AI Dialogue Script
-          </button>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Story Prompt
+              </label>
 
-          {selectedIds.length < 2 && (
-            <p style={styles.warningText}>
-              Select at least two characters to generate dialogue.
-            </p>
-          )}
-        </div>
-      )}
+              <textarea
+                value={comedyTopic}
+                onChange={(event) =>
+                  setComedyTopic(event.target.value)
+                }
+                rows={3}
+                style={{
+                  ...styles.input,
+                  resize: "vertical",
+                }}
+              />
+            </div>
 
-      {/* VOICE TAB */}
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Comedy Tone
+              </label>
 
-      {activeTab === "voice" && (
-        <div>
-          <h2 style={styles.heading}>
-            Character Voice & Language
-          </h2>
+              <div style={styles.comedyGrid}>
+                {(
+                  [
+                    "Funny",
+                    "Argument",
+                    "Roast",
+                    "Friendship",
+                    "Unexpected Twist",
+                    "Interview",
+                  ] as ComedyStyle[]
+                ).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() =>
+                      setComedyStyle(style)
+                    }
+                    style={{
+                      ...styles.comedyButton,
+                      ...(comedyStyle === style
+                        ? styles.comedyActive
+                        : {}),
+                    }}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <p style={styles.muted}>
-            Configure browser speech synthesis for regional dubbing.
-          </p>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Scene Environment
+              </label>
 
-          <div style={styles.field}>
-            <label style={styles.label}>
-              Dialogue Language
-            </label>
+              <select
+                value={environment}
+                onChange={(event) =>
+                  handleEnvironmentChange(
+                    event.target.value
+                  )
+                }
+                style={styles.input}
+              >
+                <option value="studio">Studio</option>
+                <option value="park">Village / Park</option>
+                <option value="kitchen">Kitchen</option>
+                <option value="city">City</option>
+                <option value="space">Space</option>
+                <option value="beach">Beach</option>
+              </select>
+            </div>
 
-            <select
-              value={language}
-              onChange={(event) =>
-                setLanguage(event.target.value)
-              }
-              style={styles.input}
-            >
-              <option value="en-US">
-                English (US)
-              </option>
-
-              <option value="am-ET">
-                Amharic (አማርኛ)
-              </option>
-
-              <option value="om-ET">
-                Afaan Oromoo
-              </option>
-
-              <option value="ti-ET">
-                Tigrinya (ትግርኛ)
-              </option>
-            </select>
-          </div>
-
-          <div style={styles.voiceButtons}>
             <button
               type="button"
-              onClick={() =>
-                speakText(
-                  "Village drama hits different.",
-                  {
-                    language,
-                    rate: 1,
-                    pitch: 1.1,
-                    volume: 1,
-                  }
-                )
-              }
-              style={styles.voiceTest}
+              onClick={handleGenerateScript}
+              disabled={selectedIds.length < 2}
+              style={{
+                ...styles.generateButton,
+                opacity:
+                  selectedIds.length < 2 ? 0.5 : 1,
+              }}
             >
-              🔊 Test Voice
+              ✨ Generate AI Dialogue Script
             </button>
 
-            <button
-              type="button"
-              onClick={stopSpeaking}
-              style={styles.voiceStop}
-            >
-              ⏹ Stop
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* TIMELINE AND VIDEO EXPORT */}
-
-      {activeTab === "export" && (
-        <div>
-          <h2 style={styles.heading}>
-            🎞️ Production Timeline
-          </h2>
-
-          <ScenePlayer
-            scenes={scenes}
-            language={language}
-            onSceneChange={(id: string) =>
-              setActiveSceneId(id)
-            }
-            onActionChange={(action: string) =>
-              console.log("Action:", action)
-            }
-          />
-
-          <div style={styles.exportSection}>
-            <h3 style={styles.exportHeading}>
-              🎬 Final Video
-            </h3>
-
-            <VideoExportPanel
-              canvas={stageCanvas}
-            />
-
-            {!stageCanvas && (
+            {selectedIds.length < 2 && (
               <p style={styles.warningText}>
-                Waiting for the 3D stage canvas to load...
+                Select at least two characters to generate dialogue.
               </p>
             )}
           </div>
+        )}
+
+        {/* VOICE TAB */}
+
+        {activeTab === "voice" && (
+          <div>
+            <h2 style={styles.heading}>
+              Character Voice & Language
+            </h2>
+
+            <p style={styles.muted}>
+              Configure browser speech synthesis for regional dubbing.
+            </p>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Dialogue Language
+              </label>
+
+              <select
+                value={language}
+                onChange={(event) =>
+                  setLanguage(event.target.value)
+                }
+                style={styles.input}
+              >
+                <option value="en-US">
+                  English (US)
+                </option>
+
+                <option value="am-ET">
+                  Amharic (አማርኛ)
+                </option>
+
+                <option value="om-ET">
+                  Afaan Oromoo
+                </option>
+
+                <option value="ti-ET">
+                  Tigrinya (ትግርኛ)
+                </option>
+              </select>
+            </div>
+
+            <div style={styles.voiceButtons}>
+              <button
+                type="button"
+                onClick={() =>
+                  speakText(
+                    "Village drama hits different.",
+                    {
+                      language,
+                      rate: 1,
+                      pitch: 1.1,
+                      volume: 1,
+                    }
+                  )
+                }
+                style={styles.voiceTest}
+              >
+                🔊 Test Voice
+              </button>
+
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                style={styles.voiceStop}
+              >
+                ⏹ Stop
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TIMELINE AND VIDEO EXPORT */}
+
+        {activeTab === "export" && (
+          <div>
+            <h2 style={styles.heading}>
+              🎞️ Production Timeline
+            </h2>
+
+            <ScenePlayer
+              scenes={scenes}
+              language={language}
+              onSceneChange={(id: string) =>
+                setActiveSceneId(id)
+              }
+              onActionChange={(action: string) =>
+                console.log("Action:", action)
+              }
+            />
+
+            {/* DIALOGUE PERFORMANCE CONSOLE */}
+
+            <div style={styles.performanceSection}>
+              <CinematicPerformanceConsole
+                lines={dialogueLines}
+                onLineChange={(line) => {
+                  if (line) {
+                    console.log(
+                      "Active dialogue:",
+                      line.characterName
+                    );
+                  }
+                }}
+                onPlaybackChange={(playing) => {
+                  setIsDialoguePlaying(playing);
+                }}
+                onSpeak={handleSpeakDialogue}
+                onStopSpeaking={handleStopDialogue}
+              />
+
+              <div style={styles.playbackStatus}>
+                <span>
+                  Dialogue performance
+                </span>
+
+                <strong
+                  style={{
+                    color: isDialoguePlaying
+                      ? "#22c55e"
+                      : "#8899a6",
+                  }}
+                >
+                  {isDialoguePlaying
+                    ? "PLAYING"
+                    : "READY"}
+                </strong>
+              </div>
+            </div>
+
+            {/* VIDEO EXPORT */}
+
+            <div style={styles.exportSection}>
+              <h3 style={styles.exportHeading}>
+                🎬 Final Video
+              </h3>
+
+              <VideoExportPanel
+                canvas={stageCanvas}
+              />
+
+              {!stageCanvas && (
+                <p style={styles.warningText}>
+                  Waiting for the 3D stage canvas to load...
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+
+      <footer style={styles.footer}>
+        <div>
+          Cinematic AI Character Creation Studio
         </div>
-      )}
+
+        <div>
+          © 2026 Character AI Studio · Made for village drama
+        </div>
+      </footer>
     </div>
-
-    {/* FOOTER */}
-
-    <footer style={styles.footer}>
-      <div>
-        Cinematic AI Character Creation Studio
-      </div>
-
-      <div>
-        © 2026 Character AI Studio · Made for village drama
-      </div>
-    </footer>
   </div>
-</div>
+</CinematicStudioPerformanceProvider>
 
 );
 }
@@ -974,6 +1137,24 @@ color: "#8899a6",
 fontWeight: 700,
 fontSize: 11,
 cursor: "pointer",
+},
+
+performanceSection: {
+marginTop: 24,
+paddingTop: 20,
+borderTop: "1px solid rgba(255,255,255,0.08)",
+},
+
+playbackStatus: {
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+marginTop: 12,
+padding: "10px 12px",
+borderRadius: 10,
+background: "#10181e",
+color: "#8899a6",
+fontSize: 11,
 },
 
 exportSection: {
