@@ -21,14 +21,16 @@ import CinematicCameraRig, {
 type CinematicCameraSettings,
 } from "./CinematicCameraRig";
 
+import CinematicCameraCommandRig from "./CinematicCameraCommandRig";
+
 import CinematicLighting from "./CinematicLighting";
 import CinematicEnvironment from "./CinematicEnvironment";
 
 import CinematicCharacterActor from "./CinematicCharacterActor";
 
 import {
-CinematicPerformanceProvider,
-} from "./CinematicPerformanceContext";
+useCinematicCameraCommand,
+} from "../lib/cinematic-camera-command-store";
 
 import {
 DEFAULT_ACTING_SETTINGS,
@@ -297,9 +299,28 @@ const [cameraDistance, setCameraDistance] = useState(9);
 
 const settings = ENVIRONMENTS[environment];
 
-const cinematicEnabled =
+/* Shared director camera command */
+
+const directorCommand = useCinematicCameraCommand();
+
+const directorCameraEnabled =
+directorCommand !== null &&
+directorCommand.enabled === true;
+
+/* Existing camera settings remain supported */
+
+const existingCameraEnabled =
 cameraSettings !== undefined &&
 cameraSettings.enabled !== false;
+
+/*
+
+* Only one cinematic camera controller
+* can control the camera at a time.
+  */
+
+const cinematicEnabled =
+directorCameraEnabled || existingCameraEnabled;
 
 /* Registered character models only */
 
@@ -346,10 +367,6 @@ style={{
 height,
 }}
 >
-<CinematicPerformanceProvider
-key={supportedIds.join("|")}
-characterIds={supportedIds}
->
 <Canvas
 shadows
 dpr={[1, 1.5]}
@@ -359,19 +376,40 @@ alpha: false,
 powerPreference: "high-performance",
 }}
 >
-{/* MAIN CAMERA */}
+{/* --------------------------------
+MAIN CAMERA
+-------------------------------- */}
 
-      <PerspectiveCamera
-        makeDefault
-        position={[0, 2.6, cameraDistance]}
-        fov={cameraSettings?.fieldOfView ?? 38}
-        near={0.1}
-        far={100}
+    <PerspectiveCamera
+      makeDefault
+      position={[0, 2.6, cameraDistance]}
+      fov={cameraSettings?.fieldOfView ?? 38}
+      near={0.1}
+      far={100}
+    />
+
+    {/* --------------------------------
+        STAGE 49: DIRECTOR CAMERA
+    -------------------------------- */}
+
+    {directorCameraEnabled && (
+      <CinematicCameraCommandRig
+        enabled
+        target={[
+          composition.cameraTarget[0],
+          composition.cameraTarget[1],
+          composition.cameraTarget[2],
+        ]}
       />
+    )}
 
-      {/* CINEMATIC CAMERA MOVEMENT */}
+    {/* --------------------------------
+        EXISTING CINEMATIC CAMERA
+    -------------------------------- */}
 
-      {cinematicEnabled && cameraSettings && (
+    {!directorCameraEnabled &&
+      existingCameraEnabled &&
+      cameraSettings && (
         <CinematicCameraRig
           shot={cameraSettings.shot}
           target={cameraSettings.target}
@@ -399,54 +437,63 @@ powerPreference: "high-performance",
         />
       )}
 
-      {/* CINEMATIC LIGHTING */}
+    {/* --------------------------------
+        CINEMATIC LIGHTING
+    -------------------------------- */}
 
-      <CinematicLighting
-        intensity={0.85}
-        dramatic
-        warm={settings.warmLighting}
+    <CinematicLighting
+      intensity={0.85}
+      dramatic
+      warm={settings.warmLighting}
+    />
+
+    {/* --------------------------------
+        ENVIRONMENT
+    -------------------------------- */}
+
+    <Environment
+      environment={environment}
+      settings={settings}
+    />
+
+    <CinematicEnvironment
+      environment={environment}
+    />
+
+    {/* --------------------------------
+        INDIVIDUAL CHARACTER PERFORMANCE
+    -------------------------------- */}
+
+    <Suspense fallback={null}>
+      <CharacterCollection
+        placements={composition.placements}
+        action={action}
+        actingSettings={actingSettings}
       />
+    </Suspense>
 
-      {/* ENVIRONMENT */}
+    {/* --------------------------------
+        MANUAL CAMERA CONTROLS
+    -------------------------------- */}
 
-      <Environment
-        environment={environment}
-        settings={settings}
+    {!cinematicEnabled && (
+      <OrbitControls
+        makeDefault
+        enableDamping
+        dampingFactor={0.08}
+        enablePan
+        minDistance={3}
+        maxDistance={30}
+        minPolarAngle={0.2}
+        maxPolarAngle={Math.PI / 2.05}
+        target={composition.cameraTarget}
       />
+    )}
+  </Canvas>
 
-      <CinematicEnvironment
-        environment={environment}
-      />
-
-      {/* INDIVIDUAL CHARACTER PERFORMANCE */}
-
-      <Suspense fallback={null}>
-        <CharacterCollection
-          placements={composition.placements}
-          action={action}
-          actingSettings={actingSettings}
-        />
-      </Suspense>
-
-      {/* MANUAL CAMERA CONTROLS */}
-
-      {!cinematicEnabled && (
-        <OrbitControls
-          makeDefault
-          enableDamping
-          dampingFactor={0.08}
-          enablePan
-          minDistance={3}
-          maxDistance={30}
-          minPolarAngle={0.2}
-          maxPolarAngle={Math.PI / 2.05}
-          target={composition.cameraTarget}
-        />
-      )}
-    </Canvas>
-  </CinematicPerformanceProvider>
-
-  {/* STUDIO INFORMATION BAR */}
+  {/* --------------------------------
+      STUDIO INFORMATION BAR
+  -------------------------------- */}
 
   {showControls && (
     <>
@@ -467,11 +514,19 @@ powerPreference: "high-performance",
           {compositionMode.toUpperCase()}
         </span>
 
-        {cinematicEnabled && (
+        {directorCameraEnabled && (
           <span style={styles.cameraBadge}>
-            🎥 {cameraSettings?.shot.toUpperCase()}
+            🎥 DIRECTOR:{" "}
+            {directorCommand?.shot.toUpperCase()}
           </span>
         )}
+
+        {!directorCameraEnabled &&
+          existingCameraEnabled && (
+            <span style={styles.cameraBadge}>
+              🎥 {cameraSettings?.shot.toUpperCase()}
+            </span>
+          )}
 
         <span style={styles.actingBadge}>
           🎭 {actingSettings.emotion.toUpperCase()}
@@ -518,7 +573,9 @@ powerPreference: "high-performance",
     </>
   )}
 
-  {/* EMPTY CHARACTER SELECTION */}
+  {/* --------------------------------
+      EMPTY CHARACTER SELECTION
+  -------------------------------- */}
 
   {supportedIds.length === 0 && (
     <div style={styles.empty}>
@@ -534,7 +591,9 @@ powerPreference: "high-performance",
     </div>
   )}
 
-  {/* MISSING MODEL WARNING */}
+  {/* --------------------------------
+      MISSING MODEL WARNING
+  -------------------------------- */}
 
   {selectedIds.length !== supportedIds.length && (
     <div style={styles.warning}>
