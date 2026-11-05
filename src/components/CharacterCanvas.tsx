@@ -33,6 +33,11 @@ useCinematicCameraCommand,
 } from "../lib/cinematic-camera-command-store";
 
 import {
+calculateCharacterCameraTarget,
+getCharacterCameraDistance,
+} from "../lib/cinematic-camera-targeting";
+
+import {
 DEFAULT_ACTING_SETTINGS,
 type CinematicActingSettings,
 } from "./CinematicActingPanel";
@@ -307,17 +312,13 @@ const directorCameraEnabled =
 directorCommand !== null &&
 directorCommand.enabled === true;
 
-/* Existing camera settings remain supported */
+/* Existing camera settings */
 
 const existingCameraEnabled =
 cameraSettings !== undefined &&
 cameraSettings.enabled !== false;
 
-/*
-
-* Only one cinematic camera controller
-* can control the camera at a time.
-  */
+/* Prevent competing camera controllers */
 
 const cinematicEnabled =
 directorCameraEnabled || existingCameraEnabled;
@@ -355,10 +356,38 @@ characterDepth,
 ]
 );
 
+/* ---------------------------------------
+STAGE 50: CHARACTER-AWARE FRAMING
+--------------------------------------- */
+
+const characterCameraFraming = useMemo(
+() =>
+calculateCharacterCameraTarget(
+composition.placements.map((placement) => ({
+id: placement.id,
+position: placement.position,
+scale: placement.scale,
+}))
+),
+[composition.placements]
+);
+
+const characterCameraDistance = useMemo(
+() =>
+getCharacterCameraDistance(
+characterCameraFraming.groupWidth,
+characterCameraFraming.groupDepth,
+characterCameraFraming.characterCount
+),
+[characterCameraFraming]
+);
+
 const cameraTarget =
-cameraSettings?.characterPosition ??
+directorCameraEnabled
+? characterCameraFraming.target
+: cameraSettings?.characterPosition ??
 cameraSettings?.target ??
-composition.cameraTarget;
+characterCameraFraming.target;
 
 return (
 <div
@@ -376,9 +405,7 @@ alpha: false,
 powerPreference: "high-performance",
 }}
 >
-{/* --------------------------------
-MAIN CAMERA
--------------------------------- */}
+{/* MAIN CAMERA */}
 
     <PerspectiveCamera
       makeDefault
@@ -388,24 +415,16 @@ MAIN CAMERA
       far={100}
     />
 
-    {/* --------------------------------
-        STAGE 49: DIRECTOR CAMERA
-    -------------------------------- */}
+    {/* STAGE 49 + 50: DIRECTOR CAMERA */}
 
     {directorCameraEnabled && (
       <CinematicCameraCommandRig
         enabled
-        target={[
-          composition.cameraTarget[0],
-          composition.cameraTarget[1],
-          composition.cameraTarget[2],
-        ]}
+        target={cameraTarget}
       />
     )}
 
-    {/* --------------------------------
-        EXISTING CINEMATIC CAMERA
-    -------------------------------- */}
+    {/* EXISTING CINEMATIC CAMERA */}
 
     {!directorCameraEnabled &&
       existingCameraEnabled &&
@@ -428,7 +447,7 @@ MAIN CAMERA
           }
           orbitRadius={
             cameraSettings.orbitRadius ??
-            composition.cameraDistance
+            characterCameraDistance
           }
           orbitHeight={
             cameraSettings.orbitHeight ?? 2.3
@@ -437,9 +456,7 @@ MAIN CAMERA
         />
       )}
 
-    {/* --------------------------------
-        CINEMATIC LIGHTING
-    -------------------------------- */}
+    {/* CINEMATIC LIGHTING */}
 
     <CinematicLighting
       intensity={0.85}
@@ -447,9 +464,7 @@ MAIN CAMERA
       warm={settings.warmLighting}
     />
 
-    {/* --------------------------------
-        ENVIRONMENT
-    -------------------------------- */}
+    {/* ENVIRONMENT */}
 
     <Environment
       environment={environment}
@@ -460,9 +475,7 @@ MAIN CAMERA
       environment={environment}
     />
 
-    {/* --------------------------------
-        INDIVIDUAL CHARACTER PERFORMANCE
-    -------------------------------- */}
+    {/* INDIVIDUAL CHARACTER PERFORMANCE */}
 
     <Suspense fallback={null}>
       <CharacterCollection
@@ -472,9 +485,7 @@ MAIN CAMERA
       />
     </Suspense>
 
-    {/* --------------------------------
-        MANUAL CAMERA CONTROLS
-    -------------------------------- */}
+    {/* MANUAL CAMERA CONTROLS */}
 
     {!cinematicEnabled && (
       <OrbitControls
@@ -486,14 +497,12 @@ MAIN CAMERA
         maxDistance={30}
         minPolarAngle={0.2}
         maxPolarAngle={Math.PI / 2.05}
-        target={composition.cameraTarget}
+        target={cameraTarget}
       />
     )}
   </Canvas>
 
-  {/* --------------------------------
-      STUDIO INFORMATION BAR
-  -------------------------------- */}
+  {/* STUDIO INFORMATION BAR */}
 
   {showControls && (
     <>
@@ -573,9 +582,7 @@ MAIN CAMERA
     </>
   )}
 
-  {/* --------------------------------
-      EMPTY CHARACTER SELECTION
-  -------------------------------- */}
+  {/* EMPTY CHARACTER SELECTION */}
 
   {supportedIds.length === 0 && (
     <div style={styles.empty}>
@@ -591,9 +598,7 @@ MAIN CAMERA
     </div>
   )}
 
-  {/* --------------------------------
-      MISSING MODEL WARNING
-  -------------------------------- */}
+  {/* MISSING MODEL WARNING */}
 
   {selectedIds.length !== supportedIds.length && (
     <div style={styles.warning}>
