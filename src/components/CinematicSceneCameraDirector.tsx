@@ -6,6 +6,14 @@ type SceneDirection,
 type SceneDirectionInput,
 } from "../lib/cinematic-scene-director";
 
+import {
+createCinematicCameraCommand,
+} from "../lib/cinematic-camera-director";
+
+import {
+publishCinematicCameraCommand,
+} from "../lib/cinematic-camera-command-store";
+
 export interface DirectedScene extends SceneDirectionInput {
 id: string;
 }
@@ -15,7 +23,7 @@ scenes: DirectedScene[];
 activeSceneId: string;
 characterCount?: number;
 enabled?: boolean;
-onDirectionChange: (
+onDirectionChange?: (
 direction: SceneDirection,
 scene: DirectedScene
 ) => void;
@@ -29,29 +37,41 @@ enabled = true,
 onDirectionChange,
 }: CinematicSceneCameraDirectorProps) {
 const activeScene = useMemo(
-() => scenes.find((scene) => scene.id === activeSceneId),
+() =>
+scenes.find(
+(scene) => scene.id === activeSceneId
+) ?? null,
 [scenes, activeSceneId]
 );
 
 const direction = useMemo(() => {
-if (!activeScene) return null;
+if (!activeScene || !enabled) {
+return null;
+}
 
 return directCinematicScene({
   ...activeScene,
   characterCount,
 });
 
-}, [activeScene, characterCount]);
+}, [activeScene, characterCount, enabled]);
 
 useEffect(() => {
-if (!enabled || !activeScene || !direction) return;
+if (!direction || !activeScene || !enabled) {
+return;
+}
 
-onDirectionChange(direction, activeScene);
+const cameraCommand =
+  createCinematicCameraCommand(direction);
+
+publishCinematicCameraCommand(cameraCommand);
+
+onDirectionChange?.(direction, activeScene);
 
 }, [
-enabled,
-activeScene,
 direction,
+activeScene,
+enabled,
 onDirectionChange,
 ]);
 
