@@ -222,4 +222,4 @@ currentFrame: getAnimationFrame(),
   animationTasks.clear();
   frameDecisions.clear();
   cachedFrame = -1;
-    }
+  }
