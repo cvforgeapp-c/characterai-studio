@@ -2,7 +2,6 @@ import {
 shouldUpdateCharacterAnimation,
 registerAnimationCharacter,
 unregisterAnimationCharacter,
-setAnimationPriority,
 type AnimationPriority,
 } from "./cinematic-animation-scheduler";
 
@@ -84,17 +83,13 @@ priority: AnimationPriority = "background"
 if (!characterId || !taskId) return;
 
 const tasks = getCharacterTasks(characterId);
-
 const existingTask = tasks.get(taskId);
 
 if (existingTask) {
 existingTask.callback = callback;
 existingTask.priority = priority;
 existingTask.enabled = true;
-
-setAnimationPriority(characterId, priority);
 return;
-
 }
 
 tasks.set(taskId, {
@@ -105,7 +100,9 @@ priority,
 enabled: true,
 });
 
-registerAnimationCharacter(characterId, priority);
+// Register the character without overriding priorities
+// subsequently assigned by the dialogue or visibility directors.
+registerAnimationCharacter(characterId, "background");
 }
 
 export function setCharacterAnimationTaskEnabled(
@@ -133,9 +130,9 @@ const task = animationTasks
 
 if (!task) return;
 
+// This changes the task's metadata only.
+// Scheduler priority remains owned by the directors.
 task.priority = priority;
-
-setAnimationPriority(characterId, priority);
 }
 
 export function unregisterCharacterAnimationTasks(
@@ -181,26 +178,8 @@ const enabledTasks = Array.from(tasks.values()).filter(
 
 if (enabledTasks.length === 0) continue;
 
-const highestPriorityTask = enabledTasks.reduce(
-  (highest, task) => {
-    const rank: Record<AnimationPriority, number> = {
-      speaking: 4,
-      listening: 3,
-      foreground: 2,
-      background: 1,
-    };
-
-    return rank[task.priority] > rank[highest.priority]
-      ? task
-      : highest;
-  }
-);
-
-setAnimationPriority(
-  characterId,
-  highestPriorityTask.priority
-);
-
+// The scheduler checks the priority assigned by the
+// dialogue and visibility directors.
 if (!shouldUpdateCharacterAnimation(characterId)) {
   continue;
 }
