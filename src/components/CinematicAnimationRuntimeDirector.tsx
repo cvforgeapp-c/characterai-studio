@@ -9,24 +9,12 @@ getCharacterInteraction,
 } from "../lib/cinematic-interaction-store";
 
 import {
-getRegisteredCharacterIds,
-} from "../lib/cinematic-live-target-store";
-
-import {
 setAnimationPriority,
-type AnimationPriority,
 } from "../lib/cinematic-animation-scheduler";
 
 interface CinematicAnimationRuntimeDirectorProps {
 enabled?: boolean;
 }
-
-const PRIORITY_RANK: Record<AnimationPriority, number> = {
-speaking: 4,
-listening: 3,
-foreground: 2,
-background: 1,
-};
 
 export default function CinematicAnimationRuntimeDirector({
 enabled = true,
@@ -50,27 +38,6 @@ if (interaction.enabled) {
       "listening"
     );
   }
-}
-
-const registeredIds = getRegisteredCharacterIds();
-
-for (const characterId of registeredIds) {
-  if (
-    interaction.enabled &&
-    characterId === interaction.speakerId
-  ) {
-    continue;
-  }
-
-  if (
-    interaction.enabled &&
-    characterId === interaction.listenerId
-  ) {
-    continue;
-  }
-
-  // Preserve priorities assigned by the visibility director.
-  // Do not reset foreground/background priorities here.
 }
 
 executeCharacterAnimationTasks(
