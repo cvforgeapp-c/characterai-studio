@@ -30,11 +30,20 @@ import CinematicCharacterActor from "./CinematicCharacterActor";
 import CinematicTrackedCharacter from "./CinematicTrackedCharacter";
 import CinematicLiveTargetTracker from "./CinematicLiveTargetTracker";
 
-import CinematicEmotionalActingRig from "./CinematicEmotionalActingRig";
+// Stage 97: Scheduled emotional acting
+import CinematicScheduledEmotionalActingRig from "./CinematicScheduledEmotionalActingRig";
+
+// Stage 66: Character interaction
 import CinematicCharacterInteractionRig from "./CinematicCharacterInteractionRig";
+
+// Stage 94: Scheduled facial animation and lip-sync
 import CinematicScheduledFacialRig from "./CinematicScheduledFacialRig";
-import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
-import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
+
+// Stage 98: Scheduled eye animation
+import CinematicScheduledEyeAnimationRig from "./CinematicScheduledEyeAnimationRig";
+
+// Stage 99: Scheduled secondary motion
+import CinematicScheduledSecondaryMotionRig from "./CinematicScheduledSecondaryMotionRig";
 
 // Stage 81–87: Animation scheduling
 import CinematicAnimationSchedulerRig from "./CinematicAnimationSchedulerRig";
@@ -44,7 +53,7 @@ import CinematicVisibilityPriorityDirector from "./CinematicVisibilityPriorityDi
 // Stage 88–89: Adaptive animation workload
 import CinematicAnimationWorkloadController from "./CinematicAnimationWorkloadController";
 
-// Stage 91–92: Unified animation runtime
+// Stage 95–96: Unified animation runtime
 import CinematicAnimationRuntimeDirector from "./CinematicAnimationRuntimeDirector";
 
 // Stage 74–75: Rig compatibility diagnostics
@@ -62,6 +71,9 @@ import CinematicPerformancePanel from "./CinematicPerformancePanel";
 
 // Stage 90: Animation scheduler diagnostics
 import CinematicAnimationSchedulerPanel from "./CinematicAnimationSchedulerPanel";
+
+// Stage 101–102: Animation task diagnostics
+import CinematicAnimationTaskPanel from "./CinematicAnimationTaskPanel";
 
 import {
 useCinematicCameraCommand,
@@ -475,7 +487,7 @@ powerPreference: "high-performance",
 
     <CinematicAnimationWorkloadController enabled />
 
-    {/* STAGE 91–92: UNIFIED ANIMATION RUNTIME */}
+    {/* STAGE 95–96: UNIFIED ANIMATION RUNTIME */}
 
     <CinematicAnimationRuntimeDirector enabled />
 
@@ -551,9 +563,9 @@ powerPreference: "high-performance",
       />
     </Suspense>
 
-    {/* STAGE 65: AUTOMATIC EMOTIONAL ACTING */}
+    {/* STAGE 97: SCHEDULED EMOTIONAL ACTING */}
 
-    <CinematicEmotionalActingRig />
+    <CinematicScheduledEmotionalActingRig enabled />
 
     {/* STAGE 66: CHARACTER-TO-CHARACTER INTERACTION */}
 
@@ -563,13 +575,17 @@ powerPreference: "high-performance",
 
     <CinematicScheduledFacialRig />
 
-    {/* STAGE 71: NATURAL EYE MOVEMENT AND BLINKING */}
+    {/* STAGE 98: SCHEDULED EYE MOVEMENT AND BLINKING */}
 
-    <CinematicEyeAnimationRig />
+    <CinematicScheduledEyeAnimationRig enabled />
 
-    {/* STAGE 72: NATURAL EAR AND TAIL MOVEMENT */}
+    {/* STAGE 99: SCHEDULED EAR, TAIL AND BODY MOTION */}
 
-    <CinematicSecondaryMotionRig />
+    <CinematicScheduledSecondaryMotionRig
+      enabled
+      breathingIntensity={0.012}
+      swayIntensity={0.018}
+    />
 
     {/* STAGE 76: JAW ANIMATION FALLBACK */}
 
@@ -615,6 +631,10 @@ powerPreference: "high-performance",
   {/* STAGE 90: ANIMATION SCHEDULER DIAGNOSTICS */}
 
   <CinematicAnimationSchedulerPanel enabled />
+
+  {/* STAGE 101–102: ANIMATION TASK DIAGNOSTICS */}
+
+  <CinematicAnimationTaskPanel enabled />
 
   {/* STUDIO INFORMATION BAR */}
 
@@ -674,11 +694,11 @@ powerPreference: "high-performance",
         </span>
 
         <span style={styles.eyeBadge}>
-          👁️ EYE ANIMATION
+          👁️ SCHEDULED EYE ANIMATION
         </span>
 
         <span style={styles.secondaryMotionBadge}>
-          🐾 SECONDARY MOTION
+          🐾 SCHEDULED SECONDARY MOTION
         </span>
 
         <span style={styles.fallbackBadge}>
@@ -711,6 +731,10 @@ powerPreference: "high-performance",
 
         <span style={styles.runtimeBadge}>
           🧠 UNIFIED ANIMATION RUNTIME
+        </span>
+
+        <span style={styles.taskBadge}>
+          📊 TASK EXECUTION MONITOR
         </span>
       </div>
 
@@ -985,6 +1009,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(6,78,59,0.9)",
 color: "#a7f3d0",
+fontSize: 10,
+fontWeight: 800,
+},
+
+taskBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(88,28,135,0.9)",
+color: "#e9d5ff",
 fontSize: 10,
 fontWeight: 800,
 },
