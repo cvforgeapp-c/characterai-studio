@@ -3,477 +3,292 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 import {
-  getLiveCharacterObject,
-  getRegisteredCharacterIds,
+getLiveCharacterObject,
+getRegisteredCharacterIds,
 } from "../lib/cinematic-live-target-store";
 
 import {
-  getEmotionalActingCue,
-  type CinematicEmotion,
-} from "../lib/cinematic-emotional-acting-store";
+getCharacterInteraction,
+} from "../lib/cinematic-interaction-store";
 
 import {
-  subscribeToSpeechPerformance,
+subscribeToSpeechPerformance,
+type SpeechPerformanceEvent,
 } from "../lib/synchronized-speech";
 
-type FacialChannel =
-  | "smile"
-  | "frown"
-  | "angry"
-  | "surprised"
-  | "fearful"
-  | "confused"
-  | "concerned"
-  | "jaw"
-  | "mouth"
-  | "blink"
-  | "browUp"
-  | "browDown"
-  | "cheek"
-  | "wideEyes";
-
-interface MorphTargetEntry {
-  influences: number[];
-  index: number;
-  base: number;
-  channel: FacialChannel;
+interface FacialMorph {
+mesh: THREE.Mesh;
+index: number;
+baseValue: number;
 }
 
-interface CharacterFaceState {
-  root: THREE.Object3D;
-  targets: MorphTargetEntry[];
-  speaking: boolean;
-  speechStartedAt: number;
-  speechPulse: number;
-  lastBoundaryAt: number;
-  speechProgress: number;
+interface CharacterFace {
+root: THREE.Object3D;
+mouthOpen: FacialMorph[];
+mouthSmile: FacialMorph[];
+mouthPress: FacialMorph[];
 }
 
-const characterFaces = new Map<string, CharacterFaceState>();
-
-const SMOOTHING = 9;
-
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+interface SpeechState {
+characterId: string | null;
+speaking: boolean;
+startedAt: number;
+lastBoundaryAt: number;
+boundaryIntensity: number;
 }
 
-function detectFacialChannel(
-  originalName: string,
-): FacialChannel | null {
-  const name = normalizeName(originalName);
+function normalizeMorphName(name: string): string {
+return name
+.toLowerCase()
+.replace(/[^a-z0-9]/g, "");
+}
 
-  if (
-    name.includes("jawopen") ||
-    name.includes("jawdrop") ||
-    name === "jaw"
-  ) {
-    return "jaw";
-  }
+function collectMorphs(
+root: THREE.Object3D,
+patterns: RegExp[],
+): FacialMorph[] {
+const results: FacialMorph[] = [];
 
-  if (
-    name.includes("mouthopen") ||
-    name.includes("mouthwide") ||
-    name.includes("visemeaa") ||
-    name.includes("visemeoh") ||
-    name.includes("visemeah")
-  ) {
-    return "mouth";
-  }
+root.traverse((object) => {
+const mesh = object as THREE.Mesh;
 
-  if (
-    name.includes("smile") ||
-    name.includes("happy")
-  ) {
-    return "smile";
-  }
+if (
+  !mesh.isMesh ||
+  !mesh.morphTargetDictionary ||
+  !mesh.morphTargetInfluences
+) {
+  return;
+}
 
-  if (
-    name.includes("frown") ||
-    name.includes("sad")
-  ) {
-    return "frown";
-  }
+Object.entries(mesh.morphTargetDictionary).forEach(
+  ([name, index]) => {
+    const normalized = normalizeMorphName(name);
 
-  if (
-    name.includes("browdown") ||
-    name.includes("browlower") ||
-    name.includes("angry")
-  ) {
-    return "angry";
-  }
+    if (
+      patterns.some((pattern) =>
+        pattern.test(normalized),
+      )
+    ) {
+      results.push({
+        mesh,
+        index,
+        baseValue:
+          mesh.morphTargetInfluences?.[index] ?? 0,
+      });
+    }
+  },
+);
 
-  if (
-    name.includes("browinnerup") ||
-    name.includes("browraise") ||
-    name.includes("browup")
-  ) {
-    return "browUp";
-  }
+});
 
-  if (
-    name.includes("browouterdown") ||
-    name.includes("browlower")
-  ) {
-    return "browDown";
-  }
-
-  if (
-    name.includes("surprise") ||
-    name.includes("astonish")
-  ) {
-    return "surprised";
-  }
-
-  if (
-    name.includes("fear") ||
-    name.includes("scared")
-  ) {
-    return "fearful";
-  }
-
-  if (
-    name.includes("confus")
-  ) {
-    return "confused";
-  }
-
-  if (
-    name.includes("concern") ||
-    name.includes("worried")
-  ) {
-    return "concerned";
-  }
-
-  if (
-    name.includes("squint") ||
-    name.includes("cheek")
-  ) {
-    return "cheek";
-  }
-
-  if (
-    name.includes("eyewide") ||
-    name.includes("eyeopen")
-  ) {
-    return "wideEyes";
-  }
-
-  if (
-    name.includes("blink") ||
-    name.includes("eyeblink")
-  ) {
-    return "blink";
-  }
-
-  return null;
+return results;
 }
 
 function buildCharacterFace(
-  characterId: string,
-  root: THREE.Object3D,
-): CharacterFaceState {
-  const targets: MorphTargetEntry[] = [];
+root: THREE.Object3D,
+): CharacterFace {
+return {
+root,
 
-  root.traverse((object) => {
-    const mesh = object as THREE.Mesh & {
-      morphTargetDictionary?: Record<string, number>;
-      morphTargetInfluences?: number[];
-    };
+mouthOpen: collectMorphs(root, [
+  /jawopen/,
+  /mouthopen/,
+  /visemeaa/,
+  /visemeah/,
+  /mouthah/,
+  /moutha$/,
+  /mouthwide/,
+  /mouthfunnel/,
+]),
 
-    const dictionary = mesh.morphTargetDictionary;
-    const influences = mesh.morphTargetInfluences;
+mouthSmile: collectMorphs(root, [
+  /mouthsmile/,
+  /smileleft/,
+  /smileright/,
+]),
 
-    if (!dictionary || !influences) return;
+mouthPress: collectMorphs(root, [
+  /mouthpress/,
+  /mouthclosed/,
+  /mouthclose/,
+]),
 
-    for (const [name, index] of Object.entries(dictionary)) {
-      if (typeof index !== "number") continue;
-      if (index < 0 || index >= influences.length) continue;
-
-      const channel = detectFacialChannel(name);
-
-      if (!channel) continue;
-
-      targets.push({
-        influences,
-        index,
-        base: influences[index] ?? 0,
-        channel,
-      });
-    }
-  });
-
-  const state: CharacterFaceState = {
-    root,
-    targets,
-    speaking: false,
-    speechStartedAt: 0,
-    speechPulse: 0,
-    lastBoundaryAt: 0,
-    speechProgress: 0,
-  };
-
-  characterFaces.set(characterId, state);
-
-  return state;
+};
 }
 
-function getEmotionWeights(
-  emotion: CinematicEmotion | undefined,
-  intensity: number,
-): Partial<Record<FacialChannel, number>> {
-  const amount = THREE.MathUtils.clamp(intensity, 0, 1);
+function setMorphs(
+morphs: FacialMorph[],
+target: number,
+delta: number,
+): void {
+for (const morph of morphs) {
+const influences = morph.mesh.morphTargetInfluences;
 
-  switch (emotion) {
-    case "happy":
-    case "amused":
-      return {
-        smile: 0.8 * amount,
-        cheek: 0.45 * amount,
-        browUp: 0.12 * amount,
-      };
+if (!influences) continue;
 
-    case "sad":
-      return {
-        frown: 0.75 * amount,
-        browUp: 0.35 * amount,
-        browDown: 0.2 * amount,
-      };
+const current = influences[morph.index] ?? 0;
 
-    case "angry":
-      return {
-        angry: 0.85 * amount,
-        browDown: 0.7 * amount,
-        frown: 0.35 * amount,
-      };
-
-    case "surprised":
-      return {
-        surprised: 0.8 * amount,
-        wideEyes: 0.85 * amount,
-        browUp: 0.75 * amount,
-        jaw: 0.35 * amount,
-      };
-
-    case "fearful":
-      return {
-        fearful: 0.7 * amount,
-        wideEyes: 0.75 * amount,
-        browUp: 0.45 * amount,
-        jaw: 0.15 * amount,
-      };
-
-    case "confused":
-      return {
-        confused: 0.6 * amount,
-        browUp: 0.35 * amount,
-        browDown: 0.15 * amount,
-      };
-
-    case "concerned":
-      return {
-        concerned: 0.65 * amount,
-        frown: 0.35 * amount,
-        browUp: 0.25 * amount,
-      };
-
-    default:
-      return {};
-  }
-}
-
-function getChannelValue(
-  channel: FacialChannel,
-  weights: Partial<Record<FacialChannel, number>>,
-): number {
-  return weights[channel] ?? 0;
-}
-
-function getSpeechMouthValue(
-  state: CharacterFaceState,
-  now: number,
-): number {
-  if (!state.speaking) return 0;
-
-  const elapsed = (now - state.speechStartedAt) / 1000;
-
-  // Natural fallback mouth movement when browser speech
-  // does not provide word-boundary events.
-  const basePulse =
-    Math.abs(Math.sin(elapsed * 8.5)) * 0.42 +
-    Math.abs(Math.sin(elapsed * 4.2)) * 0.2;
-
-  const boundaryAge = now - state.lastBoundaryAt;
-
-  const boundaryPulse =
-    boundaryAge < 180
-      ? (1 - boundaryAge / 180) * 0.45
-      : 0;
-
-  return THREE.MathUtils.clamp(
-    Math.max(basePulse, boundaryPulse),
+influences[morph.index] = THREE.MathUtils.damp(
+  current,
+  THREE.MathUtils.clamp(
+    morph.baseValue + target,
     0,
-    0.75,
-  );
+    1,
+  ),
+  12,
+  delta,
+);
+
 }
-
-function getCombinedWeights(
-  emotion: CinematicEmotion | undefined,
-  intensity: number,
-  speech: number,
-): Partial<Record<FacialChannel, number>> {
-  const emotionWeights = getEmotionWeights(
-    emotion,
-    intensity,
-  );
-
-  return {
-    ...emotionWeights,
-
-    // Speech affects mouth and jaw independently
-    // so the emotion remains visible while speaking.
-    mouth: speech * 0.85,
-    jaw: Math.max(
-      emotionWeights.jaw ?? 0,
-      speech * 0.55,
-    ),
-  };
 }
 
 export default function CinematicFacialExpressionRig() {
-  const lastFrameTime = useRef(0);
+const faces = useRef<Map<string, CharacterFace>>(
+new Map(),
+);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToSpeechPerformance(
-      (event) => {
-        const characterId = event.characterId;
+const speech = useRef<SpeechState>({
+characterId: null,
+speaking: false,
+startedAt: 0,
+lastBoundaryAt: 0,
+boundaryIntensity: 0,
+});
 
-        if (!characterId) return;
+useEffect(() => {
+const unsubscribe = subscribeToSpeechPerformance(
+(event: SpeechPerformanceEvent) => {
+const state = speech.current;
 
-        const root = getLiveCharacterObject(characterId);
-
-        if (!root) return;
-
-        let state = characterFaces.get(characterId);
-
-        if (!state || state.root !== root) {
-          state = buildCharacterFace(characterId, root);
-        }
-
-        const now = performance.now();
-
-        if (event.type === "start") {
-          state.speaking = true;
-          state.speechStartedAt = now;
-          state.speechProgress = 0;
-          state.lastBoundaryAt = now;
-        }
-
-        if (event.type === "boundary") {
-          state.speaking = true;
-          state.lastBoundaryAt = now;
-
-          if (typeof event.charIndex === "number") {
-            state.speechProgress = event.charIndex;
-          }
-        }
-
-        if (
-          event.type === "end" ||
-          event.type === "error" ||
-          event.type === "cancel"
-        ) {
-          state.speaking = false;
-          state.speechPulse = 0;
-        }
-      },
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    const now = performance.now();
-
-    const safeDelta = Math.min(delta, 0.05);
-
-    const smoothing =
-      1 - Math.exp(-SMOOTHING * safeDelta);
-
-    const registeredIds = getRegisteredCharacterIds();
-
-    const registeredSet = new Set(registeredIds);
-
-    for (const characterId of registeredIds) {
-      const root = getLiveCharacterObject(characterId);
-
-      if (!root) continue;
-
-      let state = characterFaces.get(characterId);
-
-      if (!state || state.root !== root) {
-        state = buildCharacterFace(characterId, root);
-      }
-
-      const cue = getEmotionalActingCue(characterId);
-
-      const cueIsActive =
-        !!cue &&
-        now - cue.updatedAt < cue.duration;
-
-      const emotion = cueIsActive
-        ? cue?.emotion
-        : undefined;
-
-      const intensity = cueIsActive
-        ? cue?.intensity ?? 0
-        : 0;
-
-      const speech = getSpeechMouthValue(state, now);
-
-      state.speechPulse = speech;
-
-      const weights = getCombinedWeights(
-        emotion,
-        intensity,
-        speech,
-      );
-
-      for (const target of state.targets) {
-        const desired =
-          target.base +
-          getChannelValue(target.channel, weights);
-
-        const clamped = THREE.MathUtils.clamp(
-          desired,
-          0,
-          1,
-        );
-
-        const current =
-          target.influences[target.index] ?? target.base;
-
-        target.influences[target.index] =
-          THREE.MathUtils.lerp(
-            current,
-            clamped,
-            smoothing,
-          );
-      }
+    if (event.type === "start") {
+      state.characterId = event.characterId ?? null;
+      state.speaking = true;
+      state.startedAt = performance.now();
+      state.lastBoundaryAt = performance.now();
+      state.boundaryIntensity = 0.55;
     }
 
-    // Remove states for characters no longer registered.
-    for (const characterId of characterFaces.keys()) {
-      if (!registeredSet.has(characterId)) {
-        characterFaces.delete(characterId);
+    if (event.type === "boundary") {
+      if (
+        event.characterId &&
+        state.characterId &&
+        event.characterId !== state.characterId
+      ) {
+        return;
       }
+
+      state.lastBoundaryAt = performance.now();
+      state.boundaryIntensity = 0.9;
     }
 
-    lastFrameTime.current = now;
-  });
+    if (
+      event.type === "end" ||
+      event.type === "error" ||
+      event.type === "cancel"
+    ) {
+      if (
+        !event.characterId ||
+        !state.characterId ||
+        event.characterId === state.characterId
+      ) {
+        state.speaking = false;
+        state.boundaryIntensity = 0;
+      }
+    }
+  },
+);
 
-  return null;
+return () => {
+  unsubscribe();
+  speech.current.speaking = false;
+  faces.current.clear();
+};
+
+}, []);
+
+useFrame((_, delta) => {
+const ids = getRegisteredCharacterIds();
+const interaction = getCharacterInteraction();
+const speechState = speech.current;
+
+const activeSpeaker =
+  speechState.speaking
+    ? speechState.characterId
+    : interaction.enabled
+      ? interaction.speakerId
+      : null;
+
+const listenerId =
+  interaction.enabled
+    ? interaction.listenerId
+    : null;
+
+const now = performance.now();
+
+const boundaryAge =
+  now - speechState.lastBoundaryAt;
+
+if (boundaryAge > 180) {
+  speechState.boundaryIntensity = THREE.MathUtils.damp(
+    speechState.boundaryIntensity,
+    0.25,
+    5,
+    delta,
+  );
+}
+
+for (const characterId of ids) {
+  const root = getLiveCharacterObject(characterId);
+
+  if (!root) continue;
+
+  let face = faces.current.get(characterId);
+
+  if (!face || face.root !== root) {
+    face = buildCharacterFace(root);
+    faces.current.set(characterId, face);
   }
+
+  const isSpeaking =
+    characterId === activeSpeaker &&
+    speechState.speaking;
+
+  const isListening =
+    !isSpeaking &&
+    characterId === listenerId;
+
+  let mouthOpen = 0;
+  let smile = 0;
+  let mouthPress = 0;
+
+  if (isSpeaking) {
+    const elapsed =
+      (now - speechState.startedAt) / 1000;
+
+    const syllableMotion =
+      Math.abs(Math.sin(elapsed * 11.5)) * 0.55 +
+      Math.abs(Math.sin(elapsed * 6.8)) * 0.25;
+
+    const boundaryBoost =
+      speechState.boundaryIntensity * 0.35;
+
+    mouthOpen = THREE.MathUtils.clamp(
+      syllableMotion + boundaryBoost,
+      0.08,
+      0.85,
+    );
+  } else if (isListening) {
+    mouthOpen = 0.025;
+    smile = 0.06;
+    mouthPress = 0.035;
+  }
+
+  setMorphs(face.mouthOpen, mouthOpen, delta);
+  setMorphs(face.mouthSmile, smile, delta);
+  setMorphs(face.mouthPress, mouthPress, delta);
+}
+
+});
+
+return null;
+}
