@@ -30,6 +30,7 @@ import CinematicCharacterActor from "./CinematicCharacterActor";
 import CinematicTrackedCharacter from "./CinematicTrackedCharacter";
 import CinematicLiveTargetTracker from "./CinematicLiveTargetTracker";
 import CinematicEmotionalActingRig from "./CinematicEmotionalActingRig";
+import CinematicCharacterInteractionRig from "./CinematicCharacterInteractionRig";
 
 import {
 useCinematicCameraCommand,
@@ -511,6 +512,10 @@ powerPreference: "high-performance",
 
     <CinematicEmotionalActingRig />
 
+    {/* STAGE 66: CHARACTER-TO-CHARACTER INTERACTION */}
+
+    <CinematicCharacterInteractionRig />
+
     {/* MANUAL CAMERA CONTROLS */}
 
     {!cinematicEnabled && (
@@ -575,6 +580,10 @@ powerPreference: "high-performance",
 
         <span style={styles.emotionEngineBadge}>
           ✨ AUTO EMOTION
+        </span>
+
+        <span style={styles.interactionBadge}>
+          👀 CHARACTER INTERACTION
         </span>
       </div>
 
@@ -740,6 +749,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(124,45,18,0.9)",
 color: "#fed7aa",
+fontSize: 10,
+fontWeight: 800,
+},
+
+interactionBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(8,84,100,0.9)",
+color: "#a5f3fc",
 fontSize: 10,
 fontWeight: 800,
 },
