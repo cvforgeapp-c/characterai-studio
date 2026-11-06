@@ -21,9 +21,7 @@ import CinematicCameraRig, {
 type CinematicCameraSettings,
 } from "./CinematicCameraRig";
 
-import CinematicCameraCommandRig from "./CinematicCameraCommandRig";
-
-import CinematicSpeakerFocusCameraRig from "./CinematicSpeakerFocusCameraRig";
+import CinematicShotTransitionController from "./CinematicShotTransitionController";
 
 import CinematicLighting from "./CinematicLighting";
 import CinematicEnvironment from "./CinematicEnvironment";
@@ -31,6 +29,7 @@ import CinematicEnvironment from "./CinematicEnvironment";
 import CinematicCharacterActor from "./CinematicCharacterActor";
 import CinematicTrackedCharacter from "./CinematicTrackedCharacter";
 import CinematicLiveTargetTracker from "./CinematicLiveTargetTracker";
+import CinematicEmotionalActingRig from "./CinematicEmotionalActingRig";
 
 import {
 useCinematicCameraCommand,
@@ -437,20 +436,14 @@ powerPreference: "high-performance",
 
     <CinematicLiveTargetTracker enabled />
 
-    {/* STAGE 47–52: DIRECTOR CAMERA */}
+    {/* STAGE 61–64: UNIFIED CINEMATIC CAMERA */}
 
     {directorCameraEnabled && (
-      <CinematicCameraCommandRig
+      <CinematicShotTransitionController
         enabled
         target={cameraTarget}
         framingDistance={adaptiveFramingDistance}
       />
-    )}
-
-    {/* STAGE 60: SPEAKER-AWARE CAMERA FOCUS */}
-
-    {directorCameraEnabled && (
-      <CinematicSpeakerFocusCameraRig />
     )}
 
     {/* EXISTING CINEMATIC CAMERA */}
@@ -504,7 +497,7 @@ powerPreference: "high-performance",
       environment={environment}
     />
 
-    {/* INDIVIDUAL CHARACTER PERFORMANCE */}
+    {/* CHARACTER MODELS */}
 
     <Suspense fallback={null}>
       <CharacterCollection
@@ -513,6 +506,10 @@ powerPreference: "high-performance",
         actingSettings={actingSettings}
       />
     </Suspense>
+
+    {/* STAGE 65: AUTOMATIC EMOTIONAL ACTING */}
+
+    <CinematicEmotionalActingRig />
 
     {/* MANUAL CAMERA CONTROLS */}
 
@@ -568,12 +565,16 @@ powerPreference: "high-performance",
 
         {directorCameraEnabled && (
           <span style={styles.focusBadge}>
-            🎯 SPEAKER FOCUS
+            🎯 SMART CAMERA
           </span>
         )}
 
         <span style={styles.actingBadge}>
           🎭 {actingSettings.emotion.toUpperCase()}
+        </span>
+
+        <span style={styles.emotionEngineBadge}>
+          ✨ AUTO EMOTION
         </span>
       </div>
 
@@ -730,6 +731,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(88,28,135,0.9)",
 color: "#e9d5ff",
+fontSize: 10,
+fontWeight: 800,
+},
+
+emotionEngineBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(124,45,18,0.9)",
+color: "#fed7aa",
 fontSize: 10,
 fontWeight: 800,
 },
