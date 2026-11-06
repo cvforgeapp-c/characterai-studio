@@ -30,35 +30,22 @@ import CinematicCharacterActor from "./CinematicCharacterActor";
 import CinematicTrackedCharacter from "./CinematicTrackedCharacter";
 import CinematicLiveTargetTracker from "./CinematicLiveTargetTracker";
 
-// Stage 65: Automatic emotional acting
 import CinematicEmotionalActingRig from "./CinematicEmotionalActingRig";
-
-// Stage 66: Character-to-character interaction
 import CinematicCharacterInteractionRig from "./CinematicCharacterInteractionRig";
-
-// Stage 67–70: Facial expression and emotion synchronization
 import CinematicFacialExpressionRig from "./CinematicFacialExpressionRig";
-
-// Stage 71: Natural eye movement and automatic blinking
 import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
-
-// Stage 72: Natural ear and tail movement
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
-// Stage 73–75: Rig diagnostics dashboard
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
-
-// Stage 74: Automatic rig compatibility detection
 import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
-// Stage 76: Jaw animation fallback for unsupported lip-sync rigs
 import CinematicAnimationFallbackRig from "./CinematicAnimationFallbackRig";
-
-// Stage 77: Procedural idle motion for unrigged characters
 import CinematicProceduralMotionFallback from "./CinematicProceduralMotionFallback";
-
-// Stage 78: Animation quality scoring dashboard
 import CinematicAnimationQualityPanel from "./CinematicAnimationQualityPanel";
+
+// Stage 79: Adaptive performance monitoring
+import CinematicPerformanceOptimizer from "./CinematicPerformanceOptimizer";
+import CinematicPerformancePanel from "./CinematicPerformancePanel";
 
 import {
 useCinematicCameraCommand,
@@ -119,35 +106,30 @@ floor: "#202b3b",
 fog: "#101827",
 warmLighting: false,
 },
-
 park: {
 background: "#91b9a0",
 floor: "#426b49",
 fog: "#91b9a0",
 warmLighting: true,
 },
-
 kitchen: {
 background: "#c9bba8",
 floor: "#71685d",
 fog: "#c9bba8",
 warmLighting: true,
 },
-
 city: {
 background: "#68788e",
 floor: "#343b48",
 fog: "#68788e",
 warmLighting: false,
 },
-
 space: {
 background: "#030712",
 floor: "#111827",
 fog: "#030712",
 warmLighting: false,
 },
-
 beach: {
 background: "#79b8d1",
 floor: "#c9ad7b",
@@ -461,6 +443,10 @@ powerPreference: "high-performance",
 
     <CinematicRigCompatibilityDirector enabled />
 
+    {/* STAGE 79: PERFORMANCE MONITORING */}
+
+    <CinematicPerformanceOptimizer enabled />
+
     {/* STAGE 61–64: UNIFIED CINEMATIC CAMERA */}
 
     {directorCameraEnabled && (
@@ -586,6 +572,10 @@ powerPreference: "high-performance",
 
   <CinematicAnimationQualityPanel enabled />
 
+  {/* STAGE 79: PERFORMANCE MONITORING PANEL */}
+
+  <CinematicPerformancePanel enabled />
+
   {/* STUDIO INFORMATION BAR */}
 
   {showControls && (
@@ -661,6 +651,10 @@ powerPreference: "high-performance",
 
         <span style={styles.qualityBadge}>
           ⭐ QUALITY SCORING
+        </span>
+
+        <span style={styles.performanceBadge}>
+          ⚡ AUTO PERFORMANCE
         </span>
       </div>
 
@@ -890,6 +884,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(120,53,15,0.9)",
 color: "#fde68a",
+fontSize: 10,
+fontWeight: 800,
+},
+
+performanceBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(8,84,100,0.9)",
+color: "#a5f3fc",
 fontSize: 10,
 fontWeight: 800,
 },
