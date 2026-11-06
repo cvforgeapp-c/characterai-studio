@@ -51,6 +51,15 @@ import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
 // Stage 74: Automatic rig compatibility detection
 import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
+// Stage 76: Jaw animation fallback for unsupported lip-sync rigs
+import CinematicAnimationFallbackRig from "./CinematicAnimationFallbackRig";
+
+// Stage 77: Procedural idle motion for unrigged characters
+import CinematicProceduralMotionFallback from "./CinematicProceduralMotionFallback";
+
+// Stage 78: Animation quality scoring dashboard
+import CinematicAnimationQualityPanel from "./CinematicAnimationQualityPanel";
+
 import {
 useCinematicCameraCommand,
 } from "../lib/cinematic-camera-command-store";
@@ -540,6 +549,18 @@ powerPreference: "high-performance",
 
     <CinematicSecondaryMotionRig />
 
+    {/* STAGE 76: JAW ANIMATION FALLBACK */}
+
+    <CinematicAnimationFallbackRig enabled />
+
+    {/* STAGE 77: PROCEDURAL IDLE MOTION FALLBACK */}
+
+    <CinematicProceduralMotionFallback
+      enabled
+      breathingIntensity={0.012}
+      swayIntensity={0.018}
+    />
+
     {/* MANUAL CAMERA CONTROLS */}
 
     {!cinematicEnabled && (
@@ -557,11 +578,13 @@ powerPreference: "high-performance",
     )}
   </Canvas>
 
-  {/* STAGE 75: LIVE RIG DIAGNOSTICS DASHBOARD
-      This is a normal React DOM component, so it belongs
-      OUTSIDE Canvas rather than inside the Three.js scene. */}
+  {/* STAGE 75: LIVE RIG DIAGNOSTICS DASHBOARD */}
 
   <CinematicRigDiagnostics enabled />
+
+  {/* STAGE 78: ANIMATION QUALITY DASHBOARD */}
+
+  <CinematicAnimationQualityPanel enabled />
 
   {/* STUDIO INFORMATION BAR */}
 
@@ -628,8 +651,16 @@ powerPreference: "high-performance",
           🐾 SECONDARY MOTION
         </span>
 
+        <span style={styles.fallbackBadge}>
+          ⚙️ ANIMATION FALLBACKS
+        </span>
+
         <span style={styles.diagnosticsBadge}>
           🔍 RIG DIAGNOSTICS
+        </span>
+
+        <span style={styles.qualityBadge}>
+          ⭐ QUALITY SCORING
         </span>
       </div>
 
@@ -836,11 +867,29 @@ fontSize: 10,
 fontWeight: 800,
 },
 
+fallbackBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(120,53,15,0.9)",
+color: "#fed7aa",
+fontSize: 10,
+fontWeight: 800,
+},
+
 diagnosticsBadge: {
 padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(88,28,135,0.9)",
 color: "#e9d5ff",
+fontSize: 10,
+fontWeight: 800,
+},
+
+qualityBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(120,53,15,0.9)",
+color: "#fde68a",
 fontSize: 10,
 fontWeight: 800,
 },
