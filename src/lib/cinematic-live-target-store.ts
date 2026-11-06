@@ -193,3 +193,9 @@ return characterObjects.size;
 export function getRegisteredCharacterIds(): string[] {
 return Array.from(characterObjects.keys());
 }
+
+export function getLiveCharacterObject(
+characterId: string
+): THREE.Object3D | undefined {
+return characterObjects.get(characterId);
+}
