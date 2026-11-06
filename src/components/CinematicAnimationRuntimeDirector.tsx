@@ -1,7 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 
 import {
-runCinematicAnimationTasks,
+executeCharacterAnimationTasks,
 } from "../lib/cinematic-animation-runtime";
 
 import {
@@ -9,16 +9,28 @@ getCharacterInteraction,
 } from "../lib/cinematic-interaction-store";
 
 import {
+getRegisteredCharacterIds,
+} from "../lib/cinematic-live-target-store";
+
+import {
 setAnimationPriority,
+type AnimationPriority,
 } from "../lib/cinematic-animation-scheduler";
 
-interface Props {
+interface CinematicAnimationRuntimeDirectorProps {
 enabled?: boolean;
 }
 
+const PRIORITY_RANK: Record<AnimationPriority, number> = {
+speaking: 4,
+listening: 3,
+foreground: 2,
+background: 1,
+};
+
 export default function CinematicAnimationRuntimeDirector({
 enabled = true,
-}: Props) {
+}: CinematicAnimationRuntimeDirectorProps) {
 useFrame((state, delta) => {
 if (!enabled) return;
 
@@ -28,24 +40,42 @@ if (interaction.enabled) {
   if (interaction.speakerId) {
     setAnimationPriority(
       interaction.speakerId,
-      "speaking",
+      "speaking"
     );
   }
 
-  if (
-    interaction.listenerId &&
-    interaction.listenerId !== interaction.speakerId
-  ) {
+  if (interaction.listenerId) {
     setAnimationPriority(
       interaction.listenerId,
-      "listening",
+      "listening"
     );
   }
 }
 
-runCinematicAnimationTasks(
+const registeredIds = getRegisteredCharacterIds();
+
+for (const characterId of registeredIds) {
+  if (
+    interaction.enabled &&
+    characterId === interaction.speakerId
+  ) {
+    continue;
+  }
+
+  if (
+    interaction.enabled &&
+    characterId === interaction.listenerId
+  ) {
+    continue;
+  }
+
+  // Preserve priorities assigned by the visibility director.
+  // Do not reset foreground/background priorities here.
+}
+
+executeCharacterAnimationTasks(
   delta,
-  state.clock.elapsedTime,
+  state.clock.elapsedTime
 );
 
 });
