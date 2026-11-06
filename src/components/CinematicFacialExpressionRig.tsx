@@ -12,6 +12,10 @@ getCharacterInteraction,
 } from "../lib/cinematic-interaction-store";
 
 import {
+getEmotionalActingCue,
+} from "../lib/cinematic-emotional-acting-store";
+
+import {
 subscribeToSpeechPerformance,
 type SpeechPerformanceEvent,
 } from "../lib/synchronized-speech";
@@ -19,7 +23,6 @@ type SpeechPerformanceEvent,
 import {
 generateVisemeSequence,
 getVisemeAtTime,
-getVisemeWeights,
 type Viseme,
 type VisemeFrame,
 } from "../lib/cinematic-viseme-engine";
@@ -27,31 +30,30 @@ type VisemeFrame,
 interface FacialMorph {
 mesh: THREE.Mesh;
 index: number;
+name: string;
 baseValue: number;
 }
 
 interface CharacterFace {
 root: THREE.Object3D;
-visemes: Record<Viseme, FacialMorph[]>;
-fallbackOpen: FacialMorph[];
-smile: FacialMorph[];
+morphs: FacialMorph[];
 }
 
-interface SpeechPlaybackState {
+interface SpeechState {
 characterId: string | null;
 speaking: boolean;
 startedAt: number;
-elapsedOffset: number;
 frames: VisemeFrame[];
+elapsedOffset: number;
 }
 
 const VISEME_PATTERNS: Record<Viseme, RegExp[]> = {
-A: [/visemeaa/, /visemeah/, /moutha$/, /mouthopen/],
-E: [/visimeee/, /visimeih/, /visemee/, /mouthee/, /mouthsmile/],
+A: [/visemeaa/, /visemeah/, /moutha$/, /jawopen/],
+E: [/visimeee/, /visimeih/, /visemee/, /mouthee/],
 O: [/visemeeoh/, /visemeoh/, /moutho$/, /mouthfunnel/],
 U: [/visemeou/, /visemeoo/, /mouthu$/, /mouthpucker/],
-M: [/visemembp/, /visememb/, /mouthclosed/, /mouthpress/],
-F: [/visemefv/, /visemef/, /mouthf/, /mouthteeth/],
+M: [/visemembp/, /visememb/, /mouthpress/, /mouthclosed/],
+F: [/visemefv/, /visemef/, /mouthteeth/],
 REST: [/mouthclosed/, /mouthclose/],
 };
 
@@ -59,9 +61,8 @@ function normalizeName(name: string): string {
 return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function collectMorphs(
+function collectFacialMorphs(
 root: THREE.Object3D,
-patterns: RegExp[],
 ): FacialMorph[] {
 const results: FacialMorph[] = [];
 
@@ -78,18 +79,13 @@ if (
 
 Object.entries(mesh.morphTargetDictionary).forEach(
   ([name, index]) => {
-    const normalized = normalizeName(name);
-
-    if (
-      patterns.some((pattern) => pattern.test(normalized))
-    ) {
-      results.push({
-        mesh,
-        index,
-        baseValue:
-          mesh.morphTargetInfluences?.[index] ?? 0,
-      });
-    }
+    results.push({
+      mesh,
+      index,
+      name: normalizeName(name),
+      baseValue:
+        mesh.morphTargetInfluences?.[index] ?? 0,
+    });
   },
 );
 
@@ -98,90 +94,120 @@ Object.entries(mesh.morphTargetDictionary).forEach(
 return results;
 }
 
-function buildFace(root: THREE.Object3D): CharacterFace {
-const visemes = {} as Record<Viseme, FacialMorph[]>;
-
-const visemeNames: Viseme[] = [
+function getVisemeForMorph(name: string): Viseme | null {
+const order: Viseme[] = [
+"M",
+"F",
 "A",
 "E",
 "O",
 "U",
-"M",
-"F",
 "REST",
 ];
 
-for (const name of visemeNames) {
-visemes[name] = collectMorphs(
-root,
-VISEME_PATTERNS[name],
-);
+for (const viseme of order) {
+if (
+VISEME_PATTERNS[viseme].some((pattern) =>
+pattern.test(name),
+)
+) {
+return viseme;
+}
 }
 
-return {
-root,
-visemes,
-fallbackOpen: collectMorphs(root, [
-/jawopen/,
-/mouthopen/,
-/visemeaa/,
-/visemeah/,
-]),
-smile: collectMorphs(root, [
-/mouthsmile/,
-/smileleft/,
-/smileright/,
-]),
-};
+return null;
 }
 
-function applyMorphs(
-morphs: FacialMorph[],
+function getEmotionWeight(
+name: string,
+emotion: string,
 intensity: number,
-delta: number,
-): void {
-for (const morph of morphs) {
-const influences = morph.mesh.morphTargetInfluences;
+): number {
+const value = THREE.MathUtils.clamp(intensity, 0, 1);
 
-if (!influences) continue;
+switch (emotion) {
+case "happy":
+case "amused":
+if (/smile|mouthhappy|cheekraise/.test(name)) {
+return value * 0.75;
+}
+if (/browinnerup/.test(name)) {
+return value * 0.12;
+}
+break;
 
-const current = influences[morph.index] ?? 0;
+case "sad":
+  if (/frown|mouthsad|browinnerup/.test(name)) {
+    return value * 0.65;
+  }
+  if (/mouthcornerdown/.test(name)) {
+    return value * 0.7;
+  }
+  break;
 
-influences[morph.index] = THREE.MathUtils.damp(
-  current,
-  THREE.MathUtils.clamp(
-    morph.baseValue + intensity,
-    0,
-    1,
-  ),
-  15,
-  delta,
-);
+case "angry":
+  if (/angry|browdown|browlower/.test(name)) {
+    return value * 0.8;
+  }
+  if (/mouthpress|frown/.test(name)) {
+    return value * 0.45;
+  }
+  break;
+
+case "surprised":
+  if (/browouterup|browinnerup|surprise/.test(name)) {
+    return value * 0.85;
+  }
+  if (/eyeopen|jawopen|mouthopen/.test(name)) {
+    return value * 0.55;
+  }
+  break;
+
+case "fearful":
+  if (/fear|browinnerup|eyeopen/.test(name)) {
+    return value * 0.7;
+  }
+  if (/mouthstretch/.test(name)) {
+    return value * 0.45;
+  }
+  break;
+
+case "confused":
+  if (/browinnerup|browouterup/.test(name)) {
+    return value * 0.55;
+  }
+  if (/mouthpucker|mouthfrown/.test(name)) {
+    return value * 0.25;
+  }
+  break;
+
+case "concerned":
+  if (/browinnerup|frown|mouthsad/.test(name)) {
+    return value * 0.45;
+  }
+  break;
 
 }
+
+return 0;
 }
 
-function resetFace(
-face: CharacterFace,
-delta: number,
-): void {
-const allMorphs = [
-...Object.values(face.visemes).flat(),
-...face.fallbackOpen,
-];
+function getVisemeWeight(
+viseme: Viseme,
+name: string,
+intensity: number,
+): number {
+const matchedViseme = getVisemeForMorph(name);
 
-const uniqueMorphs = new Map<string, FacialMorph>();
-
-for (const morph of allMorphs) {
-uniqueMorphs.set(
-"${morph.mesh.uuid}-${morph.index}",
-morph,
-);
+if (matchedViseme !== viseme) {
+return 0;
 }
 
-for (const morph of uniqueMorphs.values()) {
-applyMorphs([morph], 0, delta);
+if (viseme === "REST") {
+return 0;
 }
+
+return intensity;
 }
 
 export default function CinematicFacialExpressionRig() {
@@ -189,18 +215,18 @@ const faces = useRef<Map<string, CharacterFace>>(
 new Map(),
 );
 
-const playback = useRef<SpeechPlaybackState>({
+const speech = useRef<SpeechState>({
 characterId: null,
 speaking: false,
 startedAt: 0,
-elapsedOffset: 0,
 frames: [],
+elapsedOffset: 0,
 });
 
 useEffect(() => {
 const unsubscribe = subscribeToSpeechPerformance(
 (event: SpeechPerformanceEvent) => {
-const state = playback.current;
+const state = speech.current;
 
     if (event.type === "start") {
       state.characterId = event.characterId ?? null;
@@ -251,35 +277,35 @@ const state = playback.current;
 
 return () => {
   unsubscribe();
-  playback.current.speaking = false;
+  speech.current.speaking = false;
   faces.current.clear();
 };
 
 }, []);
 
 useFrame((_, delta) => {
-const state = playback.current;
+const speechState = speech.current;
 const interaction = getCharacterInteraction();
 
-const ids = getRegisteredCharacterIds();
-
 const elapsed =
-  state.elapsedOffset +
-  (performance.now() - state.startedAt);
+  speechState.elapsedOffset +
+  (performance.now() - speechState.startedAt);
 
-const currentFrame =
-  state.speaking && state.frames.length > 0
-    ? getVisemeAtTime(state.frames, elapsed)
+const frame =
+  speechState.speaking &&
+  speechState.frames.length > 0
+    ? getVisemeAtTime(speechState.frames, elapsed)
     : null;
 
-const weights = currentFrame
-  ? getVisemeWeights(
-      currentFrame.viseme,
-      currentFrame.intensity,
-    )
+const activeSpeaker = speechState.speaking
+  ? speechState.characterId
   : null;
 
-for (const characterId of ids) {
+const listenerId = interaction.enabled
+  ? interaction.listenerId
+  : null;
+
+for (const characterId of getRegisteredCharacterIds()) {
   const root = getLiveCharacterObject(characterId);
 
   if (!root) continue;
@@ -287,56 +313,73 @@ for (const characterId of ids) {
   let face = faces.current.get(characterId);
 
   if (!face || face.root !== root) {
-    face = buildFace(root);
+    face = {
+      root,
+      morphs: collectFacialMorphs(root),
+    };
+
     faces.current.set(characterId, face);
   }
 
-  const isSpeaker =
-    state.speaking &&
-    state.characterId === characterId;
+  const isSpeaking = characterId === activeSpeaker;
 
-  const isListener =
-    !isSpeaker &&
-    interaction.enabled &&
-    interaction.listenerId === characterId;
+  const isListening =
+    !isSpeaking && characterId === listenerId;
 
-  if (isSpeaker && weights) {
-    resetFace(face, delta);
+  const cue = getEmotionalActingCue(characterId);
 
-    const hasDedicatedViseme =
-      face.visemes[currentFrame!.viseme].length > 0;
+  const emotion = cue?.emotion ?? "neutral";
+  const emotionIntensity = cue?.intensity ?? 0;
 
-    if (hasDedicatedViseme) {
-      for (const viseme of Object.keys(
-        weights,
-      ) as Viseme[]) {
-        applyMorphs(
-          face.visemes[viseme],
-          weights[viseme],
-          delta,
-        );
-      }
-    } else {
-      const fallbackIntensity =
-        currentFrame!.viseme === "REST" ||
-        currentFrame!.viseme === "M"
-          ? 0
-          : currentFrame!.intensity;
+  const currentViseme = isSpeaking && frame
+    ? frame.viseme
+    : "REST";
 
-      applyMorphs(
-        face.fallbackOpen,
-        fallbackIntensity,
-        delta,
-      );
-    }
+  const visemeIntensity = isSpeaking && frame
+    ? frame.intensity
+    : 0;
 
-    applyMorphs(face.smile, 0, delta);
-  } else {
-    resetFace(face, delta);
+  for (const morph of face.morphs) {
+    const visemeWeight = getVisemeWeight(
+      currentViseme,
+      morph.name,
+      visemeIntensity,
+    );
 
-    if (isListener) {
-      applyMorphs(face.smile, 0.06, delta);
-    }
+    const emotionWeight = getEmotionWeight(
+      morph.name,
+      emotion,
+      emotionIntensity,
+    );
+
+    const listeningWeight =
+      isListening &&
+      /smile|mouthclosed|cheekraise/.test(morph.name)
+        ? 0.045
+        : 0;
+
+    const combinedWeight = THREE.MathUtils.clamp(
+      visemeWeight + emotionWeight + listeningWeight,
+      0,
+      1,
+    );
+
+    const influences = morph.mesh.morphTargetInfluences;
+
+    if (!influences) continue;
+
+    const current = influences[morph.index] ?? 0;
+
+    influences[morph.index] = THREE.MathUtils.damp(
+      current,
+      THREE.MathUtils.clamp(
+        morph.baseValue + combinedWeight,
+        0,
+        1,
+      ),
+      12,
+      delta,
+    );
   }
 }
 
