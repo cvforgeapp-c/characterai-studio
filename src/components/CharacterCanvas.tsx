@@ -45,6 +45,9 @@ import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
 // Stage 72: Natural ear and tail movement
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
+// Stage 73: Automatic character rig diagnostics
+import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
+
 import {
 useCinematicCameraCommand,
 } from "../lib/cinematic-camera-command-store";
@@ -238,11 +241,7 @@ placements,
 action,
 actingSettings,
 }: {
-placements: ReturnType<
-typeof calculateComposition
-
-«["placements"];»
-
+placements: ReturnType<typeof calculateComposition>["placements"];
 action: CharacterAction;
 actingSettings: CinematicActingSettings;
 }) {
@@ -534,6 +533,10 @@ powerPreference: "high-performance",
 
     <CinematicSecondaryMotionRig />
 
+    {/* STAGE 73: AUTOMATIC RIG COMPATIBILITY DIAGNOSTICS */}
+
+    <CinematicRigDiagnostics enabled />
+
     {/* MANUAL CAMERA CONTROLS */}
 
     {!cinematicEnabled && (
@@ -614,6 +617,10 @@ powerPreference: "high-performance",
 
         <span style={styles.secondaryMotionBadge}>
           🐾 SECONDARY MOTION
+        </span>
+
+        <span style={styles.diagnosticsBadge}>
+          🔍 RIG DIAGNOSTICS
         </span>
       </div>
 
@@ -815,6 +822,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(20,83,45,0.9)",
 color: "#bbf7d0",
+fontSize: 10,
+fontWeight: 800,
+},
+
+diagnosticsBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(88,28,135,0.9)",
+color: "#e9d5ff",
 fontSize: 10,
 fontWeight: 800,
 },
