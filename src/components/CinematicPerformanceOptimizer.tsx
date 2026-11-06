@@ -1,147 +1,154 @@
-import { useEffect, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
 
-export type PerformanceQuality =
-| "high"
-| "balanced"
-| "performance";
+import { useFrame, useThree } from "@react-three/fiber";
 
-export interface PerformanceProfile {
-quality: PerformanceQuality;
-fps: number;
-pixelRatio: number;
-animationScale: number;
-shadowsEnabled: boolean;
-updatedAt: number;
+import {
+getCinematicPerformanceState,
+setCinematicQuality,
+setCinematicOptimizing,
+updateCinematicPerformance,
+subscribeToCinematicPerformance,
+type CinematicQualityLevel,
+} from "../lib/cinematic-performance-store";
+
+interface CinematicPerformanceOptimizerProps {
+enabled?: boolean;
 }
 
-let currentProfile: PerformanceProfile = {
-quality: "high",
-fps: 60,
-pixelRatio: 1.5,
-animationScale: 1,
-shadowsEnabled: true,
-updatedAt: Date.now(),
-};
-
-const listeners = new Set<() => void>();
-
-function publishProfile(profile: PerformanceProfile) {
-currentProfile = profile;
-listeners.forEach((listener) => listener());
-}
-
-export function getPerformanceProfile() {
-return currentProfile;
-}
-
-export function subscribeToPerformanceProfile(
-listener: () => void,
-) {
-listeners.add(listener);
-
-return () => {
-listeners.delete(listener);
-};
-}
-
-function createProfile(fps: number): PerformanceProfile {
-if (fps < 22) {
-return {
-quality: "performance",
-fps,
-pixelRatio: 0.75,
-animationScale: 0.5,
-shadowsEnabled: false,
-updatedAt: Date.now(),
-};
-}
-
-if (fps < 42) {
-return {
-quality: "balanced",
-fps,
-pixelRatio: 1,
-animationScale: 0.75,
-shadowsEnabled: false,
-updatedAt: Date.now(),
-};
-}
-
-return {
-quality: "high",
-fps,
-pixelRatio: 1.5,
-animationScale: 1,
-shadowsEnabled: true,
-updatedAt: Date.now(),
-};
-}
+const QUALITY_ORDER: CinematicQualityLevel[] = [
+"performance",
+"balanced",
+"high",
+];
 
 export default function CinematicPerformanceOptimizer({
 enabled = true,
-onProfileChange,
-}: {
-enabled?: boolean;
-onProfileChange?: (profile: PerformanceProfile) => void;
-}) {
-const frameCount = useRef(0);
+}: CinematicPerformanceOptimizerProps) {
+const { gl, setDpr } = useThree();
+
 const elapsed = useRef(0);
-const previousQuality = useRef<PerformanceQuality>("high");
+const frameCount = useRef(0);
+const frameTimeTotal = useRef(0);
 
-useFrame((_, delta) => {
-if (!enabled) return;
+const lowPerformanceWindows = useRef(0);
+const highPerformanceWindows = useRef(0);
 
-frameCount.current += 1;
-elapsed.current += delta;
-
-if (elapsed.current < 2) return;
-
-const fps = frameCount.current / elapsed.current;
-
-frameCount.current = 0;
-elapsed.current = 0;
-
-const nextProfile = createProfile(fps);
-
-// Prevent constant profile switching around thresholds.
-if (
-  nextProfile.quality === previousQuality.current &&
-  currentProfile.quality === nextProfile.quality
-) {
-  return;
-}
-
-previousQuality.current = nextProfile.quality;
-
-publishProfile(nextProfile);
-onProfileChange?.(nextProfile);
-
-});
+const lastQuality = useRef<CinematicQualityLevel | null>(null);
 
 useEffect(() => {
 if (!enabled) return;
 
+const applySettings = () => {
+  const state = getCinematicPerformanceState();
+
+  if (lastQuality.current !== state.quality) {
+    lastQuality.current = state.quality;
+  }
+
+  setDpr(state.pixelRatio);
+
+  gl.shadowMap.enabled = state.shadowsEnabled;
+  gl.shadowMap.needsUpdate = true;
+
+  gl.info.reset();
+};
+
+applySettings();
+
+const unsubscribe =
+  subscribeToCinematicPerformance(applySettings);
+
 return () => {
-  previousQuality.current = "high";
+  unsubscribe();
+  gl.shadowMap.enabled = true;
+};
+
+}, [enabled, gl, setDpr]);
+
+useEffect(() => {
+if (!enabled) {
+setCinematicOptimizing(false);
+return;
+}
+
+setCinematicOptimizing(true);
+
+return () => {
+  setCinematicOptimizing(false);
 };
 
 }, [enabled]);
 
-return null;
+useFrame((_, delta) => {
+if (!enabled) return;
+
+const safeDelta = Math.min(delta, 0.25);
+
+elapsed.current += safeDelta;
+frameCount.current += 1;
+frameTimeTotal.current += safeDelta * 1000;
+
+if (elapsed.current < 1) return;
+
+const measuredFps =
+  frameCount.current / elapsed.current;
+
+const averageFrameTime =
+  frameTimeTotal.current / frameCount.current;
+
+updateCinematicPerformance({
+  fps: Math.round(measuredFps),
+  frameTime: Number(averageFrameTime.toFixed(2)),
+});
+
+const current =
+  getCinematicPerformanceState().quality;
+
+const currentIndex = QUALITY_ORDER.indexOf(current);
+
+if (measuredFps < 24) {
+  lowPerformanceWindows.current += 1;
+  highPerformanceWindows.current = 0;
+} else if (measuredFps > 52) {
+  highPerformanceWindows.current += 1;
+  lowPerformanceWindows.current = 0;
+} else {
+  lowPerformanceWindows.current = 0;
+  highPerformanceWindows.current = 0;
 }
 
-export function usePerformanceProfile() {
-const [profile, setProfile] = useState(currentProfile);
+// Reduce quality after three consecutive low-FPS windows.
+if (lowPerformanceWindows.current >= 3) {
+  const nextIndex = Math.max(0, currentIndex - 1);
 
-useEffect(() => {
-const update = () => {
-setProfile({ ...currentProfile });
-};
+  if (nextIndex !== currentIndex) {
+    setCinematicQuality(QUALITY_ORDER[nextIndex]);
+  }
 
-return subscribeToPerformanceProfile(update);
+  lowPerformanceWindows.current = 0;
+  highPerformanceWindows.current = 0;
+}
 
-}, []);
+// Restore quality only after eight stable high-FPS windows.
+if (highPerformanceWindows.current >= 8) {
+  const nextIndex = Math.min(
+    QUALITY_ORDER.length - 1,
+    currentIndex + 1,
+  );
 
-return profile;
+  if (nextIndex !== currentIndex) {
+    setCinematicQuality(QUALITY_ORDER[nextIndex]);
+  }
+
+  lowPerformanceWindows.current = 0;
+  highPerformanceWindows.current = 0;
+}
+
+elapsed.current = 0;
+frameCount.current = 0;
+frameTimeTotal.current = 0;
+
+});
+
+return null;
 }
