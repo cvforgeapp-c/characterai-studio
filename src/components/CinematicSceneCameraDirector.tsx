@@ -1,4 +1,7 @@
-import { useEffect, useMemo } from "react";
+import {
+useEffect,
+useMemo,
+} from "react";
 
 import {
 directCinematicScene,
@@ -18,10 +21,10 @@ export interface DirectedScene extends SceneDirectionInput {
 id: string;
 }
 
-interface CinematicSceneCameraDirectorProps {
+interface Props {
 scenes: DirectedScene[];
 activeSceneId: string;
-characterCount?: number;
+characterCount: number;
 enabled?: boolean;
 onDirectionChange?: (
 direction: SceneDirection,
@@ -32,10 +35,12 @@ scene: DirectedScene
 export default function CinematicSceneCameraDirector({
 scenes,
 activeSceneId,
-characterCount = 1,
+characterCount,
 enabled = true,
 onDirectionChange,
-}: CinematicSceneCameraDirectorProps) {
+}: Props) {
+/* Find the currently active scene */
+
 const activeScene = useMemo(
 () =>
 scenes.find(
@@ -44,20 +49,22 @@ scenes.find(
 [scenes, activeSceneId]
 );
 
+/* Calculate the camera direction */
+
 const direction = useMemo(() => {
-if (!activeScene || !enabled) {
-return null;
-}
+if (!activeScene) return null;
 
 return directCinematicScene({
   ...activeScene,
   characterCount,
 });
 
-}, [activeScene, characterCount, enabled]);
+}, [activeScene, characterCount]);
+
+/* Publish the camera command */
 
 useEffect(() => {
-if (!direction || !activeScene || !enabled) {
+if (!enabled || !activeScene || !direction) {
 return;
 }
 
@@ -66,14 +73,34 @@ const cameraCommand =
 
 publishCinematicCameraCommand(cameraCommand);
 
-onDirectionChange?.(direction, activeScene);
+onDirectionChange?.(
+  direction,
+  activeScene
+);
 
 }, [
-direction,
-activeScene,
 enabled,
+activeScene,
+direction,
 onDirectionChange,
 ]);
+
+/* Disable the director when switched off */
+
+useEffect(() => {
+if (enabled) return;
+
+publishCinematicCameraCommand({
+  shot: "medium",
+  fieldOfView: 40,
+  transitionSpeed: 3,
+  movementSpeed: 0,
+  orbitRadius: 5,
+  orbitHeight: 2,
+  enabled: false,
+});
+
+}, [enabled]);
 
 return null;
 }
