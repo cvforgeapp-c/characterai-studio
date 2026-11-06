@@ -1,312 +1,247 @@
-import { useEffect, useMemo, useState } from "react";
-import { Html } from "@react-three/drei";
-import * as THREE from "three";
+import { useEffect, useState } from "react";
 
 import {
-getLiveCharacterObject,
-getRegisteredCharacterIds,
-} from "../lib/cinematic-live-target-store";
-
-interface RigReport {
-characterId: string;
-hasSkeleton: boolean;
-hasFacialMorphs: boolean;
-hasVisemeMorphs: boolean;
-hasBlinkSupport: boolean;
-hasEyeBones: boolean;
-hasEarBones: boolean;
-hasTailBones: boolean;
-boneCount: number;
-morphCount: number;
-}
-
-function inspectCharacter(
-characterId: string,
-root: THREE.Object3D,
-): RigReport {
-let hasSkeleton = false;
-let hasFacialMorphs = false;
-let hasVisemeMorphs = false;
-let hasBlinkSupport = false;
-let hasEyeBones = false;
-let hasEarBones = false;
-let hasTailBones = false;
-
-let boneCount = 0;
-let morphCount = 0;
-
-const morphNames: string[] = [];
-const boneNames: string[] = [];
-
-root.traverse((object) => {
-if (object instanceof THREE.SkinnedMesh && object.skeleton) {
-hasSkeleton = true;
-
-  for (const bone of object.skeleton.bones) {
-    boneNames.push(bone.name.toLowerCase());
-  }
-}
-
-const mesh = object as THREE.Mesh & {
-  morphTargetDictionary?: Record<string, number>;
-};
-
-if (mesh.morphTargetDictionary) {
-  const names = Object.keys(mesh.morphTargetDictionary);
-
-  morphNames.push(...names);
-  morphCount += names.length;
-}
-
-});
-
-boneCount = boneNames.length;
-
-const allBones = boneNames.join(" ");
-const allMorphs = morphNames.join(" ").toLowerCase();
-
-hasEyeBones =
-/left.?eye|right.?eye|eyeball|eye.?l|eye.?r/.test(allBones);
-
-hasEarBones = /ear|pinna/.test(allBones);
-hasTailBones = /tail/.test(allBones);
-
-hasFacialMorphs =
-/smile|frown|angry|sad|happy|surprise|brow|mouth/.test(allMorphs);
-
-hasVisemeMorphs =
-/viseme|mouth.?open|jaw.?open|phoneme|vowel|mouth.?a|mouth.?o/.test(
-allMorphs,
-);
-
-hasBlinkSupport =
-/blink|eye.?close|eyelid|eyes.?closed/.test(allMorphs) ||
-/eyelid/.test(allBones);
-
-return {
-characterId,
-hasSkeleton,
-hasFacialMorphs,
-hasVisemeMorphs,
-hasBlinkSupport,
-hasEyeBones,
-hasEarBones,
-hasTailBones,
-boneCount,
-morphCount,
-};
-}
+  getAllRigCapabilities,
+  subscribeToRigCapabilities,
+  type CharacterRigCapabilities,
+} from "../lib/cinematic-rig-capability-store";
 
 function Status({
-label,
-supported,
+  label,
+  supported,
 }: {
-label: string;
-supported: boolean;
+  label: string;
+  supported: boolean;
 }) {
-return (
-<div
-style={{
-display: "flex",
-justifyContent: "space-between",
-gap: 12,
-fontSize: 11,
-padding: "3px 0",
-color: supported ? "#b7f7ce" : "#f4c5a8",
-}}
->
-<span>{label}</span>
-<span>{supported ? "SUPPORTED" : "NOT DETECTED"}</span>
-</div>
-);
+  return (
+    <div style={styles.row}>
+      <span>{label}</span>
+
+      <span
+        style={{
+          color: supported ? "#86efac" : "#fca5a5",
+          fontWeight: 700,
+        }}
+      >
+        {supported ? "SUPPORTED" : "NOT DETECTED"}
+      </span>
+    </div>
+  );
+}
+
+function CharacterReport({
+  report,
+}: {
+  report: CharacterRigCapabilities;
+}) {
+  const supportedFeatures = [
+    report.hasSkeleton,
+    report.hasFacialMorphs,
+    report.hasVisemeMorphs,
+    report.hasBlinkSupport,
+    report.hasEyeBones,
+    report.hasEarBones,
+    report.hasTailBones,
+  ].filter(Boolean).length;
+
+  return (
+    <div style={styles.character}>
+      <div style={styles.characterTitle}>
+        {report.characterId}
+      </div>
+
+      <div style={styles.score}>
+        {supportedFeatures}/7 animation capabilities detected
+      </div>
+
+      <Status
+        label="Skeleton"
+        supported={report.hasSkeleton}
+      />
+
+      <Status
+        label="Facial expressions"
+        supported={report.hasFacialMorphs}
+      />
+
+      <Status
+        label="Lip-sync morphs"
+        supported={report.hasVisemeMorphs}
+      />
+
+      <Status
+        label="Blink support"
+        supported={report.hasBlinkSupport}
+      />
+
+      <Status
+        label="Eye bones"
+        supported={report.hasEyeBones}
+      />
+
+      <Status
+        label="Ear bones"
+        supported={report.hasEarBones}
+      />
+
+      <Status
+        label="Tail bones"
+        supported={report.hasTailBones}
+      />
+
+      <div style={styles.metadata}>
+        Bones: {report.boneCount} · Morph targets:{" "}
+        {report.morphCount}
+      </div>
+    </div>
+  );
 }
 
 export default function CinematicRigDiagnostics({
-enabled = true,
+  enabled = true,
 }: {
-enabled?: boolean;
+  enabled?: boolean;
 }) {
-const [reports, setReports] = useState<RigReport[]>([]);
-const [expanded, setExpanded] = useState(false);
+  const [reports, setReports] = useState<
+    CharacterRigCapabilities[]
+  >([]);
 
-useEffect(() => {
-if (!enabled) {
-setReports([]);
-return;
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      setReports([]);
+      return;
+    }
+
+    const refresh = () => {
+      setReports(getAllRigCapabilities());
+    };
+
+    refresh();
+
+    return subscribeToRigCapabilities(refresh);
+  }, [enabled]);
+
+  if (!enabled) return null;
+
+  return (
+    <div style={styles.container}>
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        style={styles.header}
+      >
+        <span>🔍 STAGE 73–75 · RIG DIAGNOSTICS</span>
+
+        <span>{expanded ? "−" : "+"}</span>
+      </button>
+
+      <div style={styles.summary}>
+        {reports.length > 0
+          ? `${reports.length} CHARACTER MODEL${reports.length === 1 ? "" : "S"} ANALYZED`
+          : "WAITING FOR CHARACTER MODELS"}
+      </div>
+
+      {expanded && (
+        <div style={styles.content}>
+          {reports.length === 0 ? (
+            <div style={styles.empty}>
+              Load a character to inspect its animation rig.
+            </div>
+          ) : (
+            reports.map((report) => (
+              <CharacterReport
+                key={report.characterId}
+                report={report}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-const inspect = () => {
-  const ids = getRegisteredCharacterIds();
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 270,
+    maxHeight: "70%",
+    overflowY: "auto",
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(9, 15, 24, 0.94)",
+    border: "1px solid rgba(120, 180, 220, 0.3)",
+    color: "#fff",
+    fontFamily: "Arial, sans-serif",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.35)",
+    zIndex: 30,
+    pointerEvents: "auto",
+  },
 
-  const nextReports = ids.flatMap((id) => {
-    const root = getLiveCharacterObject(id);
+  header: {
+    width: "100%",
+    display: "flex",
+    justifyContent: "space-between",
+    border: 0,
+    background: "transparent",
+    color: "#9bdcff",
+    fontWeight: 800,
+    fontSize: 11,
+    cursor: "pointer",
+    padding: 0,
+  },
 
-    if (!root) return [];
+  summary: {
+    marginTop: 8,
+    fontSize: 10,
+    color: "#b8c7d8",
+  },
 
-    return [inspectCharacter(id, root)];
-  });
+  content: {
+    marginTop: 8,
+  },
 
-  setReports(nextReports);
+  character: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTop: "1px solid rgba(255,255,255,0.12)",
+  },
+
+  characterTitle: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#fff",
+    marginBottom: 5,
+  },
+
+  score: {
+    fontSize: 10,
+    color: "#93c5fd",
+    marginBottom: 7,
+  },
+
+  row: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 8,
+    fontSize: 10,
+    padding: "4px 0",
+    color: "#dbeafe",
+  },
+
+  metadata: {
+    marginTop: 7,
+    fontSize: 10,
+    color: "#91a6ba",
+  },
+
+  empty: {
+    marginTop: 12,
+    fontSize: 11,
+    color: "#b8c7d8",
+  },
 };
-
-inspect();
-
-const interval = window.setInterval(inspect, 1500);
-
-return () => window.clearInterval(interval);
-
-}, [enabled]);
-
-const summary = useMemo(() => {
-if (!reports.length) return "WAITING FOR CHARACTERS";
-
-const compatible = reports.filter(
-  (report) =>
-    report.hasSkeleton &&
-    report.hasFacialMorphs &&
-    report.hasBlinkSupport,
-).length;
-
-return `${compatible}/${reports.length} BASICALLY COMPATIBLE`;
-
-}, [reports]);
-
-if (!enabled) return null;
-
-return (
-<Html
-fullscreen
-zIndexRange={[20, 0]}
-style={{
-pointerEvents: "none",
-width: "100%",
-height: "100%",
-}}
->
-<div
-style={{
-position: "absolute",
-top: 12,
-right: 12,
-width: expanded ? 290 : 220,
-maxHeight: "70vh",
-overflowY: "auto",
-padding: 12,
-borderRadius: 12,
-background: "rgba(9, 15, 24, 0.90)",
-border: "1px solid rgba(120, 180, 220, 0.3)",
-color: "#fff",
-fontFamily: "Arial, sans-serif",
-boxShadow: "0 8px 30px rgba(0,0,0,0.35)",
-pointerEvents: "auto",
-}}
->
-<button
-type="button"
-onClick={() => setExpanded((value) => !value)}
-style={{
-width: "100%",
-display: "flex",
-justifyContent: "space-between",
-border: 0,
-background: "transparent",
-color: "#9bdcff",
-fontWeight: 700,
-fontSize: 11,
-cursor: "pointer",
-padding: 0,
-}}
->
-<span>STAGE 73 · RIG DIAGNOSTICS</span>
-<span>{expanded ? "−" : "+"}</span>
-</button>
-
-    <div
-      style={{
-        marginTop: 8,
-        fontSize: 10,
-        color: "#b8c7d8",
-      }}
-    >
-      {summary}
-    </div>
-
-    {expanded &&
-      reports.map((report) => (
-        <div
-          key={report.characterId}
-          style={{
-            marginTop: 12,
-            paddingTop: 10,
-            borderTop: "1px solid rgba(255,255,255,0.12)",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: 12,
-              marginBottom: 6,
-              color: "#fff",
-            }}
-          >
-            {report.characterId}
-          </div>
-
-          <Status
-            label="Skeleton"
-            supported={report.hasSkeleton}
-          />
-          <Status
-            label="Facial expressions"
-            supported={report.hasFacialMorphs}
-          />
-          <Status
-            label="Viseme / lip-sync"
-            supported={report.hasVisemeMorphs}
-          />
-          <Status
-            label="Blink animation"
-            supported={report.hasBlinkSupport}
-          />
-          <Status
-            label="Eye movement"
-            supported={report.hasEyeBones}
-          />
-          <Status
-            label="Ear animation"
-            supported={report.hasEarBones}
-          />
-          <Status
-            label="Tail animation"
-            supported={report.hasTailBones}
-          />
-
-          <div
-            style={{
-              marginTop: 7,
-              fontSize: 10,
-              color: "#91a6ba",
-            }}
-          >
-            Bones: {report.boneCount} · Morph targets:{" "}
-            {report.morphCount}
-          </div>
-        </div>
-      ))}
-
-    {expanded && reports.length === 0 && (
-      <div
-        style={{
-          marginTop: 12,
-          fontSize: 11,
-          color: "#b8c7d8",
-        }}
-      >
-        Waiting for character models to load.
-      </div>
-    )}
-  </div>
-</Html>
-
-);
-    }
