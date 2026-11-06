@@ -10,6 +10,8 @@ useCinematicCameraCommand,
 
 import {
 getLiveCharacterCameraState,
+getLiveCharacterBounds,
+getRegisteredCharacterIds,
 } from "../lib/cinematic-live-target-store";
 
 interface Props {
@@ -23,10 +25,27 @@ type ShotMode =
 | "twoshot"
 | "wide"
 | "medium"
+| "overtheshoulder"
+| "reverse"
 | "other";
 
 function getShotMode(shot: string): ShotMode {
 const value = shot.toLowerCase().replace(/[-_\s]/g, "");
+
+if (
+value.includes("overtheshoulder") ||
+value === "ots" ||
+value.includes("shoulder")
+) {
+return "overtheshoulder";
+}
+
+if (
+value.includes("reverse") ||
+value.includes("countershot")
+) {
+return "reverse";
+}
 
 if (
 value.includes("closeup") ||
@@ -68,7 +87,7 @@ const { camera } = useThree();
 
 const command = useCinematicCameraCommand();
 
-const targetVector = useRef(
+const groupTarget = useRef(
 new THREE.Vector3(...target)
 );
 
@@ -80,17 +99,29 @@ const desiredPosition = useRef(
 new THREE.Vector3()
 );
 
-const currentDirection = useRef(
-new THREE.Vector3(0, 0, -1)
+const currentTarget = useRef(
+new THREE.Vector3(...target)
 );
 
-const temporaryDirection = useRef(
+const direction = useRef(
 new THREE.Vector3()
 );
 
-const lastShot = useRef<string | null>(null);
+const right = useRef(
+new THREE.Vector3()
+);
+
+const up = useRef(
+new THREE.Vector3(0, 1, 0)
+);
+
+const temporary = useRef(
+new THREE.Vector3()
+);
 
 const initialized = useRef(false);
+
+const lastShot = useRef<string | null>(null);
 
 const currentFov = useRef(
 camera instanceof THREE.PerspectiveCamera
@@ -101,27 +132,28 @@ camera instanceof THREE.PerspectiveCamera
 const desiredFov = useRef(currentFov.current);
 
 useEffect(() => {
-targetVector.current.set(...target);
+groupTarget.current.set(...target);
 }, [target]);
 
 useEffect(() => {
 if (!command?.enabled) {
 lastShot.current = null;
+initialized.current = false;
 return;
 }
 
-const shot = String(command.shot);
+const nextShot = String(command.shot);
 
+// A cut deliberately skips the smooth transition.
 if (
   lastShot.current !== null &&
-  lastShot.current !== shot &&
-  shot.toLowerCase().includes("cut")
+  lastShot.current !== nextShot &&
+  nextShot.toLowerCase().includes("cut")
 ) {
-  // A deliberate cut is applied immediately.
   initialized.current = false;
 }
 
-lastShot.current = shot;
+lastShot.current = nextShot;
 
 }, [command]);
 
@@ -130,165 +162,319 @@ if (!enabled || !command?.enabled) return;
 
 const liveState = getLiveCharacterCameraState();
 
-const hasSpeakerFocus =
+const hasSpeaker =
   liveState.isFocused &&
   Boolean(liveState.focusedCharacterId);
 
 const mode = getShotMode(String(command.shot));
 
+const speakerId = liveState.focusedCharacterId;
+
+const speakerBounds = speakerId
+  ? getLiveCharacterBounds(speakerId)
+  : undefined;
+
+const registeredIds = getRegisteredCharacterIds();
+
+const otherCharacterId = registeredIds.find(
+  (id) => id !== speakerId
+);
+
+const otherBounds = otherCharacterId
+  ? getLiveCharacterBounds(otherCharacterId)
+  : undefined;
+
 /*
- * Determine the active camera target.
+ * Default: group framing.
  */
 
-if (hasSpeakerFocus && mode === "closeup") {
-  desiredTarget.current.copy(liveState.target);
-} else {
-  desiredTarget.current.copy(targetVector.current);
-}
-
-/*
- * Determine shot distance.
- */
+desiredTarget.current.copy(groupTarget.current);
 
 let distance = Math.max(
-  3.5,
+  4.5,
   framingDistance
 );
 
-switch (mode) {
-  case "closeup":
-    distance = hasSpeakerFocus
-      ? Math.max(
-          3.1,
-          liveState.framingDistance * 0.72
-        )
-      : Math.max(3.5, framingDistance * 0.72);
-    break;
+let verticalOffset = 0;
 
-  case "twoshot":
-    distance = Math.max(
-      5,
-      framingDistance * 1.05
+/*
+ * Speaker close-up.
+ */
+
+if (
+  mode === "closeup" &&
+  hasSpeaker &&
+  speakerBounds
+) {
+  desiredTarget.current.copy(
+    speakerBounds.center
+  );
+
+  desiredTarget.current.y +=
+    speakerBounds.size.y * 0.12;
+
+  distance = Math.max(
+    3.1,
+    speakerBounds.framingDistance * 0.72
+  );
+
+  verticalOffset = 0.15;
+}
+
+/*
+ * Two-shot: frame both characters.
+ */
+
+else if (
+  mode === "twoshot" &&
+  speakerBounds &&
+  otherBounds
+) {
+  desiredTarget.current
+    .copy(speakerBounds.center)
+    .add(otherBounds.center)
+    .multiplyScalar(0.5);
+
+  desiredTarget.current.y += 0.15;
+
+  const separation =
+    speakerBounds.center.distanceTo(
+      otherBounds.center
     );
-    break;
 
-  case "wide":
-    distance = Math.max(
-      7,
-      framingDistance * 1.45
+  distance = Math.max(
+    5,
+    framingDistance,
+    separation * 1.45
+  );
+}
+
+/*
+ * Over-the-shoulder:
+ * place the camera behind the other character,
+ * looking toward the active speaker.
+ */
+
+else if (
+  mode === "overtheshoulder" &&
+  speakerBounds &&
+  otherBounds
+) {
+  direction.current
+    .copy(speakerBounds.center)
+    .sub(otherBounds.center)
+    .normalize();
+
+  if (direction.current.lengthSq() < 0.001) {
+    direction.current.set(0, 0, 1);
+  }
+
+  desiredTarget.current.copy(
+    speakerBounds.center
+  );
+
+  desiredTarget.current.y +=
+    speakerBounds.size.y * 0.35;
+
+  right.current
+    .crossVectors(direction.current, up.current)
+    .normalize();
+
+  desiredPosition.current
+    .copy(otherBounds.center)
+    .addScaledVector(direction.current, -1.15)
+    .addScaledVector(right.current, 0.45);
+
+  desiredPosition.current.y +=
+    otherBounds.size.y * 0.68;
+
+  distance = 0;
+
+  verticalOffset = 1;
+}
+
+/*
+ * Reverse angle:
+ * reverse the conversational viewpoint.
+ */
+
+else if (
+  mode === "reverse" &&
+  speakerBounds &&
+  otherBounds
+) {
+  direction.current
+    .copy(otherBounds.center)
+    .sub(speakerBounds.center)
+    .normalize();
+
+  desiredTarget.current.copy(
+    otherBounds.center
+  );
+
+  desiredTarget.current.y +=
+    otherBounds.size.y * 0.25;
+
+  desiredPosition.current
+    .copy(otherBounds.center)
+    .addScaledVector(direction.current, -3.8);
+
+  desiredPosition.current.y += 1.1;
+
+  distance = 0;
+  verticalOffset = 1;
+}
+
+/*
+ * Wide establishing shot.
+ */
+
+else if (mode === "wide") {
+  desiredTarget.current.copy(
+    groupTarget.current
+  );
+
+  distance = Math.max(
+    7,
+    framingDistance * 1.45
+  );
+}
+
+/*
+ * Medium shot.
+ */
+
+else if (mode === "medium") {
+  if (hasSpeaker && speakerBounds) {
+    desiredTarget.current.copy(
+      speakerBounds.center
     );
-    break;
 
-  case "medium":
+    desiredTarget.current.y +=
+      speakerBounds.size.y * 0.15;
+
+    distance = Math.max(
+      4.5,
+      speakerBounds.framingDistance * 0.9
+    );
+  } else {
     distance = Math.max(
       4.5,
       framingDistance * 0.9
     );
-    break;
-
-  default:
-    distance = Math.max(
-      4.5,
-      command.orbitRadius || framingDistance
-    );
+  }
 }
 
 /*
- * Preserve the current viewing direction.
+ * Standard camera position.
  */
 
-camera.getWorldDirection(
-  currentDirection.current
-);
+if (
+  mode !== "overtheshoulder" &&
+  mode !== "reverse"
+) {
+  camera.getWorldDirection(direction.current);
 
-temporaryDirection.current
-  .copy(currentDirection.current)
-  .normalize();
+  direction.current.normalize();
+
+  desiredPosition.current
+    .copy(desiredTarget.current)
+    .addScaledVector(
+      direction.current,
+      -distance
+    );
+
+  desiredPosition.current.y +=
+    command.orbitHeight !== undefined
+      ? Math.max(
+          0,
+          command.orbitHeight - 2.3
+        ) * 0.35
+      : verticalOffset;
+}
 
 /*
- * Build the desired camera position.
+ * Immediate camera cut.
  */
 
-desiredPosition.current
-  .copy(desiredTarget.current)
-  .addScaledVector(
-    temporaryDirection.current,
-    -distance
-  );
+const isCut = String(command.shot)
+  .toLowerCase()
+  .includes("cut");
 
-desiredPosition.current.y +=
-  command.orbitHeight !== undefined
-    ? Math.max(0, command.orbitHeight - 2.3) * 0.35
-    : 0;
-
-/*
- * Initialize camera state.
- */
-
-if (!initialized.current) {
+if (!initialized.current || isCut) {
   camera.position.copy(
     desiredPosition.current
   );
 
-  targetVector.current.copy(
+  currentTarget.current.copy(
     desiredTarget.current
   );
 
   initialized.current = true;
+} else {
+  const deltaTime = Math.min(delta, 0.1);
+
+  const transitionSpeed = Math.max(
+    0.5,
+    command.transitionSpeed || 3
+  );
+
+  const positionAlpha =
+    1 - Math.exp(
+      -transitionSpeed * deltaTime
+    );
+
+  const targetAlpha =
+    1 - Math.exp(
+      -transitionSpeed * 1.25 * deltaTime
+    );
+
+  camera.position.lerp(
+    desiredPosition.current,
+    positionAlpha
+  );
+
+  currentTarget.current.lerp(
+    desiredTarget.current,
+    targetAlpha
+  );
 }
 
-/*
- * Smooth cinematic transitions.
- */
-
-const transitionSpeed = Math.max(
-  0.5,
-  command.transitionSpeed || 3
-);
-
-const deltaTime = Math.min(delta, 0.1);
-
-const positionAlpha =
-  1 - Math.exp(
-    -transitionSpeed * deltaTime
+if (isCut) {
+  currentTarget.current.copy(
+    desiredTarget.current
   );
+}
 
-const targetAlpha =
-  1 - Math.exp(
-    -(transitionSpeed * 1.25) * deltaTime
-  );
-
-camera.position.lerp(
-  desiredPosition.current,
-  positionAlpha
-);
-
-targetVector.current.lerp(
-  desiredTarget.current,
-  targetAlpha
-);
-
-camera.lookAt(targetVector.current);
+camera.lookAt(currentTarget.current);
 
 /*
- * Animate camera field of view.
+ * Smooth focal-length transitions.
  */
 
 if (camera instanceof THREE.PerspectiveCamera) {
   desiredFov.current = THREE.MathUtils.clamp(
-    command.fieldOfView || 38,
+    mode === "closeup"
+      ? Math.min(command.fieldOfView || 38, 34)
+      : mode === "wide"
+        ? Math.max(command.fieldOfView || 38, 42)
+        : command.fieldOfView || 38,
     20,
     75
   );
 
-  const fovAlpha =
-    1 - Math.exp(-4 * deltaTime);
+  if (isCut) {
+    currentFov.current = desiredFov.current;
+  } else {
+    const fovAlpha =
+      1 - Math.exp(-4 * Math.min(delta, 0.1));
 
-  currentFov.current = THREE.MathUtils.lerp(
-    currentFov.current,
-    desiredFov.current,
-    fovAlpha
-  );
+    currentFov.current = THREE.MathUtils.lerp(
+      currentFov.current,
+      desiredFov.current,
+      fovAlpha
+    );
+  }
 
   camera.fov = currentFov.current;
   camera.updateProjectionMatrix();
@@ -297,4 +483,4 @@ if (camera instanceof THREE.PerspectiveCamera) {
 }, 2);
 
 return null;
-         }
+}
