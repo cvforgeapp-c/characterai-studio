@@ -50,6 +50,8 @@ import CinematicIntelligentDialogueDirector from "../components/CinematicIntelli
 
 import CinematicDialogueEmotionDirector from "../components/CinematicDialogueEmotionDirector";
 
+import CinematicCharacterInteractionDirector from "../components/CinematicCharacterInteractionDirector";
+
 import type {
 SceneDirection,
 } from "../lib/cinematic-scene-director";
@@ -977,6 +979,14 @@ gap: 16,
               enabled={isDialoguePlaying}
             />
 
+            {/* STAGE 66: CHARACTER INTERACTION DIRECTOR */}
+
+            <CinematicCharacterInteractionDirector
+              lines={dialogueLines}
+              activeLineId={activeCameraDialogue?.id ?? null}
+              enabled={isDialoguePlaying}
+            />
+
             {/* SCENE PLAYER */}
 
             <ScenePlayer
@@ -1074,6 +1084,40 @@ gap: 16,
                 and wide shots. Directions are selected using
                 rule-based dialogue analysis.
               </p>
+            </div>
+
+            {/* STAGE 66: INTERACTION STATUS */}
+
+            <div style={styles.interactionCard}>
+              <div style={styles.interactionHeader}>
+                <span>
+                  👀 CHARACTER INTERACTION
+                </span>
+
+                <span>
+                  {isDialoguePlaying
+                    ? "ACTIVE"
+                    : "STANDBY"}
+                </span>
+              </div>
+
+              <p style={styles.interactionText}>
+                During dialogue playback, the interaction
+                director identifies the current speaker and
+                listener. Compatible character rigs can turn
+                toward each other while speaking and listening.
+              </p>
+
+              <div style={styles.interactionCharacters}>
+                <span>
+                  Speaker:{" "}
+                  {activeCameraDialogue?.characterName ?? "Waiting"}
+                </span>
+
+                <span>
+                  Dialogue lines: {dialogueLines.length}
+                </span>
+              </div>
             </div>
 
             {/* CINEMATIC SCENE TIMELINE */}
@@ -1598,6 +1642,43 @@ marginTop: 12,
 color: "#fbbf24",
 fontSize: 10,
 lineHeight: 1.5,
+},
+
+interactionCard: {
+marginTop: 12,
+marginBottom: 16,
+padding: 14,
+borderRadius: 12,
+background: "rgba(8,35,48,0.9)",
+border: "1px solid rgba(34,211,238,0.25)",
+},
+
+interactionHeader: {
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+gap: 8,
+color: "#67e8f9",
+fontSize: 10,
+fontWeight: 900,
+letterSpacing: 1,
+},
+
+interactionText: {
+color: "#cbd5e1",
+fontSize: 11,
+lineHeight: 1.6,
+marginTop: 10,
+marginBottom: 10,
+},
+
+interactionCharacters: {
+display: "flex",
+flexWrap: "wrap",
+gap: 14,
+color: "#a5f3fc",
+fontSize: 10,
+fontWeight: 700,
 },
 
 timelineSection: {
