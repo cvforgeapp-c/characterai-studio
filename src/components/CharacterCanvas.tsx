@@ -32,7 +32,7 @@ import CinematicLiveTargetTracker from "./CinematicLiveTargetTracker";
 
 import CinematicEmotionalActingRig from "./CinematicEmotionalActingRig";
 import CinematicCharacterInteractionRig from "./CinematicCharacterInteractionRig";
-import CinematicFacialExpressionRig from "./CinematicFacialExpressionRig";
+import CinematicScheduledFacialRig from "./CinematicScheduledFacialRig";
 import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
@@ -44,7 +44,7 @@ import CinematicVisibilityPriorityDirector from "./CinematicVisibilityPriorityDi
 // Stage 88–89: Adaptive animation workload
 import CinematicAnimationWorkloadController from "./CinematicAnimationWorkloadController";
 
-// Stage 91: Unified animation runtime
+// Stage 91–92: Unified animation runtime
 import CinematicAnimationRuntimeDirector from "./CinematicAnimationRuntimeDirector";
 
 // Stage 74–75: Rig compatibility diagnostics
@@ -475,7 +475,7 @@ powerPreference: "high-performance",
 
     <CinematicAnimationWorkloadController enabled />
 
-    {/* STAGE 91: UNIFIED ANIMATION RUNTIME */}
+    {/* STAGE 91–92: UNIFIED ANIMATION RUNTIME */}
 
     <CinematicAnimationRuntimeDirector enabled />
 
@@ -559,9 +559,9 @@ powerPreference: "high-performance",
 
     <CinematicCharacterInteractionRig />
 
-    {/* STAGE 67–70: FACIAL EXPRESSION AND EMOTION SYNC */}
+    {/* STAGE 94: SCHEDULED FACIAL ANIMATION AND LIP-SYNC */}
 
-    <CinematicFacialExpressionRig />
+    <CinematicScheduledFacialRig />
 
     {/* STAGE 71: NATURAL EYE MOVEMENT AND BLINKING */}
 
@@ -670,7 +670,7 @@ powerPreference: "high-performance",
         </span>
 
         <span style={styles.facialBadge}>
-          😊 FACIAL SYNC
+          😊 SCHEDULED FACIAL SYNC
         </span>
 
         <span style={styles.eyeBadge}>
