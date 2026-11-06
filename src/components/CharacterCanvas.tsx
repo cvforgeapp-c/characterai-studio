@@ -23,6 +23,8 @@ type CinematicCameraSettings,
 
 import CinematicCameraCommandRig from "./CinematicCameraCommandRig";
 
+import CinematicSpeakerFocusCameraRig from "./CinematicSpeakerFocusCameraRig";
+
 import CinematicLighting from "./CinematicLighting";
 import CinematicEnvironment from "./CinematicEnvironment";
 
@@ -233,23 +235,19 @@ actingSettings: CinematicActingSettings;
 }) {
 const models = useMemo(
 () =>
-placements
-.map((placement) => ({
-placement,
-model:
+placements.flatMap((placement) => {
+const model =
 CHARACTER_MODELS[
 placement.id as keyof typeof CHARACTER_MODELS
-],
-}))
-.filter(
-(
-item
-): item is typeof item & {
-model: NonNullable<typeof item.model>;
-} => Boolean(item.model)
-),
+];»
+
+    return model
+      ? [{ placement, model }]
+      : [];
+  }),
 [placements]
-);»
+
+);
 
 return (
 <group name="cinematic-character-collection">
@@ -321,7 +319,7 @@ const existingCameraEnabled =
 cameraSettings !== undefined &&
 cameraSettings.enabled !== false;
 
-/* Prevent competing camera controllers */
+/* Prevent competing manual camera controls */
 
 const cinematicEnabled =
 directorCameraEnabled || existingCameraEnabled;
@@ -449,6 +447,12 @@ powerPreference: "high-performance",
       />
     )}
 
+    {/* STAGE 60: SPEAKER-AWARE CAMERA FOCUS */}
+
+    {directorCameraEnabled && (
+      <CinematicSpeakerFocusCameraRig />
+    )}
+
     {/* EXISTING CINEMATIC CAMERA */}
 
     {!directorCameraEnabled &&
@@ -561,6 +565,12 @@ powerPreference: "high-performance",
               🎥 {cameraSettings?.shot.toUpperCase()}
             </span>
           )}
+
+        {directorCameraEnabled && (
+          <span style={styles.focusBadge}>
+            🎯 SPEAKER FOCUS
+          </span>
+        )}
 
         <span style={styles.actingBadge}>
           🎭 {actingSettings.emotion.toUpperCase()}
@@ -702,6 +712,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(49,46,129,0.9)",
 color: "#c7d2fe",
+fontSize: 10,
+fontWeight: 800,
+},
+
+focusBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(6,78,59,0.9)",
+color: "#a7f3d0",
 fontSize: 10,
 fontWeight: 800,
 },
