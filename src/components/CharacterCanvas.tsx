@@ -39,6 +39,9 @@ import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 // Stage 81: Character animation scheduler
 import CinematicAnimationSchedulerRig from "./CinematicAnimationSchedulerRig";
 
+// Stage 84: Performance-linked animation quality scheduler
+import CinematicAnimationQualityScheduler from "./CinematicAnimationQualityScheduler";
+
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
 import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
@@ -449,6 +452,10 @@ powerPreference: "high-performance",
     {/* STAGE 81: ANIMATION SCHEDULER */}
 
     <CinematicAnimationSchedulerRig enabled />
+
+    {/* STAGE 84: PERFORMANCE-LINKED ANIMATION QUALITY */}
+
+    <CinematicAnimationQualityScheduler />
 
     {/* STAGE 79–80: PERFORMANCE OPTIMIZER */}
 
