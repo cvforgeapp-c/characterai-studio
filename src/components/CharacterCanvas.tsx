@@ -36,6 +36,9 @@ import CinematicFacialExpressionRig from "./CinematicFacialExpressionRig";
 import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
+// Stage 81: Character animation scheduler
+import CinematicAnimationSchedulerRig from "./CinematicAnimationSchedulerRig";
+
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
 import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
@@ -43,7 +46,7 @@ import CinematicAnimationFallbackRig from "./CinematicAnimationFallbackRig";
 import CinematicProceduralMotionFallback from "./CinematicProceduralMotionFallback";
 import CinematicAnimationQualityPanel from "./CinematicAnimationQualityPanel";
 
-// Stage 79: Adaptive performance monitoring
+// Stage 79–80: Adaptive performance system
 import CinematicPerformanceOptimizer from "./CinematicPerformanceOptimizer";
 import CinematicPerformancePanel from "./CinematicPerformancePanel";
 
@@ -443,7 +446,11 @@ powerPreference: "high-performance",
 
     <CinematicRigCompatibilityDirector enabled />
 
-    {/* STAGE 79: PERFORMANCE MONITORING */}
+    {/* STAGE 81: ANIMATION SCHEDULER */}
+
+    <CinematicAnimationSchedulerRig enabled />
+
+    {/* STAGE 79–80: PERFORMANCE OPTIMIZER */}
 
     <CinematicPerformanceOptimizer enabled />
 
@@ -572,7 +579,7 @@ powerPreference: "high-performance",
 
   <CinematicAnimationQualityPanel enabled />
 
-  {/* STAGE 79: PERFORMANCE MONITORING PANEL */}
+  {/* STAGE 79–80: PERFORMANCE MONITORING PANEL */}
 
   <CinematicPerformancePanel enabled />
 
@@ -655,6 +662,10 @@ powerPreference: "high-performance",
 
         <span style={styles.performanceBadge}>
           ⚡ AUTO PERFORMANCE
+        </span>
+
+        <span style={styles.schedulerBadge}>
+          🎬 ANIMATION SCHEDULER
         </span>
       </div>
 
@@ -893,6 +904,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(8,84,100,0.9)",
 color: "#a5f3fc",
+fontSize: 10,
+fontWeight: 800,
+},
+
+schedulerBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(30,64,175,0.9)",
+color: "#bfdbfe",
 fontSize: 10,
 fontWeight: 800,
 },
