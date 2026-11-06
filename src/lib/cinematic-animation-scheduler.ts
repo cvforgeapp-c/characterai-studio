@@ -1,113 +1,196 @@
-import {
-getCinematicPerformanceState,
-type CinematicQualityLevel,
-} from "./cinematic-performance-store";
-
 export type AnimationPriority =
 | "speaking"
 | "listening"
 | "foreground"
 | "background";
 
-interface SchedulerEntry {
+interface AnimationCharacterEntry {
 characterId: string;
 priority: AnimationPriority;
 lastUpdatedFrame: number;
+registrationCount: number;
 }
 
-const entries = new Map<string, SchedulerEntry>();
+export interface AnimationSchedulerStats {
+totalCharacters: number;
+speaking: number;
+listening: number;
+foreground: number;
+background: number;
+currentFrame: number;
+}
+
+const animationCharacters = new Map<
+string,
+AnimationCharacterEntry
+
+«();»
 
 let currentFrame = 0;
 
-const UPDATE_INTERVALS: Record<
-CinematicQualityLevel,
-Record<AnimationPriority, number>
-
-«= {
+const QUALITY_INTERVALS = {
 high: {
 speaking: 1,
 listening: 1,
 foreground: 1,
 background: 2,
-},»
-
+},
 balanced: {
 speaking: 1,
 listening: 1,
 foreground: 2,
 background: 3,
 },
-
 performance: {
 speaking: 1,
 listening: 2,
 foreground: 3,
 background: 5,
 },
-};
+} as const;
 
-export function advanceAnimationFrame(): number {
-currentFrame += 1;
-return currentFrame;
+type SchedulerQuality = keyof typeof QUALITY_INTERVALS;
+
+let currentQuality: SchedulerQuality = "high";
+
+/**
+
+* Advances the global animation frame.
+* Call this once per rendered frame from the scheduler controller.
+  */
+  export function advanceAnimationFrame(): number {
+  currentFrame += 1;
+  return currentFrame;
+  }
+
+/**
+
+* Returns the current global animation frame.
+  */
+  export function getAnimationFrame(): number {
+  return currentFrame;
+  }
+
+/**
+
+* Registers a character.
+* 
+* Multiple components can register the same character safely.
+* Each registration must have a matching unregister call.
+  */
+  export function registerAnimationCharacter(
+  characterId: string,
+  priority: AnimationPriority = "background"
+  ): void {
+  if (!characterId) return;
+
+const existing = animationCharacters.get(characterId);
+
+if (existing) {
+existing.registrationCount += 1;
+existing.priority = priority;
+return;
 }
 
-export function getAnimationFrame(): number {
-return currentFrame;
-}
-
-export function registerAnimationCharacter(
-characterId: string,
-priority: AnimationPriority = "background",
-): void {
-const existing = entries.get(characterId);
-
-entries.set(characterId, {
+animationCharacters.set(characterId, {
 characterId,
 priority,
-lastUpdatedFrame: existing?.lastUpdatedFrame ?? -1,
+lastUpdatedFrame: -Infinity,
+registrationCount: 1,
 });
 }
 
-export function unregisterAnimationCharacter(
-characterId: string,
-): void {
-entries.delete(characterId);
+/**
+
+* Unregisters one registration.
+* 
+* The character is removed only after all components
+* that registered it have unregistered.
+  */
+  export function unregisterAnimationCharacter(
+  characterId: string
+  ): void {
+  const existing = animationCharacters.get(characterId);
+
+if (!existing) return;
+
+existing.registrationCount -= 1;
+
+if (existing.registrationCount <= 0) {
+animationCharacters.delete(characterId);
+}
 }
 
-export function setAnimationPriority(
-characterId: string,
-priority: AnimationPriority,
-): void {
-const existing = entries.get(characterId);
+/**
 
-entries.set(characterId, {
-characterId,
-priority,
-lastUpdatedFrame: existing?.lastUpdatedFrame ?? -1,
-});
+* Checks whether a character is currently registered.
+  */
+  export function isAnimationCharacterRegistered(
+  characterId: string
+  ): boolean {
+  return animationCharacters.has(characterId);
+  }
+
+/**
+
+* Returns the number of active registrations for a character.
+  */
+  export function getAnimationRegistrationCount(
+  characterId: string
+  ): number {
+  return animationCharacters.get(characterId)?.registrationCount ?? 0;
+  }
+
+/**
+
+* Changes the animation priority of a registered character.
+  */
+  export function setAnimationPriority(
+  characterId: string,
+  priority: AnimationPriority
+  ): void {
+  const entry = animationCharacters.get(characterId);
+
+if (!entry) return;
+
+entry.priority = priority;
 }
 
-export function shouldUpdateCharacterAnimation(
-characterId: string,
-frame: number = currentFrame,
-): boolean {
-const entry = entries.get(characterId);
+/**
 
-if (!entry) {
-registerAnimationCharacter(characterId);
-return true;
-}
+* Changes the global scheduler quality.
+  */
+  export function setAnimationSchedulerQuality(
+  quality: SchedulerQuality
+  ): void {
+  currentQuality = quality;
+  }
 
-const performance = getCinematicPerformanceState();
+/**
 
-const intervals = UPDATE_INTERVALS[performance.quality];
+* Returns the current scheduler quality.
+  */
+  export function getAnimationSchedulerQuality(): SchedulerQuality {
+  return currentQuality;
+  }
 
-const interval = intervals[entry.priority];
+/**
 
-if (
-entry.lastUpdatedFrame >= 0 &&
-frame - entry.lastUpdatedFrame < interval
-) {
+* Determines whether a character should update on this frame.
+  */
+  export function shouldUpdateCharacterAnimation(
+  characterId: string,
+  frame: number = currentFrame
+  ): boolean {
+  const entry = animationCharacters.get(characterId);
+
+// Unregistered characters are not throttled.
+if (!entry) return true;
+
+const interval =
+QUALITY_INTERVALS[currentQuality][entry.priority];
+
+if (frame - entry.lastUpdatedFrame < interval) {
 return false;
 }
 
@@ -116,51 +199,33 @@ entry.lastUpdatedFrame = frame;
 return true;
 }
 
-export function getAnimationSchedulerStats(): {
-registeredCharacters: number;
-speakingCharacters: number;
-listeningCharacters: number;
-foregroundCharacters: number;
-backgroundCharacters: number;
-currentFrame: number;
-} {
-let speakingCharacters = 0;
-let listeningCharacters = 0;
-let foregroundCharacters = 0;
-let backgroundCharacters = 0;
+/**
 
-entries.forEach((entry) => {
-switch (entry.priority) {
-case "speaking":
-speakingCharacters += 1;
-break;
+* Returns scheduler statistics for monitoring.
+  */
+  export function getAnimationSchedulerStats(): AnimationSchedulerStats {
+  const stats: AnimationSchedulerStats = {
+  totalCharacters: animationCharacters.size,
+  speaking: 0,
+  listening: 0,
+  foreground: 0,
+  background: 0,
+  currentFrame,
+  };
 
-  case "listening":
-    listeningCharacters += 1;
-    break;
-
-  case "foreground":
-    foregroundCharacters += 1;
-    break;
-
-  case "background":
-    backgroundCharacters += 1;
-    break;
-}
-
+animationCharacters.forEach((entry) => {
+stats[entry.priority] += 1;
 });
 
-return {
-registeredCharacters: entries.size,
-speakingCharacters,
-listeningCharacters,
-foregroundCharacters,
-backgroundCharacters,
-currentFrame,
-};
+return stats;
 }
 
-export function clearAnimationScheduler(): void {
-entries.clear();
-currentFrame = 0;
-  }
+/**
+
+* Clears all registrations and resets the frame counter.
+  */
+  export function clearAnimationScheduler(): void {
+  animationCharacters.clear();
+  currentFrame = 0;
+  currentQuality = "high";
+    }
