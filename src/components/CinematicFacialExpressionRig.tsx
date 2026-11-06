@@ -16,6 +16,14 @@ subscribeToSpeechPerformance,
 type SpeechPerformanceEvent,
 } from "../lib/synchronized-speech";
 
+import {
+generateVisemeSequence,
+getVisemeAtTime,
+getVisemeWeights,
+type Viseme,
+type VisemeFrame,
+} from "../lib/cinematic-viseme-engine";
+
 interface FacialMorph {
 mesh: THREE.Mesh;
 index: number;
@@ -24,23 +32,31 @@ baseValue: number;
 
 interface CharacterFace {
 root: THREE.Object3D;
-mouthOpen: FacialMorph[];
-mouthSmile: FacialMorph[];
-mouthPress: FacialMorph[];
+visemes: Record<Viseme, FacialMorph[]>;
+fallbackOpen: FacialMorph[];
+smile: FacialMorph[];
 }
 
-interface SpeechState {
+interface SpeechPlaybackState {
 characterId: string | null;
 speaking: boolean;
 startedAt: number;
-lastBoundaryAt: number;
-boundaryIntensity: number;
+elapsedOffset: number;
+frames: VisemeFrame[];
 }
 
-function normalizeMorphName(name: string): string {
-return name
-.toLowerCase()
-.replace(/[^a-z0-9]/g, "");
+const VISEME_PATTERNS: Record<Viseme, RegExp[]> = {
+A: [/visemeaa/, /visemeah/, /moutha$/, /mouthopen/],
+E: [/visimeee/, /visimeih/, /visemee/, /mouthee/, /mouthsmile/],
+O: [/visemeeoh/, /visemeoh/, /moutho$/, /mouthfunnel/],
+U: [/visemeou/, /visemeoo/, /mouthu$/, /mouthpucker/],
+M: [/visemembp/, /visememb/, /mouthclosed/, /mouthpress/],
+F: [/visemefv/, /visemef/, /mouthf/, /mouthteeth/],
+REST: [/mouthclosed/, /mouthclose/],
+};
+
+function normalizeName(name: string): string {
+return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function collectMorphs(
@@ -62,12 +78,10 @@ if (
 
 Object.entries(mesh.morphTargetDictionary).forEach(
   ([name, index]) => {
-    const normalized = normalizeMorphName(name);
+    const normalized = normalizeName(name);
 
     if (
-      patterns.some((pattern) =>
-        pattern.test(normalized),
-      )
+      patterns.some((pattern) => pattern.test(normalized))
     ) {
       results.push({
         mesh,
@@ -84,41 +98,46 @@ Object.entries(mesh.morphTargetDictionary).forEach(
 return results;
 }
 
-function buildCharacterFace(
-root: THREE.Object3D,
-): CharacterFace {
+function buildFace(root: THREE.Object3D): CharacterFace {
+const visemes = {} as Record<Viseme, FacialMorph[]>;
+
+const visemeNames: Viseme[] = [
+"A",
+"E",
+"O",
+"U",
+"M",
+"F",
+"REST",
+];
+
+for (const name of visemeNames) {
+visemes[name] = collectMorphs(
+root,
+VISEME_PATTERNS[name],
+);
+}
+
 return {
 root,
-
-mouthOpen: collectMorphs(root, [
-  /jawopen/,
-  /mouthopen/,
-  /visemeaa/,
-  /visemeah/,
-  /mouthah/,
-  /moutha$/,
-  /mouthwide/,
-  /mouthfunnel/,
+visemes,
+fallbackOpen: collectMorphs(root, [
+/jawopen/,
+/mouthopen/,
+/visemeaa/,
+/visemeah/,
 ]),
-
-mouthSmile: collectMorphs(root, [
-  /mouthsmile/,
-  /smileleft/,
-  /smileright/,
+smile: collectMorphs(root, [
+/mouthsmile/,
+/smileleft/,
+/smileright/,
 ]),
-
-mouthPress: collectMorphs(root, [
-  /mouthpress/,
-  /mouthclosed/,
-  /mouthclose/,
-]),
-
 };
 }
 
-function setMorphs(
+function applyMorphs(
 morphs: FacialMorph[],
-target: number,
+intensity: number,
 delta: number,
 ): void {
 for (const morph of morphs) {
@@ -131,14 +150,37 @@ const current = influences[morph.index] ?? 0;
 influences[morph.index] = THREE.MathUtils.damp(
   current,
   THREE.MathUtils.clamp(
-    morph.baseValue + target,
+    morph.baseValue + intensity,
     0,
     1,
   ),
-  12,
+  15,
   delta,
 );
 
+}
+}
+
+function resetFace(
+face: CharacterFace,
+delta: number,
+): void {
+const allMorphs = [
+...Object.values(face.visemes).flat(),
+...face.fallbackOpen,
+];
+
+const uniqueMorphs = new Map<string, FacialMorph>();
+
+for (const morph of allMorphs) {
+uniqueMorphs.set(
+"${morph.mesh.uuid}-${morph.index}",
+morph,
+);
+}
+
+for (const morph of uniqueMorphs.values()) {
+applyMorphs([morph], 0, delta);
 }
 }
 
@@ -147,25 +189,29 @@ const faces = useRef<Map<string, CharacterFace>>(
 new Map(),
 );
 
-const speech = useRef<SpeechState>({
+const playback = useRef<SpeechPlaybackState>({
 characterId: null,
 speaking: false,
 startedAt: 0,
-lastBoundaryAt: 0,
-boundaryIntensity: 0,
+elapsedOffset: 0,
+frames: [],
 });
 
 useEffect(() => {
 const unsubscribe = subscribeToSpeechPerformance(
 (event: SpeechPerformanceEvent) => {
-const state = speech.current;
+const state = playback.current;
 
     if (event.type === "start") {
       state.characterId = event.characterId ?? null;
       state.speaking = true;
       state.startedAt = performance.now();
-      state.lastBoundaryAt = performance.now();
-      state.boundaryIntensity = 0.55;
+      state.elapsedOffset = 0;
+
+      state.frames = generateVisemeSequence(
+        event.text,
+        75,
+      );
     }
 
     if (event.type === "boundary") {
@@ -177,8 +223,14 @@ const state = speech.current;
         return;
       }
 
-      state.lastBoundaryAt = performance.now();
-      state.boundaryIntensity = 0.9;
+      if (typeof event.elapsedTime === "number") {
+        state.elapsedOffset = Math.max(
+          0,
+          event.elapsedTime,
+        );
+
+        state.startedAt = performance.now();
+      }
     }
 
     if (
@@ -192,7 +244,6 @@ const state = speech.current;
         event.characterId === state.characterId
       ) {
         state.speaking = false;
-        state.boundaryIntensity = 0;
       }
     }
   },
@@ -200,42 +251,33 @@ const state = speech.current;
 
 return () => {
   unsubscribe();
-  speech.current.speaking = false;
+  playback.current.speaking = false;
   faces.current.clear();
 };
 
 }, []);
 
 useFrame((_, delta) => {
-const ids = getRegisteredCharacterIds();
+const state = playback.current;
 const interaction = getCharacterInteraction();
-const speechState = speech.current;
 
-const activeSpeaker =
-  speechState.speaking
-    ? speechState.characterId
-    : interaction.enabled
-      ? interaction.speakerId
-      : null;
+const ids = getRegisteredCharacterIds();
 
-const listenerId =
-  interaction.enabled
-    ? interaction.listenerId
+const elapsed =
+  state.elapsedOffset +
+  (performance.now() - state.startedAt);
+
+const currentFrame =
+  state.speaking && state.frames.length > 0
+    ? getVisemeAtTime(state.frames, elapsed)
     : null;
 
-const now = performance.now();
-
-const boundaryAge =
-  now - speechState.lastBoundaryAt;
-
-if (boundaryAge > 180) {
-  speechState.boundaryIntensity = THREE.MathUtils.damp(
-    speechState.boundaryIntensity,
-    0.25,
-    5,
-    delta,
-  );
-}
+const weights = currentFrame
+  ? getVisemeWeights(
+      currentFrame.viseme,
+      currentFrame.intensity,
+    )
+  : null;
 
 for (const characterId of ids) {
   const root = getLiveCharacterObject(characterId);
@@ -245,47 +287,57 @@ for (const characterId of ids) {
   let face = faces.current.get(characterId);
 
   if (!face || face.root !== root) {
-    face = buildCharacterFace(root);
+    face = buildFace(root);
     faces.current.set(characterId, face);
   }
 
-  const isSpeaking =
-    characterId === activeSpeaker &&
-    speechState.speaking;
+  const isSpeaker =
+    state.speaking &&
+    state.characterId === characterId;
 
-  const isListening =
-    !isSpeaking &&
-    characterId === listenerId;
+  const isListener =
+    !isSpeaker &&
+    interaction.enabled &&
+    interaction.listenerId === characterId;
 
-  let mouthOpen = 0;
-  let smile = 0;
-  let mouthPress = 0;
+  if (isSpeaker && weights) {
+    resetFace(face, delta);
 
-  if (isSpeaking) {
-    const elapsed =
-      (now - speechState.startedAt) / 1000;
+    const hasDedicatedViseme =
+      face.visemes[currentFrame!.viseme].length > 0;
 
-    const syllableMotion =
-      Math.abs(Math.sin(elapsed * 11.5)) * 0.55 +
-      Math.abs(Math.sin(elapsed * 6.8)) * 0.25;
+    if (hasDedicatedViseme) {
+      for (const viseme of Object.keys(
+        weights,
+      ) as Viseme[]) {
+        applyMorphs(
+          face.visemes[viseme],
+          weights[viseme],
+          delta,
+        );
+      }
+    } else {
+      const fallbackIntensity =
+        currentFrame!.viseme === "REST" ||
+        currentFrame!.viseme === "M"
+          ? 0
+          : currentFrame!.intensity;
 
-    const boundaryBoost =
-      speechState.boundaryIntensity * 0.35;
+      applyMorphs(
+        face.fallbackOpen,
+        fallbackIntensity,
+        delta,
+      );
+    }
 
-    mouthOpen = THREE.MathUtils.clamp(
-      syllableMotion + boundaryBoost,
-      0.08,
-      0.85,
-    );
-  } else if (isListening) {
-    mouthOpen = 0.025;
-    smile = 0.06;
-    mouthPress = 0.035;
+    applyMorphs(face.smile, 0, delta);
+  } else {
+    resetFace(face, delta);
+
+    if (isListener) {
+      applyMorphs(face.smile, 0.06, delta);
+    }
   }
-
-  setMorphs(face.mouthOpen, mouthOpen, delta);
-  setMorphs(face.mouthSmile, smile, delta);
-  setMorphs(face.mouthPress, mouthPress, delta);
 }
 
 });
