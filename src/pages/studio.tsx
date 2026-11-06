@@ -46,9 +46,9 @@ import CinematicPerformanceConsole from "../components/CinematicPerformanceConso
 
 import CinematicSceneTimeline from "../components/CinematicSceneTimeline";
 
-import CinematicDialogueCameraDirector, {
-type CinematicDialogueLine,
-} from "../components/CinematicDialogueCameraDirector";
+import CinematicIntelligentDialogueDirector from "../components/CinematicIntelligentDialogueDirector";
+
+import CinematicDialogueEmotionDirector from "../components/CinematicDialogueEmotionDirector";
 
 import type {
 SceneDirection,
@@ -180,11 +180,11 @@ const [isDialoguePlaying, setIsDialoguePlaying] =
 useState(false);
 
 /* ---------------------------------------
-STAGE 58: ACTIVE DIALOGUE CAMERA
+INTELLIGENT CAMERA STATE
 --------------------------------------- */
 
 const [activeCameraDialogue, setActiveCameraDialogue] =
-useState<CinematicDialogueLine | null>(null);
+useState<DialoguePlaybackLine | null>(null);
 
 const [activeCameraDirection, setActiveCameraDirection] =
 useState<SceneDirection | null>(null);
@@ -215,28 +215,16 @@ scenes.find(
 );
 
 /* ---------------------------------------
-STAGE 58: DIALOGUE CAMERA CALLBACK
+CHARACTER FILTER
 --------------------------------------- */
 
-const handleDialogueCameraDirectionChange =
-useCallback(
-(
-direction: SceneDirection,
-line: CinematicDialogueLine
-) => {
-setActiveCameraDirection(direction);
-setDirectedCharacterName(line.characterName);
-
-    console.log("CINEMATIC DIALOGUE CAMERA DIRECTOR");
-    console.log("Speaker:", line.characterName);
-    console.log("Dialogue:", line.text);
-    console.log("Shot:", direction.shot);
-    console.log("Movement:", direction.movement);
-    console.log("Reason:", direction.reason);
-    console.log("Intensity:", direction.intensity);
-  },
-  []
+const filteredCharacters = useMemo(() => {
+return characters.filter(
+(character) =>
+categoryFilter === "All" ||
+character.category === categoryFilter
 );
+}, [categoryFilter]);
 
 /* ---------------------------------------
 DETECT LIVE 3D CANVAS
@@ -283,18 +271,6 @@ stopSynchronizedSpeech();
 }, []);
 
 /* ---------------------------------------
-FILTER CHARACTER LIBRARY
---------------------------------------- */
-
-const filteredCharacters = useMemo(() => {
-return characters.filter(
-(character) =>
-categoryFilter === "All" ||
-character.category === categoryFilter
-);
-}, [categoryFilter]);
-
-/* ---------------------------------------
 CHARACTER SELECTION
 --------------------------------------- */
 
@@ -331,7 +307,7 @@ setActiveSceneId(sceneId);
 };
 
 /* ---------------------------------------
-STAGE 58: DIALOGUE AND SCENE SYNCHRONIZATION
+DIALOGUE LINE CHANGE
 --------------------------------------- */
 
 const handleDialogueLineChange = (
@@ -345,17 +321,7 @@ const lineIndex = dialogueLines.findIndex(
 
 if (lineIndex < 0) return;
 
-/* Update the active camera dialogue */
-
-setActiveCameraDialogue({
-  id: line.id,
-  characterId: line.characterId,
-  characterName: line.characterName,
-  text: line.text,
-  duration: line.duration,
-});
-
-/* Synchronize dialogue with scene */
+setActiveCameraDialogue(line);
 
 const matchingScene = scenes[lineIndex];
 
@@ -371,6 +337,53 @@ console.log(
 );
 
 };
+
+/* ---------------------------------------
+INTELLIGENT DIALOGUE CAMERA CALLBACK
+--------------------------------------- */
+
+const handleIntelligentCameraDirection = useCallback(
+(
+shot: string,
+reason: string,
+line: DialoguePlaybackLine | null
+) => {
+const movement =
+shot === "wide"
+? "pull-out"
+: shot === "closeup" || shot === "reaction"
+? "push-in"
+: "tracking";
+
+  const direction = {
+    shot: shot as SceneDirection["shot"],
+    reason,
+    intensity:
+      shot === "closeup" || shot === "reaction"
+        ? 0.9
+        : shot === "wide"
+          ? 0.45
+          : 0.65,
+    movement,
+  } as SceneDirection;
+
+  setActiveCameraDirection(direction);
+
+  if (line) {
+    setDirectedCharacterName(line.characterName);
+  }
+
+  console.log(
+    "INTELLIGENT CINEMATIC CAMERA"
+  );
+
+  console.log("Shot:", shot);
+  console.log("Reason:", reason);
+  console.log("Character:", line?.characterName);
+},
+[]
+
+);
 
 /* ---------------------------------------
 GENERATE COMEDY SCRIPT
@@ -463,10 +476,12 @@ try {
 
   setActiveSceneId(newScenes[0].id);
 
-  /* RESET DIALOGUE CAMERA */
+  /* RESET CAMERA STATUS */
 
   setActiveCameraDialogue(null);
+
   setActiveCameraDirection(null);
+
   setDirectedCharacterName("");
 
   /* OPEN TIMELINE */
@@ -934,15 +949,32 @@ gap: 16,
               🎞️ Production Timeline
             </h2>
 
-            {/* STAGE 58: DIALOGUE CAMERA DIRECTOR */}
+            {/* STAGE 63–64: INTELLIGENT DIALOGUE CAMERA */}
 
-            <CinematicDialogueCameraDirector
-              activeLine={activeCameraDialogue}
+            <CinematicIntelligentDialogueDirector
+              lines={dialogueLines}
+              activeLineId={activeCameraDialogue?.id ?? null}
               characterCount={selectedIds.length}
               enabled={isDialoguePlaying}
-              onDirectionChange={
-                handleDialogueCameraDirectionChange
-              }
+              onDirectionChange={(
+                shot,
+                reason,
+                line
+              ) => {
+                handleIntelligentCameraDirection(
+                  shot,
+                  reason,
+                  line ?? null
+                );
+              }}
+            />
+
+            {/* STAGE 65: AUTOMATIC EMOTIONAL ACTING */}
+
+            <CinematicDialogueEmotionDirector
+              lines={dialogueLines}
+              activeLineId={activeCameraDialogue?.id ?? null}
+              enabled={isDialoguePlaying}
             />
 
             {/* SCENE PLAYER */}
@@ -979,12 +1011,12 @@ gap: 16,
               </span>
             </div>
 
-            {/* STAGE 58 CAMERA DIRECTION STATUS */}
+            {/* INTELLIGENT CAMERA STATUS */}
 
             <div style={styles.cameraDirectionCard}>
               <div style={styles.cameraDirectionHeader}>
                 <span style={styles.cameraDirectionLabel}>
-                  🎥 DIALOGUE CAMERA DIRECTOR
+                  🎥 INTELLIGENT CAMERA DIRECTOR
                 </span>
 
                 <span style={styles.cameraDirectionStatus}>
@@ -1004,7 +1036,7 @@ gap: 16,
 
                   <div style={styles.cameraDirectionDetails}>
                     <span>
-                      Speaker: {directedCharacterName}
+                      Focus: {directedCharacterName}
                     </span>
 
                     <span>
@@ -1032,13 +1064,15 @@ gap: 16,
                 </>
               ) : (
                 <p style={styles.cameraReason}>
-                  Start dialogue playback to generate camera directions for each line.
+                  Start dialogue playback to generate intelligent camera directions.
                 </p>
               )}
 
               <p style={styles.cameraNotice}>
-                Camera commands are connected to the live 3D camera rig.
-                Shot selection currently uses rule-based dialogue analysis.
+                Camera coverage includes speaker close-ups,
+                listener reactions, reverse shots, two-shots,
+                and wide shots. Directions are selected using
+                rule-based dialogue analysis.
               </p>
             </div>
 
@@ -1061,6 +1095,10 @@ gap: 16,
                 onLineChange={handleDialogueLineChange}
                 onPlaybackChange={(playing) => {
                   setIsDialoguePlaying(playing);
+
+                  if (!playing) {
+                    setActiveCameraDialogue(null);
+                  }
                 }}
                 onSpeak={handleSpeakDialogue}
                 onStopSpeaking={handleStopDialogue}
