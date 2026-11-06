@@ -36,14 +36,16 @@ import CinematicFacialExpressionRig from "./CinematicFacialExpressionRig";
 import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
-// Stage 81–87: Animation scheduling and priorities
+// Stage 81–87: Animation scheduling
 import CinematicAnimationSchedulerRig from "./CinematicAnimationSchedulerRig";
 import CinematicAnimationQualityScheduler from "./CinematicAnimationQualityScheduler";
-import CinematicDistancePriorityDirector from "./CinematicDistancePriorityDirector";
 import CinematicVisibilityPriorityDirector from "./CinematicVisibilityPriorityDirector";
 
 // Stage 88–89: Adaptive animation workload
 import CinematicAnimationWorkloadController from "./CinematicAnimationWorkloadController";
+
+// Stage 91: Unified animation runtime
+import CinematicAnimationRuntimeDirector from "./CinematicAnimationRuntimeDirector";
 
 // Stage 74–75: Rig compatibility diagnostics
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
@@ -465,17 +467,17 @@ powerPreference: "high-performance",
 
     <CinematicAnimationQualityScheduler />
 
-    {/* STAGE 85: DISTANCE-AWARE ANIMATION PRIORITIES */}
-
-    <CinematicDistancePriorityDirector enabled />
-
-    {/* STAGE 86: CAMERA-VISIBILITY-AWARE PRIORITIES */}
+    {/* STAGE 86: CAMERA-VISIBILITY + DISTANCE PRIORITIES */}
 
     <CinematicVisibilityPriorityDirector enabled />
 
     {/* STAGE 88–89: ADAPTIVE ANIMATION WORKLOAD */}
 
     <CinematicAnimationWorkloadController enabled />
+
+    {/* STAGE 91: UNIFIED ANIMATION RUNTIME */}
+
+    <CinematicAnimationRuntimeDirector enabled />
 
     {/* STAGE 79–80: PERFORMANCE OPTIMIZER */}
 
@@ -699,16 +701,16 @@ powerPreference: "high-performance",
           🎬 ANIMATION SCHEDULER
         </span>
 
-        <span style={styles.distanceBadge}>
-          📏 DISTANCE PRIORITY
-        </span>
-
         <span style={styles.visibilityBadge}>
-          👁️ VISIBILITY PRIORITY
+          👁️ DISTANCE + VISIBILITY PRIORITY
         </span>
 
         <span style={styles.workloadBadge}>
           🚀 ADAPTIVE WORKLOAD
+        </span>
+
+        <span style={styles.runtimeBadge}>
+          🧠 UNIFIED ANIMATION RUNTIME
         </span>
       </div>
 
@@ -960,15 +962,6 @@ fontSize: 10,
 fontWeight: 800,
 },
 
-distanceBadge: {
-padding: "8px 10px",
-borderRadius: 7,
-background: "rgba(6,78,59,0.9)",
-color: "#a7f3d0",
-fontSize: 10,
-fontWeight: 800,
-},
-
 visibilityBadge: {
 padding: "8px 10px",
 borderRadius: 7,
@@ -983,6 +976,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(124,45,18,0.9)",
 color: "#fed7aa",
+fontSize: 10,
+fontWeight: 800,
+},
+
+runtimeBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(6,78,59,0.9)",
+color: "#a7f3d0",
 fontSize: 10,
 fontWeight: 800,
 },
