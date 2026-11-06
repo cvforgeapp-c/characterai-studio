@@ -36,18 +36,20 @@ import CinematicFacialExpressionRig from "./CinematicFacialExpressionRig";
 import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
-// Stage 81: Character animation scheduler
+// Stage 81–87: Animation scheduling and priorities
 import CinematicAnimationSchedulerRig from "./CinematicAnimationSchedulerRig";
-
-// Stage 84: Performance-linked animation quality scheduler
 import CinematicAnimationQualityScheduler from "./CinematicAnimationQualityScheduler";
-
-// Stage 85: Distance-aware animation priorities
 import CinematicDistancePriorityDirector from "./CinematicDistancePriorityDirector";
+import CinematicVisibilityPriorityDirector from "./CinematicVisibilityPriorityDirector";
 
+// Stage 88–89: Adaptive animation workload
+import CinematicAnimationWorkloadController from "./CinematicAnimationWorkloadController";
+
+// Stage 74–75: Rig compatibility diagnostics
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
 import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
+// Stage 76–78: Animation fallbacks and quality
 import CinematicAnimationFallbackRig from "./CinematicAnimationFallbackRig";
 import CinematicProceduralMotionFallback from "./CinematicProceduralMotionFallback";
 import CinematicAnimationQualityPanel from "./CinematicAnimationQualityPanel";
@@ -55,6 +57,9 @@ import CinematicAnimationQualityPanel from "./CinematicAnimationQualityPanel";
 // Stage 79–80: Adaptive performance system
 import CinematicPerformanceOptimizer from "./CinematicPerformanceOptimizer";
 import CinematicPerformancePanel from "./CinematicPerformancePanel";
+
+// Stage 90: Animation scheduler diagnostics
+import CinematicAnimationSchedulerPanel from "./CinematicAnimationSchedulerPanel";
 
 import {
 useCinematicCameraCommand,
@@ -452,7 +457,7 @@ powerPreference: "high-performance",
 
     <CinematicRigCompatibilityDirector enabled />
 
-    {/* STAGE 81: ANIMATION SCHEDULER */}
+    {/* STAGE 81–87: ANIMATION SCHEDULER */}
 
     <CinematicAnimationSchedulerRig enabled />
 
@@ -463,6 +468,14 @@ powerPreference: "high-performance",
     {/* STAGE 85: DISTANCE-AWARE ANIMATION PRIORITIES */}
 
     <CinematicDistancePriorityDirector enabled />
+
+    {/* STAGE 86: CAMERA-VISIBILITY-AWARE PRIORITIES */}
+
+    <CinematicVisibilityPriorityDirector enabled />
+
+    {/* STAGE 88–89: ADAPTIVE ANIMATION WORKLOAD */}
+
+    <CinematicAnimationWorkloadController enabled />
 
     {/* STAGE 79–80: PERFORMANCE OPTIMIZER */}
 
@@ -597,6 +610,10 @@ powerPreference: "high-performance",
 
   <CinematicPerformancePanel enabled />
 
+  {/* STAGE 90: ANIMATION SCHEDULER DIAGNOSTICS */}
+
+  <CinematicAnimationSchedulerPanel enabled />
+
   {/* STUDIO INFORMATION BAR */}
 
   {showControls && (
@@ -684,6 +701,14 @@ powerPreference: "high-performance",
 
         <span style={styles.distanceBadge}>
           📏 DISTANCE PRIORITY
+        </span>
+
+        <span style={styles.visibilityBadge}>
+          👁️ VISIBILITY PRIORITY
+        </span>
+
+        <span style={styles.workloadBadge}>
+          🚀 ADAPTIVE WORKLOAD
         </span>
       </div>
 
@@ -940,6 +965,24 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(6,78,59,0.9)",
 color: "#a7f3d0",
+fontSize: 10,
+fontWeight: 800,
+},
+
+visibilityBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(49,46,129,0.9)",
+color: "#c7d2fe",
+fontSize: 10,
+fontWeight: 800,
+},
+
+workloadBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(124,45,18,0.9)",
+color: "#fed7aa",
 fontSize: 10,
 fontWeight: 800,
 },
