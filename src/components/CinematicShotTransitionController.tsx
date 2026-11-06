@@ -22,6 +22,7 @@ enabled?: boolean;
 
 type ShotMode =
 | "closeup"
+| "reaction"
 | "twoshot"
 | "wide"
 | "medium"
@@ -31,6 +32,12 @@ type ShotMode =
 
 function getShotMode(shot: string): ShotMode {
 const value = shot.toLowerCase().replace(/[-_\s]/g, "");
+
+// Listener reaction shots use close-up framing,
+// but retain their own mode for camera behavior.
+if (value.includes("reaction")) {
+return "reaction";
+}
 
 if (
 value.includes("overtheshoulder") ||
@@ -115,10 +122,6 @@ const up = useRef(
 new THREE.Vector3(0, 1, 0)
 );
 
-const temporary = useRef(
-new THREE.Vector3()
-);
-
 const initialized = useRef(false);
 
 const lastShot = useRef<string | null>(null);
@@ -168,6 +171,7 @@ const hasSpeaker =
 
 const mode = getShotMode(String(command.shot));
 
+// The focus ID may identify the listener during a reaction shot.
 const speakerId = liveState.focusedCharacterId;
 
 const speakerBounds = speakerId
@@ -219,6 +223,33 @@ if (
   );
 
   verticalOffset = 0.15;
+}
+
+/*
+ * Listener reaction close-up.
+ *
+ * The dialogue director sets the focus ID to
+ * the listening character rather than the speaker.
+ */
+
+else if (
+  mode === "reaction" &&
+  hasSpeaker &&
+  speakerBounds
+) {
+  desiredTarget.current.copy(
+    speakerBounds.center
+  );
+
+  desiredTarget.current.y +=
+    speakerBounds.size.y * 0.16;
+
+  distance = Math.max(
+    3.0,
+    speakerBounds.framingDistance * 0.68
+  );
+
+  verticalOffset = 0.12;
 }
 
 /*
@@ -322,6 +353,7 @@ else if (
   desiredPosition.current.y += 1.1;
 
   distance = 0;
+
   verticalOffset = 1;
 }
 
@@ -454,7 +486,7 @@ camera.lookAt(currentTarget.current);
 
 if (camera instanceof THREE.PerspectiveCamera) {
   desiredFov.current = THREE.MathUtils.clamp(
-    mode === "closeup"
+    mode === "closeup" || mode === "reaction"
       ? Math.min(command.fieldOfView || 38, 34)
       : mode === "wide"
         ? Math.max(command.fieldOfView || 38, 42)
