@@ -42,6 +42,9 @@ import CinematicAnimationSchedulerRig from "./CinematicAnimationSchedulerRig";
 // Stage 84: Performance-linked animation quality scheduler
 import CinematicAnimationQualityScheduler from "./CinematicAnimationQualityScheduler";
 
+// Stage 85: Distance-aware animation priorities
+import CinematicDistancePriorityDirector from "./CinematicDistancePriorityDirector";
+
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
 import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
@@ -457,6 +460,10 @@ powerPreference: "high-performance",
 
     <CinematicAnimationQualityScheduler />
 
+    {/* STAGE 85: DISTANCE-AWARE ANIMATION PRIORITIES */}
+
+    <CinematicDistancePriorityDirector enabled />
+
     {/* STAGE 79–80: PERFORMANCE OPTIMIZER */}
 
     <CinematicPerformanceOptimizer enabled />
@@ -673,6 +680,10 @@ powerPreference: "high-performance",
 
         <span style={styles.schedulerBadge}>
           🎬 ANIMATION SCHEDULER
+        </span>
+
+        <span style={styles.distanceBadge}>
+          📏 DISTANCE PRIORITY
         </span>
       </div>
 
@@ -920,6 +931,15 @@ padding: "8px 10px",
 borderRadius: 7,
 background: "rgba(30,64,175,0.9)",
 color: "#bfdbfe",
+fontSize: 10,
+fontWeight: 800,
+},
+
+distanceBadge: {
+padding: "8px 10px",
+borderRadius: 7,
+background: "rgba(6,78,59,0.9)",
+color: "#a7f3d0",
 fontSize: 10,
 fontWeight: 800,
 },
