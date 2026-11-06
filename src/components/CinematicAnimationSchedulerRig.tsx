@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-
+import { useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 
 import {
@@ -7,7 +6,6 @@ advanceAnimationFrame,
 registerAnimationCharacter,
 unregisterAnimationCharacter,
 setAnimationPriority,
-type AnimationPriority,
 } from "../lib/cinematic-animation-scheduler";
 
 import {
@@ -18,38 +16,38 @@ import {
 getCharacterInteraction,
 } from "../lib/cinematic-interaction-store";
 
-interface CinematicAnimationSchedulerRigProps {
+interface Props {
 enabled?: boolean;
 }
 
 export default function CinematicAnimationSchedulerRig({
 enabled = true,
-}: CinematicAnimationSchedulerRigProps) {
-const registeredIds = useRef<Set<string>>(new Set());
-
-const lastUpdate = useRef(0);
-
+}: Props) {
 useEffect(() => {
 if (!enabled) return;
+
+const registered = new Set<string>();
 
 const syncCharacters = () => {
   const currentIds = new Set(
     getRegisteredCharacterIds(),
   );
 
-  registeredIds.current.forEach((id) => {
+  // Register newly available characters.
+  for (const id of currentIds) {
+    if (!registered.has(id)) {
+      registerAnimationCharacter(id, "background");
+      registered.add(id);
+    }
+  }
+
+  // Unregister characters that have disappeared.
+  for (const id of registered) {
     if (!currentIds.has(id)) {
       unregisterAnimationCharacter(id);
-      registeredIds.current.delete(id);
+      registered.delete(id);
     }
-  });
-
-  currentIds.forEach((id) => {
-    if (!registeredIds.current.has(id)) {
-      registerAnimationCharacter(id, "background");
-      registeredIds.current.add(id);
-    }
-  });
+  }
 };
 
 syncCharacters();
@@ -62,52 +60,56 @@ const interval = window.setInterval(
 return () => {
   window.clearInterval(interval);
 
-  registeredIds.current.forEach((id) => {
+  for (const id of registered) {
     unregisterAnimationCharacter(id);
-  });
+  }
 
-  registeredIds.current.clear();
+  registered.clear();
 };
 
 }, [enabled]);
 
-useFrame((_, delta) => {
+useFrame(() => {
 if (!enabled) return;
 
+// Advance the shared animation scheduler.
 advanceAnimationFrame();
 
-lastUpdate.current += delta;
+});
 
-// Dialogue priorities only need refreshing several times per second.
-if (lastUpdate.current < 0.15) return;
+useEffect(() => {
+if (!enabled) return;
 
-lastUpdate.current = 0;
+const updateDialoguePriorities = () => {
+  const interaction = getCharacterInteraction();
 
-const interaction = getCharacterInteraction();
+  if (!interaction.enabled) return;
 
-const ids = getRegisteredCharacterIds();
-
-ids.forEach((id) => {
-  let priority: AnimationPriority = "background";
-
-  if (
-    interaction.enabled &&
-    interaction.speakerId === id
-  ) {
-    priority = "speaking";
-  } else if (
-    interaction.enabled &&
-    interaction.listenerId === id
-  ) {
-    priority = "listening";
-  } else {
-    priority = "foreground";
+  if (interaction.speakerId) {
+    setAnimationPriority(
+      interaction.speakerId,
+      "speaking",
+    );
   }
 
-  setAnimationPriority(id, priority);
-});
+  if (interaction.listenerId) {
+    setAnimationPriority(
+      interaction.listenerId,
+      "listening",
+    );
+  }
+};
 
-});
+updateDialoguePriorities();
+
+const interval = window.setInterval(
+  updateDialoguePriorities,
+  150,
+);
+
+return () => window.clearInterval(interval);
+
+}, [enabled]);
 
 return null;
 }
