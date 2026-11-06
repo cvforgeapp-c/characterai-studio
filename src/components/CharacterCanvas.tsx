@@ -45,8 +45,11 @@ import CinematicEyeAnimationRig from "./CinematicEyeAnimationRig";
 // Stage 72: Natural ear and tail movement
 import CinematicSecondaryMotionRig from "./CinematicSecondaryMotionRig";
 
-// Stage 73: Automatic character rig diagnostics
+// Stage 73–75: Rig diagnostics dashboard
 import CinematicRigDiagnostics from "./CinematicRigDiagnostics";
+
+// Stage 74: Automatic rig compatibility detection
+import CinematicRigCompatibilityDirector from "./CinematicRigCompatibilityDirector";
 
 import {
 useCinematicCameraCommand,
@@ -445,6 +448,10 @@ powerPreference: "high-performance",
 
     <CinematicLiveTargetTracker enabled />
 
+    {/* STAGE 74: AUTOMATIC RIG COMPATIBILITY DETECTION */}
+
+    <CinematicRigCompatibilityDirector enabled />
+
     {/* STAGE 61–64: UNIFIED CINEMATIC CAMERA */}
 
     {directorCameraEnabled && (
@@ -533,10 +540,6 @@ powerPreference: "high-performance",
 
     <CinematicSecondaryMotionRig />
 
-    {/* STAGE 73: AUTOMATIC RIG COMPATIBILITY DIAGNOSTICS */}
-
-    <CinematicRigDiagnostics enabled />
-
     {/* MANUAL CAMERA CONTROLS */}
 
     {!cinematicEnabled && (
@@ -553,6 +556,12 @@ powerPreference: "high-performance",
       />
     )}
   </Canvas>
+
+  {/* STAGE 75: LIVE RIG DIAGNOSTICS DASHBOARD
+      This is a normal React DOM component, so it belongs
+      OUTSIDE Canvas rather than inside the Three.js scene. */}
+
+  <CinematicRigDiagnostics enabled />
 
   {/* STUDIO INFORMATION BAR */}
 
@@ -717,6 +726,7 @@ alignItems: "center",
 gap: 9,
 pointerEvents: "none",
 flexWrap: "wrap",
+zIndex: 5,
 },
 
 badge: {
@@ -841,6 +851,7 @@ right: 14,
 bottom: 14,
 display: "flex",
 gap: 7,
+zIndex: 5,
 },
 
 button: {
@@ -891,5 +902,6 @@ borderRadius: 8,
 background: "rgba(120,53,15,0.9)",
 color: "#fed7aa",
 fontSize: 11,
+zIndex: 5,
 },
 };
