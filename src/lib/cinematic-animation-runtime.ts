@@ -1,6 +1,8 @@
 import {
-getAnimationFrame,
 shouldUpdateCharacterAnimation,
+registerAnimationCharacter,
+unregisterAnimationCharacter,
+setAnimationPriority,
 type AnimationPriority,
 } from "./cinematic-animation-scheduler";
 
@@ -16,112 +18,47 @@ priority: AnimationPriority;
 frameTime: number;
 }
 
-export type CharacterAnimationTask = (
+export type CharacterAnimationTaskCallback = (
 delta: number,
-elapsedTime: number,
+elapsedTime: number
 ) => void;
 
-interface RegisteredTask {
+interface CharacterAnimationTask {
 characterId: string;
 taskId: string;
-callback: CharacterAnimationTask;
+callback: CharacterAnimationTaskCallback;
+priority: AnimationPriority;
 enabled: boolean;
 }
 
-const animationTasks = new Map<string, RegisteredTask>();
+const animationTasks = new Map<
+string,
+Map<string, CharacterAnimationTask>
 
-const frameDecisions = new Map<string, number>();
+«();»
 
-let cachedFrame = -1;
+function getCharacterTasks(
+characterId: string
+): Map<string, CharacterAnimationTask> {
+let tasks = animationTasks.get(characterId);
 
-function getTaskKey(
-characterId: string,
-taskId: string,
-): string {
-return "${characterId}:${taskId}";
+if (!tasks) {
+tasks = new Map();
+animationTasks.set(characterId, tasks);
 }
 
-/**
+return tasks;
+}
 
-* Register an animation task for a character.
-* The task is executed only when the scheduler allows
-* that character to update.
-  */
-  export function registerCharacterAnimationTask(
-  characterId: string,
-  taskId: string,
-  callback: CharacterAnimationTask,
-  ): () => void {
-  if (!characterId || !taskId) {
-  return () => undefined;
-  }
-
-const key = getTaskKey(characterId, taskId);
-
-animationTasks.set(key, {
+export function getCharacterAnimationRuntime(
+options: AnimationRuntimeOptions,
+delta: number
+): AnimationRuntimeResult {
+const {
 characterId,
-taskId,
-callback,
-enabled: true,
-});
-
-return () => {
-const current = animationTasks.get(key);
-
-if (current?.callback === callback) {
-  animationTasks.delete(key);
-}
-
-};
-}
-
-/**
-
-* Enable or disable a registered task.
-  */
-  export function setCharacterAnimationTaskEnabled(
-  characterId: string,
-  taskId: string,
-  enabled: boolean,
-  ): void {
-  const task = animationTasks.get(
-  getTaskKey(characterId, taskId),
-  );
-
-if (task) {
-task.enabled = enabled;
-}
-}
-
-/**
-
-* Remove every registered task belonging to a character.
-  */
-  export function unregisterCharacterAnimationTasks(
-  characterId: string,
-  ): void {
-  for (const [key, task] of animationTasks) {
-  if (task.characterId === characterId) {
-  animationTasks.delete(key);
-  }
-  }
-  }
-
-/**
-
-* Get one character's scheduler decision.
-* Multiple tasks belonging to the same character share
-* the same decision during a frame.
-  */
-  export function getCharacterAnimationRuntime(
-  options: AnimationRuntimeOptions,
-  delta: number,
-  ): AnimationRuntimeResult {
-  const {
-  characterId,
-  enabled = true,
-  priority = "background",
-  } = options;
+enabled = true,
+priority = "background",
+} = options;
 
 if (!enabled || !characterId) {
 return {
@@ -131,95 +68,182 @@ frameTime: delta,
 };
 }
 
-const frame = getAnimationFrame();
-
-if (cachedFrame !== frame) {
-cachedFrame = frame;
-frameDecisions.clear();
-}
-
-let shouldUpdate = frameDecisions.get(characterId);
-
-if (shouldUpdate === undefined) {
-shouldUpdate = shouldUpdateCharacterAnimation(characterId);
-frameDecisions.set(characterId, shouldUpdate);
-}
-
 return {
-shouldUpdate,
+shouldUpdate: shouldUpdateCharacterAnimation(characterId),
 priority,
 frameTime: delta,
 };
 }
 
-/**
+export function registerCharacterAnimationTask(
+characterId: string,
+taskId: string,
+callback: CharacterAnimationTaskCallback,
+priority: AnimationPriority = "background"
+): void {
+if (!characterId || !taskId) return;
 
-* Execute all registered animation tasks.
+const tasks = getCharacterTasks(characterId);
 
-* Each character receives one shared scheduler decision
+const existingTask = tasks.get(taskId);
 
-* per frame, regardless of how many tasks it owns.
-  */
-  export function runCinematicAnimationTasks(
-  delta: number,
-  elapsedTime: number,
-  ): void {
-  for (const task of animationTasks.values()) {
-  if (!task.enabled) continue;
-  
-  const runtime = getCharacterAnimationRuntime(
-  {
-  characterId: task.characterId,
-  enabled: true,
-  },
-  delta,
-  );
-  
-  if (!runtime.shouldUpdate) continue;
-  
+if (existingTask) {
+existingTask.callback = callback;
+existingTask.priority = priority;
+existingTask.enabled = true;
+
+setAnimationPriority(characterId, priority);
+return;
+
+}
+
+tasks.set(taskId, {
+characterId,
+taskId,
+callback,
+priority,
+enabled: true,
+});
+
+registerAnimationCharacter(characterId, priority);
+}
+
+export function setCharacterAnimationTaskEnabled(
+characterId: string,
+taskId: string,
+enabled: boolean
+): void {
+const task = animationTasks
+.get(characterId)
+?.get(taskId);
+
+if (!task) return;
+
+task.enabled = enabled;
+}
+
+export function setCharacterAnimationTaskPriority(
+characterId: string,
+taskId: string,
+priority: AnimationPriority
+): void {
+const task = animationTasks
+.get(characterId)
+?.get(taskId);
+
+if (!task) return;
+
+task.priority = priority;
+
+setAnimationPriority(characterId, priority);
+}
+
+export function unregisterCharacterAnimationTasks(
+characterId: string,
+taskId?: string
+): void {
+const tasks = animationTasks.get(characterId);
+
+if (!tasks) return;
+
+if (taskId) {
+if (!tasks.has(taskId)) return;
+
+tasks.delete(taskId);
+unregisterAnimationCharacter(characterId);
+
+if (tasks.size === 0) {
+  animationTasks.delete(characterId);
+}
+
+return;
+
+}
+
+const registrationCount = tasks.size;
+
+tasks.clear();
+animationTasks.delete(characterId);
+
+for (let index = 0; index < registrationCount; index += 1) {
+unregisterAnimationCharacter(characterId);
+}
+}
+
+export function executeCharacterAnimationTasks(
+delta: number,
+elapsedTime: number
+): void {
+for (const [characterId, tasks] of animationTasks) {
+const enabledTasks = Array.from(tasks.values()).filter(
+(task) => task.enabled
+);
+
+if (enabledTasks.length === 0) continue;
+
+const highestPriorityTask = enabledTasks.reduce(
+  (highest, task) => {
+    const rank: Record<AnimationPriority, number> = {
+      speaking: 4,
+      listening: 3,
+      foreground: 2,
+      background: 1,
+    };
+
+    return rank[task.priority] > rank[highest.priority]
+      ? task
+      : highest;
+  }
+);
+
+setAnimationPriority(
+  characterId,
+  highestPriorityTask.priority
+);
+
+if (!shouldUpdateCharacterAnimation(characterId)) {
+  continue;
+}
+
+for (const task of enabledTasks) {
   try {
-  task.callback(delta, elapsedTime);
+    task.callback(delta, elapsedTime);
   } catch (error) {
-  console.error(
-  "Animation task failed: ${task.taskId}",
-  error,
-  );
+    console.error(
+      `[CharacterAI Studio] Animation task failed: ${characterId}/${task.taskId}`,
+      error
+    );
   }
-  }
-  }
+}
 
-/**
+}
+}
 
-* Runtime diagnostics.
-  */
-  export function getAnimationRuntimeStats() {
-  const characters = new Set<string>();
+export function getCharacterAnimationTaskCount(
+characterId?: string
+): number {
+if (characterId) {
+return animationTasks.get(characterId)?.size ?? 0;
+}
 
-let enabledTasks = 0;
+let total = 0;
 
-for (const task of animationTasks.values()) {
-characters.add(task.characterId);
+for (const tasks of animationTasks.values()) {
+total += tasks.size;
+}
 
-if (task.enabled) {
-  enabledTasks += 1;
+return total;
+}
+
+export function clearCharacterAnimationTasks(): void {
+for (const [characterId, tasks] of animationTasks) {
+const registrationCount = tasks.size;
+
+for (let index = 0; index < registrationCount; index += 1) {
+  unregisterAnimationCharacter(characterId);
 }
 
 }
 
-return {
-registeredTasks: animationTasks.size,
-enabledTasks,
-registeredCharacters: characters.size,
-currentFrame: getAnimationFrame(),
-};
+animationTasks.clear();
 }
-
-/**
-
-* Clear runtime registrations.
-  */
-  export function clearCinematicAnimationRuntime(): void {
-  animationTasks.clear();
-  frameDecisions.clear();
-  cachedFrame = -1;
-  }
