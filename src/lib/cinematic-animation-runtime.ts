@@ -28,6 +28,23 @@ taskId: string;
 callback: CharacterAnimationTaskCallback;
 priority: AnimationPriority;
 enabled: boolean;
+executionCount: number;
+totalExecutionTime: number;
+lastExecutionTime: number;
+lastExecutedAt: number;
+errorCount: number;
+}
+
+export interface CharacterAnimationTaskDiagnostic {
+characterId: string;
+taskId: string;
+priority: AnimationPriority;
+enabled: boolean;
+executionCount: number;
+averageExecutionTime: number;
+lastExecutionTime: number;
+lastExecutedAt: number;
+errorCount: number;
 }
 
 const animationTasks = new Map<
@@ -98,10 +115,14 @@ taskId,
 callback,
 priority,
 enabled: true,
+executionCount: 0,
+totalExecutionTime: 0,
+lastExecutionTime: 0,
+lastExecutedAt: 0,
+errorCount: 0,
 });
 
-// Register the character without overriding priorities
-// subsequently assigned by the dialogue or visibility directors.
+// Register without overriding priorities assigned by directors.
 registerAnimationCharacter(characterId, "background");
 }
 
@@ -130,8 +151,6 @@ const task = animationTasks
 
 if (!task) return;
 
-// This changes the task's metadata only.
-// Scheduler priority remains owned by the directors.
 task.priority = priority;
 }
 
@@ -178,16 +197,25 @@ const enabledTasks = Array.from(tasks.values()).filter(
 
 if (enabledTasks.length === 0) continue;
 
-// The scheduler checks the priority assigned by the
-// dialogue and visibility directors.
 if (!shouldUpdateCharacterAnimation(characterId)) {
   continue;
 }
 
 for (const task of enabledTasks) {
+  const startTime = performance.now();
+
   try {
     task.callback(delta, elapsedTime);
+
+    const executionTime = performance.now() - startTime;
+
+    task.executionCount += 1;
+    task.totalExecutionTime += executionTime;
+    task.lastExecutionTime = executionTime;
+    task.lastExecutedAt = Date.now();
   } catch (error) {
+    task.errorCount += 1;
+
     console.error(
       `[CharacterAI Studio] Animation task failed: ${characterId}/${task.taskId}`,
       error
@@ -212,6 +240,58 @@ total += tasks.size;
 }
 
 return total;
+}
+
+export function getCharacterAnimationTaskDiagnostics(): CharacterAnimationTaskDiagnostic[] {
+const diagnostics: CharacterAnimationTaskDiagnostic[] = [];
+
+for (const tasks of animationTasks.values()) {
+for (const task of tasks.values()) {
+diagnostics.push({
+characterId: task.characterId,
+taskId: task.taskId,
+priority: task.priority,
+enabled: task.enabled,
+executionCount: task.executionCount,
+averageExecutionTime:
+task.executionCount > 0
+? task.totalExecutionTime / task.executionCount
+: 0,
+lastExecutionTime: task.lastExecutionTime,
+lastExecutedAt: task.lastExecutedAt,
+errorCount: task.errorCount,
+});
+}
+}
+
+return diagnostics;
+}
+
+export function getCharacterAnimationExecutionStats() {
+const diagnostics = getCharacterAnimationTaskDiagnostics();
+
+return {
+registeredTasks: diagnostics.length,
+enabledTasks: diagnostics.filter((task) => task.enabled).length,
+executedTasks: diagnostics.filter(
+(task) => task.executionCount > 0
+).length,
+totalExecutions: diagnostics.reduce(
+(total, task) => total + task.executionCount,
+0
+),
+totalErrors: diagnostics.reduce(
+(total, task) => total + task.errorCount,
+0
+),
+averageExecutionTime:
+diagnostics.length > 0
+? diagnostics.reduce(
+(total, task) => total + task.averageExecutionTime,
+0
+) / diagnostics.length
+: 0,
+};
 }
 
 export function clearCharacterAnimationTasks(): void {
