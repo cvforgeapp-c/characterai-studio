@@ -50,8 +50,6 @@ const tempListenerPosition = new THREE.Vector3();
 
 const tempDirection = new THREE.Vector3();
 
-const tempWorldDirection = new THREE.Vector3();
-
 function findCharacterBones(
   root: THREE.Object3D
 ) {
