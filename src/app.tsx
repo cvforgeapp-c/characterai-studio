@@ -1,5 +1,5 @@
-import React, { Suspense } from "react";
-import { Route, Switch, Redirect } from "wouter";
+import { Suspense } from "react";
+import { Route, Switch } from "wouter";
 
 import Home from "./pages/home";
 import Studio from "./pages/studio";
