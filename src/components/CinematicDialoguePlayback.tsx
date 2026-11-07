@@ -18,6 +18,7 @@ export interface DialoguePlaybackLine {
   characterId: string;
   characterName: string;
   text: string;
+  action?: string;
   duration?: number;
 }
 
@@ -133,7 +134,11 @@ export default function CinematicDialoguePlayback({
     activeCharacterRef.current = null;
 
     onStopSpeaking?.();
-  }, [onStopSpeaking, resetCharacter, stopProgressTimer]);
+  }, [
+    onStopSpeaking,
+    resetCharacter,
+    stopProgressTimer,
+  ]);
 
   const activateLine = useCallback(
     (line: DialoguePlaybackLine) => {
@@ -156,12 +161,19 @@ export default function CinematicDialoguePlayback({
 
       onLineChange?.(line);
     },
-    [onActingChange, onLineChange, resetCharacter]
+    [
+      onActingChange,
+      onLineChange,
+      resetCharacter,
+    ]
   );
 
   const updateCurrentTime = useCallback(
     (value: number) => {
-      const safe = Math.max(0, Math.min(totalDuration, value));
+      const safe = Math.max(
+        0,
+        Math.min(totalDuration, value)
+      );
 
       currentTimeRef.current = safe;
       setCurrentTime(safe);
@@ -171,8 +183,7 @@ export default function CinematicDialoguePlayback({
 
   /**
    * Runs one dialogue line at a time.
-   * When onSpeak returns a Promise, the next line waits
-   * until that Promise resolves.
+   * The next line waits until the current speech finishes.
    */
   const runSequence = useCallback(
     async (runId: number) => {
@@ -197,7 +208,6 @@ export default function CinematicDialoguePlayback({
 
         speechStartedAtRef.current = Date.now();
 
-        // Progress is visual only. It never advances the dialogue.
         stopProgressTimer();
 
         progressTimerRef.current = window.setInterval(() => {
@@ -212,7 +222,8 @@ export default function CinematicDialoguePlayback({
             (Date.now() - speechStartedAtRef.current) / 1000;
 
           updateCurrentTime(
-            timelineStart + Math.min(elapsed, estimatedDuration)
+            timelineStart +
+              Math.min(elapsed, estimatedDuration)
           );
         }, 100);
 
@@ -226,7 +237,6 @@ export default function CinematicDialoguePlayback({
             ) {
               await result;
             } else {
-              // Fallback for a synchronous speech callback.
               await new Promise<void>((resolve) => {
                 window.setTimeout(
                   resolve,
@@ -235,7 +245,6 @@ export default function CinematicDialoguePlayback({
               });
             }
           } else {
-            // Timeline-only playback when no speech callback exists.
             await new Promise<void>((resolve) => {
               window.setTimeout(
                 resolve,
@@ -247,7 +256,6 @@ export default function CinematicDialoguePlayback({
           console.error("Dialogue speech failed:", error);
         }
 
-        // A pause, seek, restart, or stop invalidates this sequence.
         if (
           runId !== runIdRef.current ||
           !playingRef.current
@@ -256,10 +264,13 @@ export default function CinematicDialoguePlayback({
         }
 
         stopProgressTimer();
+
         resetCharacter(line.characterId);
         activeCharacterRef.current = null;
 
-        const completedTime = timelineStart + estimatedDuration;
+        const completedTime =
+          timelineStart + estimatedDuration;
+
         updateCurrentTime(completedTime);
 
         currentIndexRef.current = index + 1;
@@ -322,14 +333,14 @@ export default function CinematicDialoguePlayback({
   const pause = useCallback(() => {
     if (!playingRef.current) return;
 
-    // Invalidate the running async sequence.
     runIdRef.current += 1;
 
     updatePlaybackState(false);
     stopCurrentSpeech();
-
-    // Resume starts this same line again.
-  }, [stopCurrentSpeech, updatePlaybackState]);
+  }, [
+    stopCurrentSpeech,
+    updatePlaybackState,
+  ]);
 
   const restart = useCallback(() => {
     runIdRef.current += 1;
@@ -356,7 +367,6 @@ export default function CinematicDialoguePlayback({
         Math.min(totalDuration, requestedTime)
       );
 
-      // Stop the current utterance before changing position.
       runIdRef.current += 1;
 
       updatePlaybackState(false);
@@ -418,7 +428,6 @@ export default function CinematicDialoguePlayback({
 
       updateCurrentTime(timelineStarts[index] ?? 0);
 
-      // Start the selected line immediately.
       window.setTimeout(() => {
         if (!playingRef.current) {
           play();
@@ -441,12 +450,17 @@ export default function CinematicDialoguePlayback({
       stopProgressTimer();
       onStopSpeaking?.();
     };
-  }, [stopProgressTimer, onStopSpeaking]);
+  }, [
+    stopProgressTimer,
+    onStopSpeaking,
+  ]);
 
   useEffect(() => {
     if (!lines.length) {
       currentIndexRef.current = 0;
+
       setCurrentIndex(0);
+
       updateCurrentTime(0);
       updatePlaybackState(false);
     }
@@ -460,6 +474,7 @@ export default function CinematicDialoguePlayback({
 
   return (
     <section className="w-full space-y-4 rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-white shadow-xl">
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400">
@@ -518,14 +533,18 @@ export default function CinematicDialoguePlayback({
           max={Math.max(totalDuration, 0.1)}
           step={0.1}
           value={Math.min(currentTime, totalDuration)}
-          onChange={(event) => seek(Number(event.target.value))}
+          onChange={(event) =>
+            seek(Number(event.target.value))
+          }
           className="w-full cursor-pointer accent-cyan-400"
           disabled={!lines.length}
         />
 
         <div className="flex justify-between text-[11px] text-slate-500">
           <span>Start</span>
-          <span>Estimated timeline · actual playback follows speech</span>
+          <span>
+            Estimated timeline · actual playback follows speech
+          </span>
           <span>End</span>
         </div>
       </div>
@@ -612,4 +631,4 @@ export default function CinematicDialoguePlayback({
       )}
     </section>
   );
-          }
+}
