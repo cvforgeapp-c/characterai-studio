@@ -33,35 +33,35 @@ const PERFORMANCE_PRESETS: Record<string, PerformancePreset> = {
 
   surprised: {
     emotion: "surprised",
-    gesture: "raise-arms",
+    gesture: "react",
     eyeFocus: "camera",
     intensity: 0.95,
   },
 
   angry: {
     emotion: "angry",
-    gesture: "point",
+    gesture: "argue",
     eyeFocus: "partner",
     intensity: 0.85,
   },
 
   sad: {
     emotion: "sad",
-    gesture: "bow",
+    gesture: "cry",
     eyeFocus: "down",
     intensity: 0.75,
   },
 
   suspicious: {
     emotion: "suspicious",
-    gesture: "chin-rest",
+    gesture: "think",
     eyeFocus: "partner",
     intensity: 0.8,
   },
 
   confident: {
     emotion: "confident",
-    gesture: "confident",
+    gesture: "explain",
     eyeFocus: "camera",
     intensity: 0.8,
   },
@@ -75,7 +75,7 @@ const PERFORMANCE_PRESETS: Record<string, PerformancePreset> = {
 
   thinking: {
     emotion: "curious",
-    gesture: "chin-rest",
+    gesture: "think",
     eyeFocus: "down",
     intensity: 0.65,
   },
@@ -110,7 +110,6 @@ function detectPerformance(
         "really?",
       ],
     },
-
     {
       key: "angry",
       words: [
@@ -124,7 +123,6 @@ function detectPerformance(
         "enough",
       ],
     },
-
     {
       key: "sad",
       words: [
@@ -138,7 +136,6 @@ function detectPerformance(
         "disappointed",
       ],
     },
-
     {
       key: "suspicious",
       words: [
@@ -151,7 +148,6 @@ function detectPerformance(
         "what are you hiding",
       ],
     },
-
     {
       key: "laughing",
       words: [
@@ -164,7 +160,6 @@ function detectPerformance(
         "lmao",
       ],
     },
-
     {
       key: "excited",
       words: [
@@ -178,7 +173,6 @@ function detectPerformance(
         "wonderful",
       ],
     },
-
     {
       key: "confident",
       words: [
@@ -190,7 +184,6 @@ function detectPerformance(
         "no problem",
       ],
     },
-
     {
       key: "thinking",
       words: [
