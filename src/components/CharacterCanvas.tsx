@@ -98,6 +98,10 @@ import { CHARACTER_MODELS } from "../lib/character-models";
 
 import type { CharacterAction } from "../lib/character-motion";
 
+/* ---------------------------------------
+   ENVIRONMENT TYPES
+--------------------------------------- */
+
 export type EnvironmentId =
   | "studio"
   | "park"
@@ -127,6 +131,10 @@ interface Settings {
   warmLighting: boolean;
 }
 
+/* ---------------------------------------
+   ENVIRONMENT CONFIGURATION
+--------------------------------------- */
+
 const ENVIRONMENTS: Record<EnvironmentId, Settings> = {
   studio: {
     background: "#101827",
@@ -134,30 +142,35 @@ const ENVIRONMENTS: Record<EnvironmentId, Settings> = {
     fog: "#101827",
     warmLighting: false,
   },
+
   park: {
     background: "#91b9a0",
     floor: "#426b49",
     fog: "#91b9a0",
     warmLighting: true,
   },
+
   kitchen: {
     background: "#c9bba8",
     floor: "#71685d",
     fog: "#c9bba8",
     warmLighting: true,
   },
+
   city: {
     background: "#68788e",
     floor: "#343b48",
     fog: "#68788e",
     warmLighting: false,
   },
+
   space: {
     background: "#030712",
     floor: "#111827",
     fog: "#030712",
     warmLighting: false,
   },
+
   beach: {
     background: "#79b8d1",
     floor: "#c9ad7b",
@@ -1001,4 +1014,93 @@ const styles: Record<string, React.CSSProperties> = {
   runtimeBadge: {
     padding: "8px 10px",
     borderRadius: 7,
-    background: "rgba(6,78
+    background: "rgba(6,78,59,0.9)",
+    color: "#a7f3d0",
+    fontSize: 10,
+    fontWeight: 800,
+  },
+
+  taskBadge: {
+    padding: "8px 10px",
+    borderRadius: 7,
+    background: "rgba(30,64,175,0.9)",
+    color: "#bfdbfe",
+    fontSize: 10,
+    fontWeight: 800,
+  },
+
+  loading: {
+    padding: "10px 14px",
+    borderRadius: 8,
+    background: "rgba(15,23,42,0.9)",
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+
+  error: {
+    padding: "12px 16px",
+    borderRadius: 8,
+    background: "rgba(127,29,29,0.95)",
+    color: "#fecaca",
+    fontSize: 12,
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  },
+
+  controls: {
+    position: "absolute",
+    right: 14,
+    bottom: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    zIndex: 10,
+  },
+
+  button: {
+    width: 38,
+    height: 38,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid rgba(148,163,184,0.3)",
+    borderRadius: 8,
+    background: "rgba(15,23,42,0.9)",
+    color: "#f8fafc",
+    fontSize: 18,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  empty: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    background: "rgba(15,23,42,0.35)",
+    color: "#e2e8f0",
+    textAlign: "center",
+    pointerEvents: "none",
+    zIndex: 4,
+  },
+
+  warning: {
+    position: "absolute",
+    left: 14,
+    bottom: 14,
+    maxWidth: "65%",
+    padding: "9px 12px",
+    border: "1px solid rgba(251,191,36,0.35)",
+    borderRadius: 8,
+    background: "rgba(120,53,15,0.92)",
+    color: "#fde68a",
+    fontSize: 11,
+    fontWeight: 600,
+    zIndex: 6,
+  },
+};
