@@ -1,47 +1,47 @@
 import {
-useMemo,
-useRef,
+  useMemo,
+  useRef,
 } from "react";
 
 import {
-useFrame,
+  useFrame,
 } from "@react-three/fiber";
 
 import * as THREE from "three";
 
 import {
-getLiveCharacterObject,
-getRegisteredCharacterIds,
+  getLiveCharacterObject,
+  getRegisteredCharacterIds,
 } from "../lib/cinematic-live-target-store";
 
 import {
-getCharacterInteraction,
+  getCharacterInteraction,
 } from "../lib/cinematic-interaction-store";
 
 interface CharacterRigState {
-object: THREE.Object3D;
+  object: THREE.Object3D;
 
-headBones: THREE.Bone[];
+  headBones: THREE.Bone[];
 
-neckBones: THREE.Bone[];
+  neckBones: THREE.Bone[];
 
-spineBones: THREE.Bone[];
+  spineBones: THREE.Bone[];
 
-baseRotationY: number;
+  baseRotationY: number;
 
-baseHeadRotations: Map<THREE.Bone, THREE.Euler>;
+  baseHeadRotations: Map<THREE.Bone, THREE.Euler>;
 
-baseNeckRotations: Map<THREE.Bone, THREE.Euler>;
+  baseNeckRotations: Map<THREE.Bone, THREE.Euler>;
 
-baseSpineRotations: Map<THREE.Bone, THREE.Euler>;
+  baseSpineRotations: Map<THREE.Bone, THREE.Euler>;
 
-currentYaw: number;
+  currentYaw: number;
 
-currentHeadYaw: number;
+  currentHeadYaw: number;
 
-currentHeadPitch: number;
+  currentHeadPitch: number;
 
-currentLean: number;
+  currentLean: number;
 }
 
 const tempSpeakerPosition = new THREE.Vector3();
@@ -53,466 +53,460 @@ const tempDirection = new THREE.Vector3();
 const tempWorldDirection = new THREE.Vector3();
 
 function findCharacterBones(
-root: THREE.Object3D
+  root: THREE.Object3D
 ) {
-const headBones: THREE.Bone[] = [];
+  const headBones: THREE.Bone[] = [];
 
-const neckBones: THREE.Bone[] = [];
+  const neckBones: THREE.Bone[] = [];
 
-const spineBones: THREE.Bone[] = [];
+  const spineBones: THREE.Bone[] = [];
 
-root.traverse((object) => {
-if (!(object instanceof THREE.Bone)) return;
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Bone)) return;
 
-const name = object.name.toLowerCase();
+    const name = object.name.toLowerCase();
 
-if (
-  name.includes("head") &&
-  !name.includes("hair")
-) {
-  headBones.push(object);
-} else if (
-  name.includes("neck")
-) {
-  neckBones.push(object);
-} else if (
-  name.includes("spine") ||
-  name.includes("chest") ||
-  name.includes("upperbody") ||
-  name.includes("upper_body")
-) {
-  spineBones.push(object);
-}
+    if (
+      name.includes("head") &&
+      !name.includes("hair")
+    ) {
+      headBones.push(object);
+    } else if (
+      name.includes("neck")
+    ) {
+      neckBones.push(object);
+    } else if (
+      name.includes("spine") ||
+      name.includes("chest") ||
+      name.includes("upperbody") ||
+      name.includes("upper_body")
+    ) {
+      spineBones.push(object);
+    }
+  });
 
-});
-
-return {
-headBones,
-neckBones,
-spineBones,
-};
+  return {
+    headBones,
+    neckBones,
+    spineBones,
+  };
 }
 
 function createRigState(
-object: THREE.Object3D
+  object: THREE.Object3D
 ): CharacterRigState {
-const bones = findCharacterBones(object);
+  const bones = findCharacterBones(object);
 
-const baseHeadRotations = new Map<
-THREE.Bone,
-THREE.Euler
+  const baseHeadRotations = new Map<
+    THREE.Bone,
+    THREE.Euler
+  >();
 
-«();»
+  const baseNeckRotations = new Map<
+    THREE.Bone,
+    THREE.Euler
+  >();
 
-const baseNeckRotations = new Map<
-THREE.Bone,
-THREE.Euler
+  const baseSpineRotations = new Map<
+    THREE.Bone,
+    THREE.Euler
+  >();
 
-«();»
+  bones.headBones.forEach((bone) => {
+    baseHeadRotations.set(
+      bone,
+      bone.rotation.clone()
+    );
+  });
 
-const baseSpineRotations = new Map<
-THREE.Bone,
-THREE.Euler
+  bones.neckBones.forEach((bone) => {
+    baseNeckRotations.set(
+      bone,
+      bone.rotation.clone()
+    );
+  });
 
-«();»
+  bones.spineBones.forEach((bone) => {
+    baseSpineRotations.set(
+      bone,
+      bone.rotation.clone()
+    );
+  });
 
-bones.headBones.forEach((bone) => {
-baseHeadRotations.set(
-bone,
-bone.rotation.clone()
-);
-});
+  return {
+    object,
 
-bones.neckBones.forEach((bone) => {
-baseNeckRotations.set(
-bone,
-bone.rotation.clone()
-);
-});
+    ...bones,
 
-bones.spineBones.forEach((bone) => {
-baseSpineRotations.set(
-bone,
-bone.rotation.clone()
-);
-});
+    baseRotationY: object.rotation.y,
 
-return {
-object,
+    baseHeadRotations,
 
-...bones,
+    baseNeckRotations,
 
-baseRotationY: object.rotation.y,
+    baseSpineRotations,
 
-baseHeadRotations,
+    currentYaw: 0,
 
-baseNeckRotations,
+    currentHeadYaw: 0,
 
-baseSpineRotations,
+    currentHeadPitch: 0,
 
-currentYaw: 0,
-
-currentHeadYaw: 0,
-
-currentHeadPitch: 0,
-
-currentLean: 0,
-
-};
+    currentLean: 0,
+  };
 }
 
 function smoothAngle(
-current: number,
-target: number,
-speed: number,
-delta: number
+  current: number,
+  target: number,
+  speed: number,
+  delta: number
 ): number {
-const difference = Math.atan2(
-Math.sin(target - current),
-Math.cos(target - current)
-);
+  const difference = Math.atan2(
+    Math.sin(target - current),
+    Math.cos(target - current)
+  );
 
-return current + difference * (
-1 - Math.exp(-speed * delta)
-);
+  return current + difference * (
+    1 - Math.exp(-speed * delta)
+  );
 }
 
 function smoothValue(
-current: number,
-target: number,
-speed: number,
-delta: number
+  current: number,
+  target: number,
+  speed: number,
+  delta: number
 ): number {
-return THREE.MathUtils.damp(
-current,
-target,
-speed,
-delta
-);
+  return THREE.MathUtils.damp(
+    current,
+    target,
+    speed,
+    delta
+  );
 }
 
 export default function CinematicCharacterInteractionRig() {
-const rigStates = useRef(
-new Map<string, CharacterRigState>()
-);
-
-const registeredIds = useMemo(
-() => getRegisteredCharacterIds(),
-[]
-);
-
-useFrame((_, delta) => {
-const interaction = getCharacterInteraction();
-
-const activeSpeaker = interaction.speakerId;
-
-const activeListener = interaction.listenerId;
-
-const isActive =
-  interaction.enabled &&
-  Boolean(activeSpeaker);
-
-const speakerObject = activeSpeaker
-  ? getLiveCharacterObject(activeSpeaker)
-  : undefined;
-
-const listenerObject = activeListener
-  ? getLiveCharacterObject(activeListener)
-  : undefined;
-
-const characterIds = new Set([
-  ...registeredIds,
-  ...getRegisteredCharacterIds(),
-]);
-
-/*
- * Refresh character references.
- */
-
-characterIds.forEach((characterId) => {
-  const object =
-    getLiveCharacterObject(characterId);
-
-  if (!object) return;
-
-  const existing =
-    rigStates.current.get(characterId);
-
-  if (!existing || existing.object !== object) {
-    rigStates.current.set(
-      characterId,
-      createRigState(object)
-    );
-  }
-});
-
-/*
- * Remove objects that are no longer registered.
- */
-
-for (const characterId of rigStates.current.keys()) {
-  if (!getLiveCharacterObject(characterId)) {
-    rigStates.current.delete(characterId);
-  }
-}
-
-/*
- * Get world positions for conversational targeting.
- */
-
-if (speakerObject && listenerObject) {
-  speakerObject.getWorldPosition(
-    tempSpeakerPosition
+  const rigStates = useRef(
+    new Map<string, CharacterRigState>()
   );
 
-  listenerObject.getWorldPosition(
-    tempListenerPosition
+  const registeredIds = useMemo(
+    () => getRegisteredCharacterIds(),
+    []
   );
-}
 
-/*
- * Update every character.
- */
+  useFrame((_, delta) => {
+    const interaction = getCharacterInteraction();
 
-rigStates.current.forEach((state, characterId) => {
-  const isSpeaker =
-    isActive &&
-    characterId === activeSpeaker;
+    const activeSpeaker = interaction.speakerId;
 
-  const isListener =
-    isActive &&
-    characterId === activeListener;
+    const activeListener = interaction.listenerId;
 
-  let targetYaw = 0;
+    const isActive =
+      interaction.enabled &&
+      Boolean(activeSpeaker);
 
-  let targetHeadYaw = 0;
+    const speakerObject = activeSpeaker
+      ? getLiveCharacterObject(activeSpeaker)
+      : undefined;
 
-  let targetHeadPitch = 0;
+    const listenerObject = activeListener
+      ? getLiveCharacterObject(activeListener)
+      : undefined;
 
-  let targetLean = 0;
+    const characterIds = new Set([
+      ...registeredIds,
+      ...getRegisteredCharacterIds(),
+    ]);
 
-  /*
-   * Speaker looks toward listener.
-   */
+    /*
+     * Refresh character references.
+     */
 
-  if (
-    isSpeaker &&
-    speakerObject &&
-    listenerObject
-  ) {
-    state.object.getWorldPosition(
-      tempSpeakerPosition
-    );
+    characterIds.forEach((characterId) => {
+      const object =
+        getLiveCharacterObject(characterId);
 
-    listenerObject.getWorldPosition(
-      tempListenerPosition
-    );
+      if (!object) return;
 
-    tempDirection
-      .copy(tempListenerPosition)
-      .sub(tempSpeakerPosition);
+      const existing =
+        rigStates.current.get(characterId);
 
-    tempDirection.y = 0;
+      if (!existing || existing.object !== object) {
+        rigStates.current.set(
+          characterId,
+          createRigState(object)
+        );
+      }
+    });
 
-    if (tempDirection.lengthSq() > 0.0001) {
-      tempDirection.normalize();
+    /*
+     * Remove objects that are no longer registered.
+     */
 
-      const worldYaw = Math.atan2(
-        tempDirection.x,
-        tempDirection.z
+    for (const characterId of rigStates.current.keys()) {
+      if (!getLiveCharacterObject(characterId)) {
+        rigStates.current.delete(characterId);
+      }
+    }
+
+    /*
+     * Get world positions for conversational targeting.
+     */
+
+    if (speakerObject && listenerObject) {
+      speakerObject.getWorldPosition(
+        tempSpeakerPosition
       );
 
-      const parentYaw =
-        state.object.parent
-          ? new THREE.Euler().setFromQuaternion(
-              state.object.parent.getWorldQuaternion(
-                new THREE.Quaternion()
-              )
-            ).y
-          : 0;
-
-      targetYaw = THREE.MathUtils.clamp(
-        worldYaw - parentYaw - state.baseRotationY,
-        -0.85,
-        0.85
-      );
-
-      targetHeadYaw = THREE.MathUtils.clamp(
-        targetYaw * 0.35,
-        -0.45,
-        0.45
+      listenerObject.getWorldPosition(
+        tempListenerPosition
       );
     }
 
     /*
-     * Slight conversational forward lean.
+     * Update every character.
      */
 
-    targetLean = 0.035;
-  }
+    rigStates.current.forEach((state, characterId) => {
+      const isSpeaker =
+        isActive &&
+        characterId === activeSpeaker;
 
-  /*
-   * Listener maintains eye contact with speaker.
-   */
+      const isListener =
+        isActive &&
+        characterId === activeListener;
 
-  if (
-    isListener &&
-    speakerObject &&
-    listenerObject
-  ) {
-    state.object.getWorldPosition(
-      tempListenerPosition
-    );
+      let targetYaw = 0;
 
-    speakerObject.getWorldPosition(
-      tempSpeakerPosition
-    );
+      let targetHeadYaw = 0;
 
-    tempDirection
-      .copy(tempSpeakerPosition)
-      .sub(tempListenerPosition);
+      let targetHeadPitch = 0;
 
-    tempDirection.y = 0;
+      let targetLean = 0;
 
-    if (tempDirection.lengthSq() > 0.0001) {
-      tempDirection.normalize();
+      /*
+       * Speaker looks toward listener.
+       */
 
-      const worldYaw = Math.atan2(
-        tempDirection.x,
-        tempDirection.z
+      if (
+        isSpeaker &&
+        speakerObject &&
+        listenerObject
+      ) {
+        state.object.getWorldPosition(
+          tempSpeakerPosition
+        );
+
+        listenerObject.getWorldPosition(
+          tempListenerPosition
+        );
+
+        tempDirection
+          .copy(tempListenerPosition)
+          .sub(tempSpeakerPosition);
+
+        tempDirection.y = 0;
+
+        if (tempDirection.lengthSq() > 0.0001) {
+          tempDirection.normalize();
+
+          const worldYaw = Math.atan2(
+            tempDirection.x,
+            tempDirection.z
+          );
+
+          const parentYaw =
+            state.object.parent
+              ? new THREE.Euler().setFromQuaternion(
+                  state.object.parent.getWorldQuaternion(
+                    new THREE.Quaternion()
+                  )
+                ).y
+              : 0;
+
+          targetYaw = THREE.MathUtils.clamp(
+            worldYaw - parentYaw - state.baseRotationY,
+            -0.85,
+            0.85
+          );
+
+          targetHeadYaw = THREE.MathUtils.clamp(
+            targetYaw * 0.35,
+            -0.45,
+            0.45
+          );
+        }
+
+        /*
+         * Slight conversational forward lean.
+         */
+
+        targetLean = 0.035;
+      }
+
+      /*
+       * Listener maintains eye contact with speaker.
+       */
+
+      if (
+        isListener &&
+        speakerObject &&
+        listenerObject
+      ) {
+        state.object.getWorldPosition(
+          tempListenerPosition
+        );
+
+        speakerObject.getWorldPosition(
+          tempSpeakerPosition
+        );
+
+        tempDirection
+          .copy(tempSpeakerPosition)
+          .sub(tempListenerPosition);
+
+        tempDirection.y = 0;
+
+        if (tempDirection.lengthSq() > 0.0001) {
+          tempDirection.normalize();
+
+          const worldYaw = Math.atan2(
+            tempDirection.x,
+            tempDirection.z
+          );
+
+          const parentYaw =
+            state.object.parent
+              ? new THREE.Euler().setFromQuaternion(
+                  state.object.parent.getWorldQuaternion(
+                    new THREE.Quaternion()
+                  )
+                ).y
+              : 0;
+
+          targetYaw = THREE.MathUtils.clamp(
+            worldYaw - parentYaw - state.baseRotationY,
+            -0.85,
+            0.85
+          );
+
+          targetHeadYaw = THREE.MathUtils.clamp(
+            targetYaw * 0.5,
+            -0.5,
+            0.5
+          );
+
+          /*
+           * Slightly raise the listener's head
+           * toward the speaking character.
+           */
+
+          targetHeadPitch = THREE.MathUtils.clamp(
+            (tempSpeakerPosition.y -
+              tempListenerPosition.y) * 0.08,
+            -0.15,
+            0.15
+          );
+        }
+
+        /*
+         * Attentive listening posture.
+         */
+
+        targetLean = 0.015;
+      }
+
+      /*
+       * Smooth all character movements.
+       */
+
+      state.currentYaw = smoothAngle(
+        state.currentYaw,
+        targetYaw,
+        3.5,
+        delta
       );
 
-      const parentYaw =
-        state.object.parent
-          ? new THREE.Euler().setFromQuaternion(
-              state.object.parent.getWorldQuaternion(
-                new THREE.Quaternion()
-              )
-            ).y
-          : 0;
-
-      targetYaw = THREE.MathUtils.clamp(
-        worldYaw - parentYaw - state.baseRotationY,
-        -0.85,
-        0.85
+      state.currentHeadYaw = smoothAngle(
+        state.currentHeadYaw,
+        targetHeadYaw,
+        5,
+        delta
       );
 
-      targetHeadYaw = THREE.MathUtils.clamp(
-        targetYaw * 0.5,
-        -0.5,
-        0.5
+      state.currentHeadPitch = smoothValue(
+        state.currentHeadPitch,
+        targetHeadPitch,
+        4,
+        delta
+      );
+
+      state.currentLean = smoothValue(
+        state.currentLean,
+        targetLean,
+        3,
+        delta
       );
 
       /*
-       * Slightly raise the listener's head
-       * toward the speaking character.
+       * Apply body orientation.
        */
 
-      targetHeadPitch = THREE.MathUtils.clamp(
-        (tempSpeakerPosition.y -
-          tempListenerPosition.y) * 0.08,
-        -0.15,
-        0.15
-      );
-    }
+      state.object.rotation.y =
+        state.baseRotationY +
+        state.currentYaw;
 
-    /*
-     * Attentive listening posture.
-     */
+      /*
+       * Apply head eye-contact direction.
+       */
 
-    targetLean = 0.015;
-  }
+      state.headBones.forEach((bone) => {
+        const base =
+          state.baseHeadRotations.get(bone);
 
-  /*
-   * Smooth all character movements.
-   */
+        if (!base) return;
 
-  state.currentYaw = smoothAngle(
-    state.currentYaw,
-    targetYaw,
-    3.5,
-    delta
-  );
+        bone.rotation.x =
+          base.x + state.currentHeadPitch;
 
-  state.currentHeadYaw = smoothAngle(
-    state.currentHeadYaw,
-    targetHeadYaw,
-    5,
-    delta
-  );
+        bone.rotation.y =
+          base.y + state.currentHeadYaw;
+      });
 
-  state.currentHeadPitch = smoothValue(
-    state.currentHeadPitch,
-    targetHeadPitch,
-    4,
-    delta
-  );
+      /*
+       * Apply gentle neck follow-through.
+       */
 
-  state.currentLean = smoothValue(
-    state.currentLean,
-    targetLean,
-    3,
-    delta
-  );
+      state.neckBones.forEach((bone) => {
+        const base =
+          state.baseNeckRotations.get(bone);
 
-  /*
-   * Apply body orientation.
-   */
+        if (!base) return;
 
-  state.object.rotation.y =
-    state.baseRotationY +
-    state.currentYaw;
+        bone.rotation.y =
+          base.y + state.currentHeadYaw * 0.45;
 
-  /*
-   * Apply head eye-contact direction.
-   */
+        bone.rotation.x =
+          base.x + state.currentHeadPitch * 0.4;
+      });
 
-  state.headBones.forEach((bone) => {
-    const base =
-      state.baseHeadRotations.get(bone);
+      /*
+       * Apply subtle conversational body lean.
+       */
 
-    if (!base) return;
+      state.spineBones.forEach((bone) => {
+        const base =
+          state.baseSpineRotations.get(bone);
 
-    bone.rotation.x =
-      base.x + state.currentHeadPitch;
+        if (!base) return;
 
-    bone.rotation.y =
-      base.y + state.currentHeadYaw;
+        bone.rotation.x =
+          base.x + state.currentLean;
+      });
+    });
   });
 
-  /*
-   * Apply gentle neck follow-through.
-   */
-
-  state.neckBones.forEach((bone) => {
-    const base =
-      state.baseNeckRotations.get(bone);
-
-    if (!base) return;
-
-    bone.rotation.y =
-      base.y + state.currentHeadYaw * 0.45;
-
-    bone.rotation.x =
-      base.x + state.currentHeadPitch * 0.4;
-  });
-
-  /*
-   * Apply subtle conversational body lean.
-   */
-
-  state.spineBones.forEach((bone) => {
-    const base =
-      state.baseSpineRotations.get(bone);
-
-    if (!base) return;
-
-    bone.rotation.x =
-      base.x + state.currentLean;
-  });
-});
-
-});
-
-return null;
-        }
+  return null;
+}
