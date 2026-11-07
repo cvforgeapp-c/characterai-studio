@@ -5,7 +5,7 @@ import CharacterCanvas, {
 } from "./CharacterCanvas";
 
 import CinematicCameraPanel from "./CinematicCameraPanel";
-import CinematicScenePanel from "./CinematicScenePanel";
+
 import CinematicActingPanel, {
   DEFAULT_ACTING_SETTINGS,
   type CinematicActingSettings,
@@ -33,6 +33,7 @@ interface CharacterStageProps {
   compositionMode?: CompositionMode;
   characterSpacing?: number;
   characterDepth?: number;
+
   onCompositionChange?: (
     mode: CompositionMode,
     spacing: number,
@@ -57,6 +58,15 @@ const DEFAULT_CAMERA: CinematicCameraSettings = {
   enabled: true,
 };
 
+const COMPOSITION_MODES: CompositionMode[] = [
+  "auto",
+  "single",
+  "dialogue",
+  "triangle",
+  "group",
+  "dramatic",
+];
+
 export default function CharacterStage({
   selectedIds,
   height = 420,
@@ -64,15 +74,12 @@ export default function CharacterStage({
   environment = "studio",
   action = "idle",
   appearances = {},
-
   cameraSettings,
   onCameraSettingsChange,
-
   compositionMode = "auto",
   characterSpacing = 1.8,
   characterDepth = 0,
   onCompositionChange,
-
   actingSettings,
   onActingSettingsChange,
 }: CharacterStageProps) {
@@ -141,6 +148,7 @@ export default function CharacterStage({
 
   return (
     <section className="w-full space-y-4">
+
       {/* CINEMATIC CHARACTER VIEWPORT */}
       <div
         className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-[#080b12]"
@@ -182,6 +190,7 @@ export default function CharacterStage({
             <h3 className="text-sm font-bold text-white">
               Cinematic Camera Director
             </h3>
+
             <p className="mt-1 text-xs text-gray-400">
               Control shot type, framing, and camera movement.
             </p>
@@ -194,67 +203,21 @@ export default function CharacterStage({
         </div>
       )}
 
-      {/* SCENE DIRECTOR */}
+      {/* CHARACTER COMPOSITION */}
       {showControls && (
-        <div className="rounded-2xl border border-white/10 bg-[#10141f] p-4">
-          {/* Temporary integration: restore the required props
-              after inspecting CinematicScenePanel.tsx. */}
-          <CinematicScenePanel
-            {...({
-              mode: localComposition,
-              spacing: localSpacing,
-              depth: localDepth,
-              characterCount: selectedIds.length,
-            } as any)}
-          />
-        </div>
-      )}
-
-      {/* LIVE ACTING DIRECTOR */}
-      {showControls && (
-        <div className="space-y-3 rounded-2xl border border-white/10 bg-[#10141f] p-4">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-[#10141f] p-4">
           <div>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-white">
-                  Cinematic Acting Director
-                </h3>
-                <p className="mt-1 text-xs text-gray-400">
-                  Direct facial expressions, gestures, and performance.
-                </p>
-              </div>
+            <h3 className="text-sm font-bold text-white">
+              Character Composition
+            </h3>
 
-              <span className="rounded-full bg-purple-500/15 px-3 py-1 text-xs font-semibold text-purple-300">
-                LIVE
-              </span>
-            </div>
+            <p className="mt-1 text-xs text-gray-400">
+              Control character arrangement, spacing, and depth.
+            </p>
           </div>
 
-          <CinematicActingPanel
-            value={localActing}
-            onChange={handleActingChange}
-          />
-        </div>
-      )}
-
-      {/* COMPOSITION CONTROLS */}
-      {showControls && (
-        <div className="rounded-2xl border border-white/10 bg-[#10141f] p-4">
-          <h3 className="mb-3 text-sm font-bold text-white">
-            Character Composition
-          </h3>
-
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {(
-              [
-                "auto",
-                "single",
-                "dialogue",
-                "triangle",
-                "group",
-                "dramatic",
-              ] as CompositionMode[]
-            ).map((mode) => (
+            {COMPOSITION_MODES.map((mode) => (
               <button
                 key={mode}
                 type="button"
@@ -276,47 +239,74 @@ export default function CharacterStage({
             ))}
           </div>
 
-          <div className="mt-4 space-y-3">
-            <label className="block text-xs text-gray-300">
-              Character spacing: {localSpacing.toFixed(1)}
-              <input
-                type="range"
-                min="0.5"
-                max="5"
-                step="0.1"
-                value={localSpacing}
-                onChange={(event) =>
-                  handleCompositionChange(
-                    localComposition,
-                    Number(event.target.value),
-                    localDepth
-                  )
-                }
-                className="mt-2 w-full accent-purple-500"
-              />
-            </label>
+          <label className="block text-xs text-gray-300">
+            Character spacing: {localSpacing.toFixed(1)}
 
-            <label className="block text-xs text-gray-300">
-              Character depth: {localDepth.toFixed(1)}
-              <input
-                type="range"
-                min="-3"
-                max="3"
-                step="0.1"
-                value={localDepth}
-                onChange={(event) =>
-                  handleCompositionChange(
-                    localComposition,
-                    localSpacing,
-                    Number(event.target.value)
-                  )
-                }
-                className="mt-2 w-full accent-purple-500"
-              />
-            </label>
-          </div>
+            <input
+              type="range"
+              min="0.5"
+              max="5"
+              step="0.1"
+              value={localSpacing}
+              onChange={(event) =>
+                handleCompositionChange(
+                  localComposition,
+                  Number(event.target.value),
+                  localDepth
+                )
+              }
+              className="mt-2 w-full accent-purple-500"
+            />
+          </label>
+
+          <label className="block text-xs text-gray-300">
+            Character depth: {localDepth.toFixed(1)}
+
+            <input
+              type="range"
+              min="-3"
+              max="3"
+              step="0.1"
+              value={localDepth}
+              onChange={(event) =>
+                handleCompositionChange(
+                  localComposition,
+                  localSpacing,
+                  Number(event.target.value)
+                )
+              }
+              className="mt-2 w-full accent-purple-500"
+            />
+          </label>
         </div>
       )}
+
+      {/* LIVE ACTING DIRECTOR */}
+      {showControls && (
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-[#10141f] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-white">
+                Cinematic Acting Director
+              </h3>
+
+              <p className="mt-1 text-xs text-gray-400">
+                Direct facial expressions, gestures, and performance.
+              </p>
+            </div>
+
+            <span className="rounded-full bg-purple-500/15 px-3 py-1 text-xs font-semibold text-purple-300">
+              LIVE
+            </span>
+          </div>
+
+          <CinematicActingPanel
+            value={localActing}
+            onChange={handleActingChange}
+          />
+        </div>
+      )}
+
     </section>
   );
 }
