@@ -7,7 +7,7 @@ import {
   registerCharacterAnimationTask,
   setCharacterAnimationTaskEnabled,
   unregisterCharacterAnimationTasks,
-  type CharacterAnimationTask,
+  type CharacterAnimationTaskCallback,
 } from "./cinematic-animation-runtime";
 
 import type {
@@ -22,7 +22,7 @@ export interface CinematicScheduledFrameOptions {
 export function useCinematicScheduledFrame(
   characterId: string,
   taskId: string,
-  callback: CharacterAnimationTask,
+  callback: CharacterAnimationTaskCallback,
   options: CinematicScheduledFrameOptions = {},
 ): void {
   const {
@@ -30,7 +30,7 @@ export function useCinematicScheduledFrame(
     priority = "background",
   } = options;
 
-  const callbackRef = useRef(callback);
+  const callbackRef = useRef<CharacterAnimationTaskCallback>(callback);
 
   callbackRef.current = callback;
 
@@ -39,9 +39,9 @@ export function useCinematicScheduledFrame(
       return;
     }
 
-    const stableCallback: CharacterAnimationTask = (
-      delta,
-      elapsedTime,
+    const stableCallback: CharacterAnimationTaskCallback = (
+      delta: number,
+      elapsedTime: number,
     ) => {
       callbackRef.current(delta, elapsedTime);
     };
@@ -67,7 +67,9 @@ export function useCinematicScheduledFrame(
   ]);
 
   useEffect(() => {
-    if (!characterId || !taskId) return;
+    if (!characterId || !taskId) {
+      return;
+    }
 
     setCharacterAnimationTaskEnabled(
       characterId,
