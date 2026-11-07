@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import type { Ref } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { Group, Mesh } from "three";
 
@@ -51,7 +52,7 @@ function Eye({
   eyeRef
 }: {
   position: [number, number, number];
-  eyeRef?: React.RefObject<Mesh | null>;
+  eyeRef?: Ref<Mesh>;
 }) {
   return (
     <group position={position}>
@@ -216,8 +217,8 @@ function AnimalHead({
   eyeRightRef
 }: {
   character: CharacterDefinition;
-  eyeLeftRef: React.RefObject<Mesh | null>;
-  eyeRightRef: React.RefObject<Mesh | null>;
+  eyeLeftRef: Ref<Mesh>;
+  eyeRightRef: Ref<Mesh>;
 }) {
   const id = character.id;
   const secondary = character.secondaryColor;
@@ -468,8 +469,8 @@ function FoodHead({
   eyeRightRef
 }: {
   character: CharacterDefinition;
-  eyeLeftRef: React.RefObject<Mesh | null>;
-  eyeRightRef: React.RefObject<Mesh | null>;
+  eyeLeftRef: Ref<Mesh>;
+  eyeRightRef: Ref<Mesh>;
 }) {
   const id = character.id;
 
@@ -628,6 +629,7 @@ export default function ProceduralCharacter({
   );
 
   const spacing = 1.8;
+
   const defaultX =
     (index - (total - 1) / 2) * spacing;
 
@@ -918,4 +920,4 @@ export default function ProceduralCharacter({
       </group>
     </group>
   );
-                           }
+}
