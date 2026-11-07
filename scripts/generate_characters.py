@@ -281,6 +281,9 @@ def animate_rig(arm):
                     group=pose_bone.name
                 )
 
+        if not arm.animation_data:
+            arm.animation_data_create()
+
         action = arm.animation_data.action
         if action:
             action.name = action_name.upper()
@@ -395,7 +398,7 @@ def build_character(name, color):
     # Species details
     if name in ("lion", "bear"):
         for i in range(10):
-            angle = i * math.tau / 10
+            angle = i * (2 * math.pi) / 10
             add_sphere(
                 "Mane Detail",
                 (
@@ -513,8 +516,7 @@ def export_character(name):
         use_selection=True,
         export_animations=True,
         export_nla_strips=True,
-        export_force_sampling=True,
-        export_apply=True
+        export_force_sampling=True
     )
 
     print("EXPORTED:", filepath)
