@@ -1,4 +1,4 @@
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -98,11 +98,14 @@ export default function CinematicDialoguePlayback({
     });
   }, [durations]);
 
-  const updatePlaybackState = useCallback((value: boolean) => {
-    playingRef.current = value;
-    setPlaying(value);
-    onPlaybackChange?.(value);
-  }, [onPlaybackChange]);
+  const updatePlaybackState = useCallback(
+    (value: boolean) => {
+      playingRef.current = value;
+      setPlaying(value);
+      onPlaybackChange?.(value);
+    },
+    [onPlaybackChange]
+  );
 
   const stopProgressTimer = useCallback(() => {
     if (progressTimerRef.current !== null) {
@@ -111,14 +114,17 @@ export default function CinematicDialoguePlayback({
     }
   }, []);
 
-  const resetCharacter = useCallback((characterId: string | null) => {
-    if (!characterId) return;
+  const resetCharacter = useCallback(
+    (characterId: string | null) => {
+      if (!characterId) return;
 
-    onActingChange(characterId, {
-      ...DEFAULT_ACTING_SETTINGS,
-      isSpeaking: false,
-    });
-  }, [onActingChange]);
+      onActingChange(characterId, {
+        ...DEFAULT_ACTING_SETTINGS,
+        speaking: false,
+      });
+    },
+    [onActingChange]
+  );
 
   const stopCurrentSpeech = useCallback(() => {
     stopProgressTimer();
@@ -129,65 +135,119 @@ export default function CinematicDialoguePlayback({
     onStopSpeaking?.();
   }, [onStopSpeaking, resetCharacter, stopProgressTimer]);
 
-  const activateLine = useCallback((line: DialoguePlaybackLine) => {
-    if (
-      activeCharacterRef.current &&
-      activeCharacterRef.current !== line.characterId
-    ) {
-      resetCharacter(activeCharacterRef.current);
-    }
+  const activateLine = useCallback(
+    (line: DialoguePlaybackLine) => {
+      if (
+        activeCharacterRef.current &&
+        activeCharacterRef.current !== line.characterId
+      ) {
+        resetCharacter(activeCharacterRef.current);
+      }
 
-    activeCharacterRef.current = line.characterId;
+      activeCharacterRef.current = line.characterId;
 
-    const detected = detectDialoguePerformance(line.text);
+      const detected = detectDialoguePerformance(line.text);
 
-    onActingChange(line.characterId, {
-      ...DEFAULT_ACTING_SETTINGS,
-      ...detected,
-      isSpeaking: true,
-    });
+      onActingChange(line.characterId, {
+        ...DEFAULT_ACTING_SETTINGS,
+        ...detected,
+        speaking: true,
+      });
 
-    onLineChange?.(line);
-  }, [onActingChange, onLineChange, resetCharacter]);
+      onLineChange?.(line);
+    },
+    [onActingChange, onLineChange, resetCharacter]
+  );
 
-  const updateCurrentTime = useCallback((value: number) => {
-    const safe = Math.max(0, Math.min(totalDuration, value));
+  const updateCurrentTime = useCallback(
+    (value: number) => {
+      const safe = Math.max(0, Math.min(totalDuration, value));
 
-    currentTimeRef.current = safe;
-    setCurrentTime(safe);
-  }, [totalDuration]);
+      currentTimeRef.current = safe;
+      setCurrentTime(safe);
+    },
+    [totalDuration]
+  );
 
   /**
    * Runs one dialogue line at a time.
    * When onSpeak returns a Promise, the next line waits
    * until that Promise resolves.
    */
-  const runSequence = useCallback(async (runId: number) => {
-    while (
-      runId === runIdRef.current &&
-      playingRef.current &&
-      currentIndexRef.current < lines.length
-    ) {
-      const index = currentIndexRef.current;
-      const line = lines[index];
+  const runSequence = useCallback(
+    async (runId: number) => {
+      while (
+        runId === runIdRef.current &&
+        playingRef.current &&
+        currentIndexRef.current < lines.length
+      ) {
+        const index = currentIndexRef.current;
+        const line = lines[index];
 
-      if (!line) break;
+        if (!line) break;
 
-      const estimatedDuration = durations[index] ?? 2;
-      const timelineStart = timelineStarts[index] ?? 0;
+        const estimatedDuration = durations[index] ?? 2;
+        const timelineStart = timelineStarts[index] ?? 0;
 
-      setCurrentIndex(index);
-      currentIndexRef.current = index;
+        setCurrentIndex(index);
+        currentIndexRef.current = index;
 
-      updateCurrentTime(timelineStart);
-      activateLine(line);
+        updateCurrentTime(timelineStart);
+        activateLine(line);
 
-      speechStartedAtRef.current = Date.now();
+        speechStartedAtRef.current = Date.now();
 
-      // Progress is visual only. It never advances the dialogue.
-      stopProgressTimer();
+        // Progress is visual only. It never advances the dialogue.
+        stopProgressTimer();
 
-      progressTimerRef.current = window.setInterval(() => {
+        progressTimerRef.current = window.setInterval(() => {
+          if (
+            runId !== runIdRef.current ||
+            !playingRef.current
+          ) {
+            return;
+          }
+
+          const elapsed =
+            (Date.now() - speechStartedAtRef.current) / 1000;
+
+          updateCurrentTime(
+            timelineStart + Math.min(elapsed, estimatedDuration)
+          );
+        }, 100);
+
+        try {
+          if (onSpeak) {
+            const result = onSpeak(line);
+
+            if (
+              result &&
+              typeof (result as Promise<void>).then === "function"
+            ) {
+              await result;
+            } else {
+              // Fallback for a synchronous speech callback.
+              await new Promise<void>((resolve) => {
+                window.setTimeout(
+                  resolve,
+                  estimatedDuration * 1000
+                );
+              });
+            }
+          } else {
+            // Timeline-only playback when no speech callback exists.
+            await new Promise<void>((resolve) => {
+              window.setTimeout(
+                resolve,
+                estimatedDuration * 1000
+              );
+            });
+          }
+        } catch (error) {
+          console.error("Dialogue speech failed:", error);
+        }
+
+        // A pause, seek, restart, or stop invalidates this sequence.
         if (
           runId !== runIdRef.current ||
           !playingRef.current
@@ -195,87 +255,48 @@ export default function CinematicDialoguePlayback({
           return;
         }
 
-        const elapsed =
-          (Date.now() - speechStartedAtRef.current) / 1000;
+        stopProgressTimer();
+        resetCharacter(line.characterId);
+        activeCharacterRef.current = null;
 
-        updateCurrentTime(
-          timelineStart + Math.min(elapsed, estimatedDuration)
-        );
-      }, 100);
+        const completedTime = timelineStart + estimatedDuration;
+        updateCurrentTime(completedTime);
 
-      try {
-        if (onSpeak) {
-          const result = onSpeak(line);
-
-          if (
-            result &&
-            typeof (result as Promise<void>).then === "function"
-          ) {
-            await result;
-          } else {
-            // Fallback for a synchronous speech callback.
-            await new Promise<void>((resolve) => {
-              window.setTimeout(resolve, estimatedDuration * 1000);
-            });
-          }
-        } else {
-          // Timeline-only playback when no speech callback exists.
-          await new Promise<void>((resolve) => {
-            window.setTimeout(resolve, estimatedDuration * 1000);
-          });
-        }
-      } catch (error) {
-        console.error("Dialogue speech failed:", error);
+        currentIndexRef.current = index + 1;
       }
 
-      // A pause, seek, restart, or stop invalidates this sequence.
       if (
-        runId !== runIdRef.current ||
-        !playingRef.current
+        runId === runIdRef.current &&
+        playingRef.current
       ) {
-        return;
+        stopProgressTimer();
+
+        resetCharacter(activeCharacterRef.current);
+        activeCharacterRef.current = null;
+
+        currentIndexRef.current = 0;
+        setCurrentIndex(0);
+
+        updateCurrentTime(totalDuration);
+        onLineChange?.(null);
+
+        updatePlaybackState(false);
       }
-
-      stopProgressTimer();
-      resetCharacter(line.characterId);
-      activeCharacterRef.current = null;
-
-      const completedTime = timelineStart + estimatedDuration;
-      updateCurrentTime(completedTime);
-
-      currentIndexRef.current = index + 1;
-    }
-
-    if (
-      runId === runIdRef.current &&
-      playingRef.current
-    ) {
-      stopProgressTimer();
-
-      resetCharacter(activeCharacterRef.current);
-      activeCharacterRef.current = null;
-
-      currentIndexRef.current = 0;
-      setCurrentIndex(0);
-
-      updateCurrentTime(totalDuration);
-      onLineChange?.(null);
-
-      updatePlaybackState(false);
-    }
-  }, [
-    lines,
-    durations,
-    timelineStarts,
-    totalDuration,
-    onSpeak,
-    activateLine,
-    resetCharacter,
-    stopProgressTimer,
-    updateCurrentTime,
-    updatePlaybackState,
-    onLineChange,
-  ]);
+    },
+    [
+      lines,
+      durations,
+      timelineStarts,
+      totalDuration,
+      onSpeak,
+      activateLine,
+      resetCharacter,
+      stopProgressTimer,
+      updateCurrentTime,
+      updatePlaybackState,
+      onLineChange,
+    ]
+  );
 
   const play = useCallback(() => {
     if (!lines.length || playingRef.current) return;
@@ -328,85 +349,91 @@ export default function CinematicDialoguePlayback({
     onLineChange,
   ]);
 
-  const seek = useCallback((requestedTime: number) => {
-    const safeTime = Math.max(
-      0,
-      Math.min(totalDuration, requestedTime)
-    );
+  const seek = useCallback(
+    (requestedTime: number) => {
+      const safeTime = Math.max(
+        0,
+        Math.min(totalDuration, requestedTime)
+      );
 
-    // Stop the current utterance before changing position.
-    runIdRef.current += 1;
+      // Stop the current utterance before changing position.
+      runIdRef.current += 1;
 
-    updatePlaybackState(false);
-    stopCurrentSpeech();
+      updatePlaybackState(false);
+      stopCurrentSpeech();
 
-    let selectedIndex = 0;
+      let selectedIndex = 0;
 
-    for (let i = 0; i < timelineStarts.length; i++) {
-      const start = timelineStarts[i];
-      const end = start + durations[i];
+      for (let i = 0; i < timelineStarts.length; i++) {
+        const start = timelineStarts[i];
+        const end = start + durations[i];
 
-      if (safeTime >= start && safeTime < end) {
-        selectedIndex = i;
-        break;
+        if (safeTime >= start && safeTime < end) {
+          selectedIndex = i;
+          break;
+        }
+
+        if (safeTime >= totalDuration) {
+          selectedIndex = Math.max(0, lines.length - 1);
+        }
       }
 
-      if (safeTime >= totalDuration) {
-        selectedIndex = Math.max(0, lines.length - 1);
+      currentIndexRef.current = selectedIndex;
+      setCurrentIndex(selectedIndex);
+
+      updateCurrentTime(safeTime);
+
+      const selectedLine = lines[selectedIndex];
+
+      if (selectedLine) {
+        activateLine(selectedLine);
+      } else {
+        onLineChange?.(null);
       }
-    }
+    },
+    [
+      totalDuration,
+      timelineStarts,
+      durations,
+      lines,
+      stopCurrentSpeech,
+      updatePlaybackState,
+      updateCurrentTime,
+      activateLine,
+      onLineChange,
+    ]
+  );
 
-    currentIndexRef.current = selectedIndex;
-    setCurrentIndex(selectedIndex);
+  const playLine = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= lines.length) return;
 
-    updateCurrentTime(safeTime);
+      runIdRef.current += 1;
 
-    const selectedLine = lines[selectedIndex];
+      updatePlaybackState(false);
+      stopCurrentSpeech();
 
-    if (selectedLine) {
-      activateLine(selectedLine);
-    } else {
-      onLineChange?.(null);
-    }
-  }, [
-    totalDuration,
-    timelineStarts,
-    durations,
-    lines,
-    stopCurrentSpeech,
-    updatePlaybackState,
-    updateCurrentTime,
-    activateLine,
-    onLineChange,
-  ]);
+      currentIndexRef.current = index;
+      setCurrentIndex(index);
 
-  const playLine = useCallback((index: number) => {
-    if (index < 0 || index >= lines.length) return;
+      updateCurrentTime(timelineStarts[index] ?? 0);
 
-    runIdRef.current += 1;
-
-    updatePlaybackState(false);
-    stopCurrentSpeech();
-
-    currentIndexRef.current = index;
-    setCurrentIndex(index);
-
-    updateCurrentTime(timelineStarts[index] ?? 0);
-
-    // Start the selected line immediately.
-    window.setTimeout(() => {
-      if (!playingRef.current) {
-        play();
-      }
-    }, 0);
-  }, [
-    lines.length,
-    timelineStarts,
-    stopCurrentSpeech,
-    updatePlaybackState,
-    updateCurrentTime,
-    play,
-  ]);
+      // Start the selected line immediately.
+      window.setTimeout(() => {
+        if (!playingRef.current) {
+          play();
+        }
+      }, 0);
+    },
+    [
+      lines.length,
+      timelineStarts,
+      stopCurrentSpeech,
+      updatePlaybackState,
+      updateCurrentTime,
+      play,
+    ]
+  );
 
   useEffect(() => {
     return () => {
@@ -585,4 +612,4 @@ export default function CinematicDialoguePlayback({
       )}
     </section>
   );
-                  }
+          }
