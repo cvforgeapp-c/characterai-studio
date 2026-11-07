@@ -1,261 +1,232 @@
-import { useEffect, useState } from "react";
-
-import CharacterCanvas, {
-  type EnvironmentId,
-} from "./CharacterCanvas";
-
-import CinematicCameraPanel from "./CinematicCameraPanel";
-import CinematicScenePanel from "./CinematicScenePanel";
-
-import CinematicActingPanel, {
-  DEFAULT_ACTING_SETTINGS,
-  type CinematicActingSettings,
-} from "./CinematicActingPanel";
-
-import type { CharacterAction } from "../lib/character-motion";
-import type { CinematicCameraSettings } from "./CinematicCameraRig";
 import type { CompositionMode } from "./CinematicComposition";
 
-export type CharacterAppearance = Record<string, string>;
+interface CinematicScenePanelProps {
+  mode: CompositionMode;
+  spacing: number;
+  depth: number;
+  characterCount: number;
 
-interface CharacterStageProps {
-  selectedIds: string[];
-  height?: number;
-  showControls?: boolean;
-  environment?: EnvironmentId;
-  action?: CharacterAction;
-  appearances?: Record<string, CharacterAppearance>;
-
-  cameraSettings?: CinematicCameraSettings;
-  onCameraSettingsChange?: (
-    settings: CinematicCameraSettings
-  ) => void;
-
-  compositionMode?: CompositionMode;
-  characterSpacing?: number;
-  characterDepth?: number;
-
-  onCompositionChange?: (
-    mode: CompositionMode,
-    spacing: number,
-    depth: number
-  ) => void;
-
-  actingSettings?: CinematicActingSettings;
-  onActingSettingsChange?: (
-    settings: CinematicActingSettings
-  ) => void;
+  onModeChange: (mode: CompositionMode) => void;
+  onSpacingChange: (spacing: number) => void;
+  onDepthChange: (depth: number) => void;
 }
 
-const DEFAULT_CAMERA: CinematicCameraSettings = {
-  shot: "medium",
-  target: [0, 1.2, 0],
-  characterPosition: [0, 0, 0],
-  transitionSpeed: 3,
-  movementSpeed: 0.35,
-  fieldOfView: 40,
-  orbitRadius: 5.5,
-  orbitHeight: 2.3,
-  enabled: true,
-};
+const COMPOSITION_MODES: {
+  value: CompositionMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "auto",
+    label: "Auto",
+    description: "Automatically arrange characters",
+  },
+  {
+    value: "single",
+    label: "Single",
+    description: "Focus on one character",
+  },
+  {
+    value: "dialogue",
+    label: "Dialogue",
+    description: "Face-to-face conversation",
+  },
+  {
+    value: "triangle",
+    label: "Triangle",
+    description: "Three-character arrangement",
+  },
+  {
+    value: "group",
+    label: "Group",
+    description: "Group character composition",
+  },
+  {
+    value: "dramatic",
+    label: "Dramatic",
+    description: "Cinematic dramatic arrangement",
+  },
+];
 
-export default function CharacterStage({
-  selectedIds,
-  height = 420,
-  showControls = true,
-  environment = "studio",
-  action = "idle",
-  appearances = {},
-
-  cameraSettings,
-  onCameraSettingsChange,
-
-  compositionMode = "auto",
-  characterSpacing = 1.8,
-  characterDepth = 0,
-  onCompositionChange,
-
-  actingSettings,
-  onActingSettingsChange,
-}: CharacterStageProps) {
-  const [localCamera, setLocalCamera] =
-    useState<CinematicCameraSettings>(
-      cameraSettings ?? DEFAULT_CAMERA
-    );
-
-  const [localComposition, setLocalComposition] =
-    useState<CompositionMode>(compositionMode);
-
-  const [localSpacing, setLocalSpacing] =
-    useState(characterSpacing);
-
-  const [localDepth, setLocalDepth] =
-    useState(characterDepth);
-
-  const [localActing, setLocalActing] =
-    useState<CinematicActingSettings>(
-      actingSettings ?? DEFAULT_ACTING_SETTINGS
-    );
-
-  useEffect(() => {
-    if (cameraSettings) {
-      setLocalCamera(cameraSettings);
-    }
-  }, [cameraSettings]);
-
-  useEffect(() => {
-    setLocalComposition(compositionMode);
-    setLocalSpacing(characterSpacing);
-    setLocalDepth(characterDepth);
-  }, [compositionMode, characterSpacing, characterDepth]);
-
-  useEffect(() => {
-    if (actingSettings) {
-      setLocalActing(actingSettings);
-    }
-  }, [actingSettings]);
-
-  const handleCameraChange = (
-    settings: CinematicCameraSettings
-  ) => {
-    setLocalCamera(settings);
-    onCameraSettingsChange?.(settings);
-  };
-
-  const handleCompositionChange = (
-    mode: CompositionMode,
-    spacing: number,
-    depth: number
-  ) => {
-    setLocalComposition(mode);
-    setLocalSpacing(spacing);
-    setLocalDepth(depth);
-
-    onCompositionChange?.(mode, spacing, depth);
-  };
-
-  const handleActingChange = (
-    settings: CinematicActingSettings
-  ) => {
-    setLocalActing(settings);
-    onActingSettingsChange?.(settings);
-  };
-
+export default function CinematicScenePanel({
+  mode,
+  spacing,
+  depth,
+  characterCount,
+  onModeChange,
+  onSpacingChange,
+  onDepthChange,
+}: CinematicScenePanelProps) {
   return (
     <section className="w-full space-y-4">
 
-      {/* CINEMATIC CHARACTER VIEWPORT */}
-      <div
-        className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-[#080b12]"
-        style={{ height }}
-      >
-        <CharacterCanvas
-          selectedIds={selectedIds}
-          height={height}
-          showControls={showControls}
-          environment={environment}
-          action={action}
-          appearances={appearances}
-          cameraSettings={localCamera}
-          compositionMode={localComposition}
-          characterSpacing={localSpacing}
-          characterDepth={localDepth}
-          actingSettings={localActing}
-        />
+      {/* PANEL HEADER */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-white">
+            Cinematic Scene Director
+          </h3>
 
-        <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-wrap gap-2">
-          <span className="rounded-full border border-white/10 bg-black/50 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
-            CINEMATIC STAGE
-          </span>
-
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 backdrop-blur-md">
-            LIVE ACTING
-          </span>
+          <p className="mt-1 text-xs text-gray-400">
+            Control character arrangement and scene composition.
+          </p>
         </div>
 
-        <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-xs text-white backdrop-blur-md">
-          Emotion: {localActing.emotion}
+        <span className="rounded-full border border-purple-400/20 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-300">
+          SCENE
+        </span>
+      </div>
+
+      {/* CHARACTER COUNT */}
+      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+        <span className="text-xs text-gray-400">
+          Characters in scene
+        </span>
+
+        <span className="text-sm font-bold text-white">
+          {characterCount}
+        </span>
+      </div>
+
+      {/* COMPOSITION MODES */}
+      <div>
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          Composition Mode
+        </h4>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {COMPOSITION_MODES.map((option) => {
+            const active = mode === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onModeChange(option.value)}
+                title={option.description}
+                aria-pressed={active}
+                className={`rounded-xl border p-3 text-left transition ${
+                  active
+                    ? "border-purple-400 bg-purple-500/20 text-purple-200"
+                    : "border-white/10 bg-white/5 text-gray-300 hover:border-white/20 hover:bg-white/10"
+                }`}
+              >
+                <span className="block text-xs font-bold">
+                  {option.label}
+                </span>
+
+                <span className="mt-1 block text-[10px] leading-relaxed text-gray-400">
+                  {option.description}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* CAMERA DIRECTOR */}
-      {showControls && (
-        <div className="space-y-3 rounded-2xl border border-white/10 bg-[#10141f] p-4">
+      {/* CHARACTER SPACING */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="cinematic-character-spacing"
+            className="text-xs font-medium text-gray-300"
+          >
+            Character Spacing
+          </label>
+
+          <span className="text-xs font-bold text-purple-300">
+            {spacing.toFixed(1)}
+          </span>
+        </div>
+
+        <input
+          id="cinematic-character-spacing"
+          type="range"
+          min="0.5"
+          max="5"
+          step="0.1"
+          value={spacing}
+          onChange={(event) =>
+            onSpacingChange(Number(event.target.value))
+          }
+          className="w-full cursor-pointer accent-purple-500"
+        />
+
+        <div className="flex justify-between text-[10px] text-gray-500">
+          <span>Close</span>
+          <span>Wide</span>
+        </div>
+      </div>
+
+      {/* CHARACTER DEPTH */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="cinematic-character-depth"
+            className="text-xs font-medium text-gray-300"
+          >
+            Character Depth
+          </label>
+
+          <span className="text-xs font-bold text-purple-300">
+            {depth.toFixed(1)}
+          </span>
+        </div>
+
+        <input
+          id="cinematic-character-depth"
+          type="range"
+          min="-3"
+          max="3"
+          step="0.1"
+          value={depth}
+          onChange={(event) =>
+            onDepthChange(Number(event.target.value))
+          }
+          className="w-full cursor-pointer accent-purple-500"
+        />
+
+        <div className="flex justify-between text-[10px] text-gray-500">
+          <span>Forward</span>
+          <span>Backward</span>
+        </div>
+      </div>
+
+      {/* CURRENT SETTINGS */}
+      <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+        <h4 className="text-xs font-semibold text-gray-300">
+          Current Scene Settings
+        </h4>
+
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center">
           <div>
-            <h3 className="text-sm font-bold text-white">
-              Cinematic Camera Director
-            </h3>
-
-            <p className="mt-1 text-xs text-gray-400">
-              Control shot type, framing, and camera movement.
-            </p>
-          </div>
-
-          <CinematicCameraPanel
-            value={localCamera}
-            onChange={handleCameraChange}
-          />
-        </div>
-      )}
-
-      {/* SCENE DIRECTOR */}
-      {showControls && (
-        <div className="rounded-2xl border border-white/10 bg-[#10141f] p-4">
-          <CinematicScenePanel
-            mode={localComposition}
-            spacing={localSpacing}
-            depth={localDepth}
-            characterCount={selectedIds.length}
-            onModeChange={(mode) =>
-              handleCompositionChange(
-                mode,
-                localSpacing,
-                localDepth
-              )
-            }
-            onSpacingChange={(spacing) =>
-              handleCompositionChange(
-                localComposition,
-                spacing,
-                localDepth
-              )
-            }
-            onDepthChange={(depth) =>
-              handleCompositionChange(
-                localComposition,
-                localSpacing,
-                depth
-              )
-            }
-          />
-        </div>
-      )}
-
-      {/* LIVE ACTING DIRECTOR */}
-      {showControls && (
-        <div className="space-y-3 rounded-2xl border border-white/10 bg-[#10141f] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-white">
-                Cinematic Acting Director
-              </h3>
-
-              <p className="mt-1 text-xs text-gray-400">
-                Direct facial expressions, gestures, and performance.
-              </p>
-            </div>
-
-            <span className="rounded-full bg-purple-500/15 px-3 py-1 text-xs font-semibold text-purple-300">
-              LIVE
+            <span className="block text-[10px] text-gray-500">
+              Mode
+            </span>
+            <span className="text-xs font-semibold capitalize text-white">
+              {mode}
             </span>
           </div>
 
-          <CinematicActingPanel
-            value={localActing}
-            onChange={handleActingChange}
-          />
+          <div>
+            <span className="block text-[10px] text-gray-500">
+              Spacing
+            </span>
+            <span className="text-xs font-semibold text-white">
+              {spacing.toFixed(1)}
+            </span>
+          </div>
+
+          <div>
+            <span className="block text-[10px] text-gray-500">
+              Depth
+            </span>
+            <span className="text-xs font-semibold text-white">
+              {depth.toFixed(1)}
+            </span>
+          </div>
         </div>
-      )}
+      </div>
 
     </section>
   );
