@@ -12,12 +12,12 @@ import { Link } from "wouter";
 import {
   characters,
   type CharacterId,
-} from "../character-catalog";
+} from "../lib/character-catalog";
 
 import {
   generateComedyScript,
   type ComedyStyle,
-} from "../comedy-script";
+} from "../lib/comedy-script";
 
 import {
   speakSynchronized,
@@ -61,6 +61,8 @@ import type {
 } from "../components/CinematicDialoguePlayback";
 
 type StudioTab = "cast" | "scene" | "voice" | "export";
+
+type CharacterFilter = "All" | "Animals" | "Food" | "Humans";
 
 /* =======================================
 INITIAL SCENES
@@ -122,7 +124,7 @@ export default function Studio() {
     useState<CharacterId[]>(["onion", "tomato"]);
 
   const [categoryFilter, setCategoryFilter] =
-    useState<"All" | "Animals" | "Food">("All");
+    useState<CharacterFilter>("All");
 
   /* ---------------------------------------
   CHARACTER APPEARANCES
@@ -344,7 +346,7 @@ export default function Studio() {
       reason: string,
       line: DialoguePlaybackLine | null
     ) => {
-      const movement =
+      const movement: SceneDirection["movement"] =
         shot === "wide"
           ? "pull-out"
           : shot === "closeup" || shot === "reaction"
@@ -675,7 +677,7 @@ export default function Studio() {
 
                 <div style={styles.categoryButtons}>
                   {(
-                    ["All", "Animals", "Food"] as const
+                    ["All", "Animals", "Food", "Humans"] as const
                   ).map((category) => (
                     <button
                       key={category}
@@ -978,13 +980,7 @@ export default function Studio() {
                   enabled={isDialoguePlaying}
                 />
 
-                {/* STAGE 67: FACIAL EXPRESSION SYNCHRONIZATION
-
-                    The facial rig is mounted inside CharacterCanvas.
-                    This director supplies the dialogue emotion cues
-                    consumed by that rig. */}
-
-                {/* SCENE PLAYER */}
+                {/* STAGE 67: FACIAL EXPRESSION SYNCHRONIZATION */}
 
                 <ScenePlayer
                   scenes={scenes}
@@ -1398,6 +1394,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: 8,
     marginBottom: 12,
+    flexWrap: "wrap",
   },
 
   categoryButton: {
@@ -1717,8 +1714,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 10,
     fontWeight: 700,
   },
-
-  /* STAGE 67 FACIAL EXPRESSION UI */
 
   facialCard: {
     marginTop: 12,
