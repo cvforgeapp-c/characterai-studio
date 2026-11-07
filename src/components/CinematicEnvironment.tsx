@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Color } from "three";
 import { Stars } from "@react-three/drei";
 import type { EnvironmentId } from "./CharacterCanvas";
 
@@ -11,23 +10,14 @@ function StudioEnvironment() {
   return (
     <>
       {/* Studio cyclorama */}
-      <mesh
-        position={[0, 3, -9]}
-        receiveShadow
-      >
+      <mesh position={[0, 3, -9]} receiveShadow>
         <boxGeometry args={[35, 12, 0.5]} />
-        <meshStandardMaterial
-          color="#17243a"
-          roughness={0.9}
-        />
+        <meshStandardMaterial color="#17243a" roughness={0.9} />
       </mesh>
 
       {/* Vertical architectural light panels */}
       {[-7, -3.5, 3.5, 7].map((x) => (
-        <mesh
-          key={x}
-          position={[x, 3, -8.65]}
-        >
+        <mesh key={x} position={[x, 3, -8.65]}>
           <boxGeometry args={[0.045, 7, 0.05]} />
           <meshBasicMaterial color="#638aff" />
         </mesh>
@@ -80,14 +70,8 @@ function ParkEnvironment() {
       </mesh>
 
       {trees.map((tree, index) => (
-        <group
-          key={index}
-          position={[tree.x, 0, tree.z]}
-        >
-          <mesh
-            position={[0, tree.height / 2, 0]}
-            castShadow
-          >
+        <group key={index} position={[tree.x, 0, tree.z]}>
+          <mesh position={[0, tree.height / 2, 0]} castShadow>
             <cylinderGeometry args={[0.18, 0.32, tree.height, 10]} />
             <meshStandardMaterial color="#765039" />
           </mesh>
@@ -191,19 +175,10 @@ function CityEnvironment() {
     <>
       {/* Urban skyline */}
       {buildings.map((building, index) => (
-        <group
-          key={index}
-          position={[building.x, 0, -14]}
-        >
-          <mesh
-            position={[0, building.height / 2, 0]}
-          >
+        <group key={index} position={[building.x, 0, -14]}>
+          <mesh position={[0, building.height / 2, 0]}>
             <boxGeometry
-              args={[
-                building.width,
-                building.height,
-                2,
-              ]}
+              args={[building.width, building.height, 2]}
             />
 
             <meshStandardMaterial
@@ -213,20 +188,13 @@ function CityEnvironment() {
           </mesh>
 
           {Array.from(
-            {
-              length: Math.floor(building.height / 2),
-            },
+            { length: Math.floor(building.height / 2) },
             (_, row) => (
               <mesh
                 key={row}
-                position={[
-                  0,
-                  1.2 + row * 1.7,
-                  1.02,
-                ]}
+                position={[0, 1.2 + row * 1.7, 1.02]}
               >
                 <boxGeometry args={[0.35, 0.55, 0.025]} />
-
                 <meshBasicMaterial
                   color={row % 2 ? "#ffd78b" : "#8bc9ff"}
                 />
@@ -273,7 +241,6 @@ function SpaceEnvironment() {
       {/* Distant planetary sphere */}
       <mesh position={[9, 5, -18]}>
         <sphereGeometry args={[3.5, 48, 48]} />
-
         <meshStandardMaterial
           color="#5369a9"
           roughness={0.8}
@@ -294,7 +261,6 @@ function SpaceEnvironment() {
       {/* Floating distant moon */}
       <mesh position={[-10, 8, -22]}>
         <sphereGeometry args={[1.4, 32, 32]} />
-
         <meshStandardMaterial
           color="#d9d9e5"
           roughness={1}
@@ -313,7 +279,6 @@ function BeachEnvironment() {
         position={[0, 0.015, -12]}
       >
         <planeGeometry args={[100, 35]} />
-
         <meshStandardMaterial
           color="#247da5"
           roughness={0.25}
@@ -324,14 +289,12 @@ function BeachEnvironment() {
       {/* Distant horizon */}
       <mesh position={[0, 2.5, -19]}>
         <boxGeometry args={[100, 5, 0.5]} />
-
         <meshBasicMaterial color="#77bdd8" />
       </mesh>
 
       {/* Sun */}
       <mesh position={[8, 9, -18]}>
         <sphereGeometry args={[1.5, 32, 32]} />
-
         <meshBasicMaterial color="#ffe4a0" />
       </mesh>
 
@@ -344,22 +307,17 @@ function BeachEnvironment() {
 
       {/* Distant palm trunks */}
       {[-12, -8, 11, 15].map((x) => (
-        <group
-          key={x}
-          position={[x, 0, -8]}
-        >
+        <group key={x} position={[x, 0, -8]}>
           <mesh
             position={[0, 2, 0]}
             rotation={[0, 0, -0.12]}
           >
             <cylinderGeometry args={[0.13, 0.22, 4, 8]} />
-
             <meshStandardMaterial color="#78523a" />
           </mesh>
 
           <mesh position={[0, 4.2, 0]}>
             <sphereGeometry args={[1, 12, 8]} />
-
             <meshStandardMaterial color="#367d49" />
           </mesh>
         </group>
