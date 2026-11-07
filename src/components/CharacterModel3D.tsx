@@ -446,4 +446,4 @@ export default function CharacterModel3D({
       </group>
     </group>
   );
-          }
+}
